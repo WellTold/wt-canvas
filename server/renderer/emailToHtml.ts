@@ -390,8 +390,43 @@ function renderCta(c: any, bg?: BlockBg): string {
   const radiusMap: Record<string, string> = { sharp: "0px", rounded: "4px", pill: "999px" };
   const radius = radiusMap[c.borderRadius as string] ?? "4px";
 
+  // Button style: filled (default) | outline | ghost
+  const btnStyle = (c.buttonStyle === "outline" || c.buttonStyle === "ghost") ? c.buttonStyle : "filled";
+
   // Drop shadow (applied to <a> tag — works in modern clients, no-op in Outlook)
-  const shadow = c.dropShadow ? "box-shadow:0 4px 12px rgba(0,0,0,0.20);" : "";
+  const shadow = c.dropShadow && btnStyle === "filled" ? "box-shadow:0 4px 12px rgba(0,0,0,0.20);" : "";
+
+  // Per-style: td cell styles, anchor text color/decoration, VML attributes
+  let tdStyle: string;
+  let anchorColor: string;
+  let anchorDecoration: string;
+  let vmlFill: string;
+  let vmlStroke: string;
+  let vmlStrokeColor: string;
+
+  if (btnStyle === "outline") {
+    tdStyle = `background-color:transparent;border:2px solid ${btnColor};border-radius:${radius};mso-padding-alt:${pad};`;
+    anchorColor = btnColor;
+    anchorDecoration = "none";
+    vmlFill = "f";
+    vmlStroke = "t";
+    vmlStrokeColor = ` strokecolor="${btnColor}"`;
+  } else if (btnStyle === "ghost") {
+    tdStyle = `background-color:transparent;border-radius:${radius};mso-padding-alt:${pad};`;
+    anchorColor = btnColor;
+    anchorDecoration = "underline";
+    vmlFill = "f";
+    vmlStroke = "f";
+    vmlStrokeColor = "";
+  } else {
+    // filled
+    tdStyle = `background-color:${btnColor};border-radius:${radius};mso-padding-alt:${pad};`;
+    anchorColor = btnTxtClr;
+    anchorDecoration = "none";
+    vmlFill = "t";
+    vmlStroke = "f";
+    vmlStrokeColor = "";
+  }
 
   // Body text above the button (uses textStyle for styling fields)
   const bodyStyle = textStyle(c, {
@@ -408,9 +443,9 @@ function renderCta(c: any, bg?: BlockBg): string {
   const inner = `${bodyText}
 <table cellpadding="0" cellspacing="0" border="0" align="${tableAlign}" style="${marginStyle}">
   <tr>
-    <td align="center" bgcolor="${btnColor}" style="background-color:${btnColor};border-radius:${radius};mso-padding-alt:${pad};">
-      <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${link}" style="height:48px;v-text-anchor:middle;width:${vmlWidth}px;" arcsize="${radius === "999px" ? "50%" : "0%"}" fillcolor="${btnColor}" stroke="f"><center style="color:${btnTxtClr};font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;font-weight:bold;">${btnLabel}</center></v:roundrect><![endif]-->
-      <!--[if !mso]><!--><a href="${link}" target="_blank" style="display:block;padding:${pad};font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;font-weight:bold;color:${btnTxtClr};text-decoration:none;white-space:nowrap;border-radius:${radius};${shadow}">${btnLabel}</a><!--<![endif]-->
+    <td align="center" style="${tdStyle}">
+      <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${link}" style="height:48px;v-text-anchor:middle;width:${vmlWidth}px;" arcsize="${radius === "999px" ? "50%" : "0%"}" filled="${vmlFill}" fillcolor="${btnColor}" stroke="${vmlStroke}"${vmlStrokeColor}><center style="color:${anchorColor};font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;font-weight:bold;">${btnLabel}</center></v:roundrect><![endif]-->
+      <!--[if !mso]><!--><a href="${link}" target="_blank" style="display:block;padding:${pad};font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;font-weight:bold;color:${anchorColor};text-decoration:${anchorDecoration};white-space:nowrap;border-radius:${radius};${shadow}">${btnLabel}</a><!--<![endif]-->
     </td>
   </tr>
 </table>`;
