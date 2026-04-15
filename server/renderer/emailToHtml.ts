@@ -437,6 +437,12 @@ function renderCta(c: any, bg?: BlockBg): string {
     ? `<p style="margin:0 0 16px;${bodyStyle}">${esc(c.bodyText)}</p>`
     : "";
 
+  // Button label typography — use text style fields from the editor, with sensible defaults
+  const btnFontSize   = resolveFontSize(c.fontSize, "15px");
+  const btnFontWeight = c.fontWeight || "bold";
+  const btnFontFamily = c.fontFamily || "'Plus Jakarta Sans',Arial,sans-serif";
+  const btnTextAlign  = blockAlign;
+
   // Bulletproof button — table-based so no email client can stretch it full-width
   const tableAlign = blockAlign === "left" ? "left" : blockAlign === "right" ? "right" : "center";
   const marginStyle = tableAlign === "center" ? "margin:0 auto;" : tableAlign === "right" ? "margin:0 0 0 auto;" : "margin:0;";
@@ -444,8 +450,8 @@ function renderCta(c: any, bg?: BlockBg): string {
 <table cellpadding="0" cellspacing="0" border="0" align="${tableAlign}" style="${marginStyle}">
   <tr>
     <td align="center" style="${tdStyle}">
-      <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${link}" style="height:48px;v-text-anchor:middle;width:${vmlWidth}px;" arcsize="${radius === "999px" ? "50%" : "0%"}" filled="${vmlFill}" fillcolor="${btnColor}" stroke="${vmlStroke}"${vmlStrokeColor}><center style="color:${anchorColor};font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;font-weight:bold;">${btnLabel}</center></v:roundrect><![endif]-->
-      <!--[if !mso]><!--><a href="${link}" target="_blank" style="display:block;padding:${pad};font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;font-weight:bold;color:${anchorColor};text-decoration:${anchorDecoration};white-space:nowrap;border-radius:${radius};${shadow}">${btnLabel}</a><!--<![endif]-->
+      <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${link}" style="height:48px;v-text-anchor:middle;width:${vmlWidth}px;" arcsize="${radius === "999px" ? "50%" : "0%"}" filled="${vmlFill}" fillcolor="${btnColor}" stroke="${vmlStroke}"${vmlStrokeColor}><center style="color:${anchorColor};font-family:${btnFontFamily};font-size:${btnFontSize};font-weight:${btnFontWeight};">${btnLabel}</center></v:roundrect><![endif]-->
+      <!--[if !mso]><!--><a href="${link}" target="_blank" style="display:block;padding:${pad};font-family:${btnFontFamily};font-size:${btnFontSize};font-weight:${btnFontWeight};color:${anchorColor};text-decoration:${anchorDecoration};text-align:${btnTextAlign};white-space:nowrap;border-radius:${radius};${shadow}">${btnLabel}</a><!--<![endif]-->
     </td>
   </tr>
 </table>`;
