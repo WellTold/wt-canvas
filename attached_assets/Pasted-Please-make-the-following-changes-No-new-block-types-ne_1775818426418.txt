@@ -1,0 +1,50 @@
+Please make the following changes. No new block types needed — these are field additions to existing blocks and one new pattern for named HTML snippets.
+1. Add background color and text color to all text-bearing blocks
+Add two optional fields to the editor UI and block data schema for these block types: heading, paragraph, text, quote, list, cta.
+Fields to add:
+•	backgroundColor — hex color string, default #ffffff
+•	textColor — hex color string, default #1a1a1a
+In the renderer, apply these as inline styles on the wrapping table cell: background-color and color. Inline styles only — no CSS classes — so they survive email clients.
+2. Add optional background image to text-bearing blocks
+Add one optional field to the same block types listed above:
+•	backgroundImageUrl — string, default empty
+In the renderer, if present, apply as background-image on the table cell with the backgroundColor value as a fallback. Label this field in the Canvas UI as "Background Image (not supported in Outlook)" so the team is aware.
+3. Named HTML snippet blocks
+Extend the existing html_block type to support named snippets in addition to raw HTML. Add a snippetName field — string, optional. If snippetName is set, the renderer looks up and injects the corresponding snippet from a server-side map rather than rendering raw HTML. The raw html field continues to work as before for freeform use.
+Create a snippets map in server/config/ (or equivalent config location) with these initial entries:
+•	email_footer_standard — the standard Well Told email footer with logo, social links, address, and unsubscribe link
+•	email_header_standard — the standard Well Told email header with logo
+The snippetName field in the Canvas editor should render as a dropdown showing available snippet names. Raw HTML entry remains available when no snippet is selected.
+4. Template duplication
+Add a Duplicate button to each template in the template library UI. It should create a full copy of the template with the name appended with "— Copy" and open it for editing. No other changes needed.
+5. Add optional body text to the CTA block
+Add an optional bodyText field to the cta block — string, default empty. If populated, render the text above the button inside the same containing table cell so they share the same backgroundColor and backgroundImageUrl. This allows a paragraph of copy and a CTA button to sit on a single background image as one unified block, which is a common pattern in the email templates.
+6. Add font size to all text-bearing blocks
+Add an optional fontSize field to these block types: heading, paragraph, text, quote, list, cta.
+Implement as a dropdown with these options rather than a freeform number, to keep templates consistent:
+•	sm — 12px
+•	md — 14px (default for paragraph/text)
+•	lg — 16px
+•	xl — 20px
+•	2xl — 24px
+•	3xl — 32px
+•	4xl — 40px (default for heading)
+Apply as an inline font-size style in the renderer. Each block type should have a sensible default baked in so existing blocks don't break — headings default to 4xl, body copy defaults to md.
+7. Add text formatting fields to all text-bearing blocks
+Add these optional fields to heading, paragraph, text, quote, list, cta (bodyText):
+•	fontWeight — dropdown: normal (default for paragraph), bold (default for heading)
+•	textAlign — dropdown: left (default), center, right
+•	fontStyle — dropdown: normal (default), italic
+•	textDecoration — dropdown: none (default), underline, line-through
+Apply all as inline styles in the renderer.
+8. Add button style options to the CTA block
+Add these fields to the cta block:
+•	buttonStyle — dropdown: filled (default), outline, ghost
+•	borderRadius — dropdown: pill (999px), rounded (8px, default), sharp (0px)
+•	buttonColor — hex color string, default #f15822 (Well Told orange)
+•	buttonTextColor — hex color string, default #ffffff
+•	dropShadow — toggle: true/false, default false. If true, apply box-shadow: 2px 4px 8px rgba(0,0,0,0.2). Label in UI as "Drop Shadow (not supported in Outlook)"
+•	buttonSize — dropdown: sm (small, compact padding), md (default), lg (large, generous padding)
+For the outline style: render the button with a transparent background, a 2px solid border in buttonColor, and text in buttonColor. For the ghost style: no border, no background, text only in buttonColor with an underline.
+Apply all as inline styles in the renderer.
+

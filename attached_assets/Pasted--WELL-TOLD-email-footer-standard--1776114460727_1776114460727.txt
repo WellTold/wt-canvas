@@ -1,0 +1,202 @@
+<!--
+  WELL TOLD — email_footer_standard
+  ─────────────────────────────────────────────────────────────────
+  Named snippet: registered as "email_footer_standard" in Canvas.
+  Injected automatically at the bottom of every email template.
+
+  STATUS: PRODUCTION READY ✓
+  All assets and tags are live. No placeholders remaining.
+
+  ASSETS:
+  ✓ Badge:       https://res.cloudinary.com/welltold/image/upload/v1776112724/WT_Badge_7_White_RGB_ncfumz.png
+  ✓ Wordmark:    https://res.cloudinary.com/welltold/image/upload/o_8/v1776112914/WT_word_White_RGB_gvs3v3.png
+  ✓ Facebook:    https://res.cloudinary.com/welltold/image/upload/v1776113861/facebook_white_cktawb.png
+  ✓ Instagram:   https://res.cloudinary.com/welltold/image/upload/v1776113861/instagram_white_ruu6p0.png
+  ✓ TikTok:      https://res.cloudinary.com/welltold/image/upload/v1776113861/tik-tok_white_tjazv2.png
+  ✓ YouTube:     https://res.cloudinary.com/welltold/image/upload/v1776113862/youtube_white_mxh8mp.png
+
+  KLAVIYO TAGS:
+  ✓ Unsubscribe:   {% unsubscribe_link %}   (URL only — used inside <a href>)
+  ✓ Preferences:   {% manage_preferences %} (URL only — used inside <a href>)
+
+  NOTES:
+  — Wordmark opacity: adjust /o_8/ in Cloudinary URL (o_6 = subtle, o_12 = stronger)
+  — Klaviyo preview sends will show a placeholder page for these links — this is normal
+    and correct. Live send will resolve to real unsubscribe/preferences pages.
+─────────────────────────────────────────────────────────────────
+-->
+
+<!-- ═══ FOOTER WRAPPER ═══ -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+  style="background-color:#0a0a0a; margin:0; padding:0;">
+  <tr>
+    <td align="center" style="padding:0;">
+
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"
+        style="max-width:600px; width:100%;">
+
+        <!-- Shipping tagline -->
+        <tr>
+          <td align="center"
+            style="background-color:#0a0a0a;
+                   padding:32px 32px 0 32px;
+                   font-family:Arial, Helvetica, sans-serif;
+                   font-size:13px;
+                   font-style:italic;
+                   color:rgba(255,255,255,0.55);
+                   letter-spacing:0.02em;
+                   line-height:1.5;">
+            Made for you. Shipped in 1&ndash;3 days.
+          </td>
+        </tr>
+
+        <!-- Badge logo -->
+        <tr>
+          <td align="center"
+            style="background-color:#0a0a0a; padding:28px 32px 24px 32px;">
+            <img
+              src="https://res.cloudinary.com/welltold/image/upload/v1776112724/WT_Badge_7_White_RGB_ncfumz.png"
+              alt="Well Told — Life-Inspired Goods"
+              width="120" height="120"
+              style="display:block; width:120px; height:120px; border:0; outline:none;"
+            />
+          </td>
+        </tr>
+
+        <!-- Help / wholesale -->
+        <tr>
+          <td align="center"
+            style="background-color:#0a0a0a;
+                   padding:0 40px 24px 40px;
+                   font-family:Arial, Helvetica, sans-serif;
+                   font-size:12px;
+                   color:rgba(255,255,255,0.55);
+                   line-height:1.7;
+                   text-align:center;">
+            Need help? Interested in Bulk Orders or Wholesale?<br>
+            Email us at
+            <a href="mailto:help@welltolddesign.com"
+               style="color:rgba(255,255,255,0.75); text-decoration:underline;">
+              help@welltolddesign.com
+            </a>.
+          </td>
+        </tr>
+
+        <!-- Social icons -->
+        <tr>
+          <td align="center"
+            style="background-color:#0a0a0a; padding:0 32px 28px 32px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="padding:0 10px; vertical-align:middle;">
+                  <a href="https://www.facebook.com/welltolddesign" style="text-decoration:none;">
+                    <img src="https://res.cloudinary.com/welltold/image/upload/v1776113861/facebook_white_cktawb.png" alt="Facebook"
+                         width="24" height="24"
+                         style="display:block; width:24px; height:24px; border:0;"/>
+                  </a>
+                </td>
+                <td style="padding:0 10px; vertical-align:middle;">
+                  <a href="https://www.instagram.com/welltolddesign" style="text-decoration:none;">
+                    <img src="https://res.cloudinary.com/welltold/image/upload/v1776113861/instagram_white_ruu6p0.png" alt="Instagram"
+                         width="24" height="24"
+                         style="display:block; width:24px; height:24px; border:0;"/>
+                  </a>
+                </td>
+                <td style="padding:0 10px; vertical-align:middle;">
+                  <a href="https://www.tiktok.com/@welltold" style="text-decoration:none;">
+                    <img src="https://res.cloudinary.com/welltold/image/upload/v1776113861/tik-tok_white_tjazv2.png" alt="TikTok"
+                         width="24" height="24"
+                         style="display:block; width:24px; height:24px; border:0;"/>
+                  </a>
+                </td>
+                <td style="padding:0 10px; vertical-align:middle;">
+                  <a href="https://www.youtube.com/@welltolddesign" style="text-decoration:none;">
+                    <img src="https://res.cloudinary.com/welltold/image/upload/v1776113862/youtube_white_mxh8mp.png" alt="YouTube"
+                         width="24" height="24"
+                         style="display:block; width:24px; height:24px; border:0;"/>
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Divider -->
+        <tr>
+          <td style="background-color:#0a0a0a; padding:0 40px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="border-top:1px solid rgba(255,255,255,0.1); font-size:0; line-height:0;">&nbsp;</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Legal links -->
+        <tr>
+          <td align="center"
+            style="background-color:#0a0a0a;
+                   padding:20px 32px 8px 32px;
+                   font-family:Arial, Helvetica, sans-serif;
+                   font-size:11px;
+                   letter-spacing:0.08em;
+                   text-transform:uppercase;">
+            <a href="{% manage_preferences %}"
+               style="color:rgba(255,255,255,0.5);
+                      text-decoration:underline;
+                      font-family:Arial, Helvetica, sans-serif;
+                      font-size:11px;
+                      letter-spacing:0.08em;">
+              Subscription Preferences
+            </a>
+            <span style="color:rgba(255,255,255,0.25); padding:0 8px;">|</span>
+            <a href="{% unsubscribe_link %}"
+               style="color:rgba(255,255,255,0.5);
+                      text-decoration:underline;
+                      font-family:Arial, Helvetica, sans-serif;
+                      font-size:11px;
+                      letter-spacing:0.08em;">
+              Unsubscribe
+            </a>
+          </td>
+        </tr>
+
+        <!-- Copyright + address -->
+        <tr>
+          <td align="center"
+            style="background-color:#0a0a0a;
+                   padding:8px 32px 28px 32px;
+                   font-family:Arial, Helvetica, sans-serif;
+                   font-size:11px;
+                   color:rgba(255,255,255,0.28);
+                   line-height:1.8;
+                   text-align:center;">
+            &copy; {{ "now"|date:"Y" }} Well Told. All rights reserved.<br>
+            175 Water Street, Unit 4 Exeter, NH 03833
+          </td>
+        </tr>
+
+        <!-- WELL TOLD wordmark watermark image -->
+        <!--
+          Opacity is controlled in the Cloudinary URL: /o_8/ = 8%
+          Adjust: /o_6/ (very subtle) → /o_12/ (more visible)
+          To remove: delete this entire tr block.
+        -->
+        <tr>
+          <td align="center"
+            style="background-color:#0a0a0a; padding:4px 0 12px 0; overflow:hidden;">
+            <img
+              src="https://res.cloudinary.com/welltold/image/upload/o_8/v1776112914/WT_word_White_RGB_gvs3v3.png"
+              alt=""
+              width="520"
+              style="display:block; width:100%; max-width:520px; border:0; outline:none;"
+            />
+          </td>
+        </tr>
+
+      </table>
+
+    </td>
+  </tr>
+</table>
+<!-- ═══ /FOOTER WRAPPER ═══ -->

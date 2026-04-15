@@ -1,0 +1,510 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Shadcn color variables */
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(20, 14.3%, 4.1%);
+  --muted: hsl(60, 4.8%, 95.9%);
+  --muted-foreground: hsl(25, 5.3%, 44.7%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --card: #f0ebe7;
+  --card-foreground: hsl(20, 14.3%, 4.1%);
+  --border: hsl(0, 0%, 0%);
+  --input: hsl(0, 0%, 0%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(60, 4.8%, 95.9%);
+  --secondary-foreground: hsl(24, 9.8%, 10%);
+  --accent: hsl(60, 4.8%, 95.9%);
+  --accent-foreground: hsl(24, 9.8%, 10%);
+  --destructive: hsl(0, 84.2%, 60.2%);
+  --destructive-foreground: hsl(60, 9.1%, 97.8%);
+  --ring: hsl(20, 14.3%, 4.1%);
+  --radius: 0;
+
+  /* WT Canvas Custom Variables */
+  --color-bg: hsl(0, 0%, 100%);
+  --color-text: hsl(0, 0%, 6.7%);
+  --color-muted-text: hsl(220, 8.9%, 46.1%);
+  --color-border: hsl(220, 13%, 91%);
+
+  /* Accent Colors */
+  --color-accent: hsl(214, 95%, 93%);
+  --color-accent-hover: hsl(214, 95%, 93%);
+  --color-accent-blue: #BFDBFE;
+  --color-accent-yellow: #FEF9C3;
+  --color-accent-green: #DCFCE7;
+  --color-accent-purple: #EDE9FE;
+
+  /* Button Colors */
+  --color-button-black: hsl(0, 0%, 0%);
+  --color-button-white: hsl(0, 0%, 100%);
+
+  /* Layout */
+  --max-width: 1140px;
+  --content-padding: 2rem;
+  --section-spacing: 6rem;
+  --sidebar-width: 280px;
+}
+
+.dark {
+  --background: hsl(240, 10%, 3.9%);
+  --foreground: hsl(0, 0%, 98%);
+  --muted: hsl(240, 3.7%, 15.9%);
+  --muted-foreground: hsl(240, 5%, 64.9%);
+  --popover: hsl(240, 10%, 3.9%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(240, 10%, 8%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(0, 0%, 0%);
+  --input: hsl(0, 0%, 0%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(240, 3.7%, 15.9%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(240, 3.7%, 15.9%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(240, 4.9%, 83.9%);
+
+  /* WT Canvas Dark Mode Variables */
+  --color-bg: hsl(240, 10%, 3.9%);
+  --color-text: hsl(0, 0%, 98%);
+  --color-muted-text: hsl(240, 5%, 64.9%);
+  --color-border: hsl(240, 3.7%, 15.9%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    border-radius: 0 !important;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  /* Force all elements to have sharp corners */
+  *, *::before, *::after {
+    border-radius: 0 !important;
+  }
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Bricolage Grotesque', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+h1 {
+  font-size: 4rem !important;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 1rem;
+}
+
+h2 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+h4 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.wt-page-title {
+  font-family: 'Bricolage Grotesque', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 4rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.wt-page-description {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 1rem;
+  color: var(--color-muted-text);
+}
+
+/* Subtitle specific styling */
+.subtitle {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 1rem;
+  color: var(--color-muted-text);
+}
+
+/* Custom Components */
+.wt-button {
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.625rem 1.25rem;
+  border: 1px solid black;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Flat Shadow Hover Effect */
+.hover-flat-shadow-blue:hover {
+  box-shadow: 6px 6px 0px var(--color-accent-blue), 6px 6px 0px 1px black;
+  transform: translate(-3px, -3px);
+}
+
+.hover-flat-shadow-green:hover {
+  box-shadow: 6px 6px 0px var(--color-accent-green), 6px 6px 0px 1px black;
+  transform: translate(-3px, -3px);
+}
+
+.hover-flat-shadow-purple:hover {
+  box-shadow: 6px 6px 0px var(--color-accent-purple), 6px 6px 0px 1px black;
+  transform: translate(-3px, -3px);
+}
+
+.wt-button-black {
+  background-color: var(--color-button-black);
+  color: var(--color-button-white);
+  border: 1px solid black;
+}
+
+.wt-button-black:hover {
+  background-color: var(--color-button-white);
+  color: var(--color-button-black);
+}
+
+.wt-button-white {
+  background-color: var(--color-button-white);
+  color: var(--color-button-black);
+  border: 1px solid black;
+}
+
+.wt-button-white:hover {
+  background-color: var(--color-button-black);
+  color: var(--color-button-white);
+}
+
+.wt-button-sm {
+  font-size: 0.75rem;
+  padding: 0.375rem 0.75rem;
+}
+
+/* Sidebar */
+.wt-sidebar {
+  width: var(--sidebar-width);
+  background-color: var(--color-bg);
+  border-right: 1px solid black;
+  padding: 1rem 1rem;
+  position: fixed;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.wt-sidebar-logo {
+  font-family: 'Uxum Grotesque', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 1.25rem;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+}
+
+.wt-sidebar-section {
+  margin-bottom: 1.25rem;
+}
+
+.wt-sidebar-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-muted-text);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.wt-sidebar-nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.wt-sidebar-nav li {
+  margin-bottom: 0.125rem;
+}
+
+.wt-sidebar-nav a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  color: var(--color-text);
+  text-decoration: none;
+  transition: background-color 0.2s;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.wt-sidebar-nav a:hover,
+.wt-sidebar-nav a.active {
+  background-color: var(--color-accent);
+}
+
+/* Main Layout */
+.wt-main-content {
+  margin-left: var(--sidebar-width);
+  background-color: hsl(0, 0%, 98%);
+  min-height: 100vh;
+}
+
+.dark .wt-main-content {
+  background-color: hsl(240, 10%, 3.9%);
+}
+
+.wt-top-bar {
+  background-color: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.wt-content-area {
+  padding: 2rem;
+}
+
+.wt-page-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  margin-bottom: 2rem;
+}
+
+.wt-page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+/* Cards with Hover Shadow */
+.wt-card {
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: all 0.2s ease;
+}
+
+.wt-card:hover {
+  border-color: var(--color-accent-hover);
+  box-shadow: 4px 4px 0px 0px var(--color-accent-hover);
+}
+
+/* Tables */
+.wt-table-container {
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.wt-table {
+  @apply w-full border-collapse;
+}
+
+.wt-table th {
+  @apply bg-gray-50 dark:bg-gray-800 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700;
+}
+
+.wt-table td {
+  @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700;
+}
+
+.wt-table tbody tr:hover {
+  @apply bg-gray-50 dark:bg-gray-800;
+}
+
+/* Ensure checkboxes are visible */
+.wt-table th:first-child,
+.wt-table td:first-child {
+  @apply w-12 text-center;
+}
+
+/* Checkbox component visibility */
+[data-radix-checkbox-root] {
+  @apply inline-flex items-center justify-center w-4 h-4 border border-gray-300 rounded;
+}
+
+/* Status Badges */
+.wt-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.wt-status-idea { 
+  background-color: hsl(220, 14.3%, 95.9%); 
+  color: hsl(220, 8.9%, 46.1%); 
+}
+
+.wt-status-draft { 
+  background-color: hsl(45, 93%, 82%); 
+  color: hsl(25, 95%, 27%); 
+}
+
+.wt-status-review { 
+  background-color: hsl(215, 100%, 92%); 
+  color: hsl(215, 100%, 40%); 
+}
+
+.wt-status-approved { 
+  background-color: hsl(149, 80%, 90%); 
+  color: hsl(160, 84%, 20%); 
+}
+
+.wt-status-scheduled { 
+  background-color: hsl(243, 75%, 95%); 
+  color: hsl(243, 75%, 40%); 
+}
+
+.wt-status-live { 
+  background-color: hsl(149, 80%, 90%); 
+  color: hsl(160, 84%, 20%); 
+}
+
+/* Content Editor */
+.wt-content-editor {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background-color: var(--color-bg);
+}
+
+.wt-editor-toolbar {
+  padding: 1rem;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.wt-editor-content {
+  padding: 2rem;
+  min-height: 400px;
+}
+
+.wt-content-block {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  background-color: var(--color-bg);
+  transition: all 0.2s ease;
+}
+
+.wt-content-block:hover {
+  border-color: var(--color-accent);
+}
+
+.wt-content-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.wt-content-block-type {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted-text);
+}
+
+.wt-content-block-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .wt-sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .wt-main-content {
+    margin-left: 0;
+  }
+
+  .wt-content-area {
+    padding: 1rem;
+  }
+
+  .wt-table-container {
+    overflow-x: auto;
+  }
+
+  h1 {
+    font-size: 2.5rem;
+  }
+
+  h2 {
+    font-size: 1.75rem;
+  }
+
+  .wt-page-header {
+    /* Already vertical layout by default */
+    gap: 1rem;
+  }
+}
+
+/* ── Rich Text Editor (Tiptap) ────────────────────────────────── */
+.rte-content { outline: none; }
+.rte-content p { margin: 0 0 0.5em; }
+.rte-content p:last-child { margin-bottom: 0; }
+.rte-content strong { font-weight: 700; }
+.rte-content em { font-style: italic; }
+.rte-content u { text-decoration: underline; }
+.rte-content s { text-decoration: line-through; }
+.rte-content a { color: #2563eb; text-decoration: underline; }
+.rte-content a:hover { opacity: 0.8; }
+.rte-content ul { list-style: disc; padding-left: 1.25rem; margin: 0.25em 0; }
+.rte-content ol { list-style: decimal; padding-left: 1.25rem; margin: 0.25em 0; }
+.rte-content li { margin: 0.1em 0; }
+.rte-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #aaa;
+  pointer-events: none;
+  height: 0;
+}

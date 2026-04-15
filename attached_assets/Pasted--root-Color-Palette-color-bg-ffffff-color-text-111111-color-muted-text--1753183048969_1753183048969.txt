@@ -1,0 +1,233 @@
+:root {
+  /* Color Palette */
+  --color-bg: #ffffff;
+  --color-text: #111111;
+  --color-muted-text: #6B7280;
+  --color-border: #E5E7EB;
+
+  /* Accent (Default Blue) */
+  --color-accent: #BFDBFE;
+  --color-accent-hover: #BFDBFE;
+
+  /* Button Colors */
+  --color-button-black: #000000;
+  --color-button-white: #ffffff;
+
+  /* Layout */
+  --max-width: 1140px;
+  --content-padding: 2rem;
+  --section-spacing: 6rem;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  margin: 0;
+  padding: 0;
+}
+
+/* Typography */
+h1 {
+  font-size: 3.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 1rem;
+}
+
+h2 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+p {
+  font-size: 1rem;
+  margin-bottom: 1.25rem;
+  color: var(--color-text);
+}
+
+.muted {
+  color: var(--color-muted-text);
+}
+
+/* Layout Wrappers */
+.section {
+  padding: var(--section-spacing) var(--content-padding);
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.section.accent {
+  background-color: var(--color-accent);
+}
+
+/* Navigation */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 2rem;
+  font-weight: 500;
+  background-color: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.navbar a {
+  margin-left: 2rem;
+  color: var(--color-text);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.navbar a:hover {
+  text-decoration: underline;
+}
+
+/* Buttons */
+.button {
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.625rem 1.25rem;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  text-align: center;
+  text-decoration: none;
+}
+
+.button-black {
+  background-color: var(--color-button-black);
+  color: var(--color-button-white);
+}
+
+.button-black:hover {
+  background-color: #1a1a1a;
+}
+
+.button-white {
+  background-color: var(--color-button-white);
+  color: var(--color-button-black);
+  border: 1px solid var(--color-button-black);
+}
+
+.button-white:hover {
+  background-color: #f9fafb;
+}
+
+/* Table */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.table th {
+  color: var(--color-muted-text);
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+/* Card (Base + Hover Shadow) */
+.card {
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg);
+  padding: 2rem;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.card:hover {
+  border-color: var(--color-accent-hover);
+  box-shadow: 4px 4px 0px 0px var(--color-accent-hover);
+}
+
+/* Profile Dropdown */
+.profile-menu {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.875rem;
+}
+
+.profile-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+.dropdown {
+  position: absolute;
+  top: 3rem;
+  right: 1.5rem;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  padding: 0.5rem 0;
+  min-width: 160px;
+  z-index: 10;
+}
+
+.dropdown a {
+  display: block;
+  padding: 0.75rem 1.25rem;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.dropdown a:hover {
+  background-color: #f9fafb;
+}
+
+/* Utility Classes */
+.text-muted {
+  color: var(--color-muted-text);
+}
+
+.text-accent {
+  color: var(--color-accent-hover);
+}
+
+.bg-accent {
+  background-color: var(--color-accent-hover);
+}
+
+.shadow-accent {
+  box-shadow: 4px 4px 0px 0px var(--color-accent-hover);
+}
+
+/* Responsive (Basic) */
+@media (max-width: 768px) {
+  .section {
+    padding: 2rem 1.25rem;
+  }
+
+  h1 {
+    font-size: 2.5rem;
+  }
+
+  h2 {
+    font-size: 1.75rem;
+  }
+
+  .navbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

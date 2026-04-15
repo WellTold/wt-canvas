@@ -1,0 +1,58 @@
+table_name,column_name,data_type
+blog_articles,id,uuid
+blog_articles,title,text
+blog_articles,slug,text
+blog_articles,meta_description,text
+blog_articles,image_url,text
+blog_articles,publish_date,date
+blog_articles,revision_date,date
+blog_articles,post_type,text
+blog_articles,tags,ARRAY
+blog_articles,cta_text,text
+blog_articles,cta_link,text
+blog_articles,author_name,text
+blog_articles,author_avatar_url,text
+blog_articles,status,text
+blog_articles,approval_status,text
+blog_articles,editor_notes,text
+blog_articles,content_json,jsonb
+blog_articles,created_at,timestamp with time zone
+blog_articles,updated_at,timestamp with time zone
+landing_pages,id,uuid
+landing_pages,title,text
+landing_pages,slug,text
+landing_pages,meta_description,text
+landing_pages,image_url,text
+landing_pages,publish_date,date
+landing_pages,revision_date,date
+landing_pages,page_type,text
+landing_pages,tags,ARRAY
+landing_pages,cta_text,text
+landing_pages,cta_link,text
+landing_pages,author_name,text
+landing_pages,author_avatar_url,text
+landing_pages,status,text
+landing_pages,approval_status,text
+landing_pages,editor_notes,text
+landing_pages,content_json,jsonb
+landing_pages,created_at,timestamp with time zone
+landing_pages,updated_at,timestamp with time zone
+lead_magnets,id,uuid
+lead_magnets,title,text
+lead_magnets,slug,text
+lead_magnets,meta_description,text
+lead_magnets,image_url,text
+lead_magnets,publish_date,date
+lead_magnets,revision_date,date
+lead_magnets,magnet_type,text
+lead_magnets,tags,ARRAY
+lead_magnets,cta_text,text
+lead_magnets,cta_link,text
+lead_magnets,author_name,text
+lead_magnets,author_avatar_url,text
+lead_magnets,status,text
+lead_magnets,approval_status,text
+lead_magnets,editor_notes,text
+lead_magnets,content_json,jsonb
+lead_magnets,created_at,timestamp with time zone
+lead_magnets,updated_at,timestamp with time zone

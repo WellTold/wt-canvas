@@ -1,0 +1,25 @@
+Please make the following changes. No new block types needed — these are field additions to existing blocks and one new pattern for named HTML snippets.
+1. Add background color and text color to all text-bearing blocks
+Add two optional fields to the editor UI and block data schema for these block types: heading, paragraph, text, quote, list, cta.
+Fields to add:
+
+backgroundColor — hex color string, default #ffffff
+textColor — hex color string, default #1a1a1a
+
+In the renderer, apply these as inline styles on the wrapping table cell: background-color and color. Inline styles only — no CSS classes — so they survive email clients.
+2. Add optional background image to text-bearing blocks
+Add one optional field to the same block types listed above:
+
+backgroundImageUrl — string, default empty
+
+In the renderer, if present, apply as background-image on the table cell with the backgroundColor value as a fallback. Label this field in the Canvas UI as "Background Image (not supported in Outlook)" so the team is aware.
+3. Named HTML snippet blocks
+Extend the existing html_block type to support named snippets in addition to raw HTML. Add a snippetName field — string, optional. If snippetName is set, the renderer looks up and injects the corresponding snippet from a server-side map rather than rendering raw HTML. The raw html field continues to work as before for freeform use.
+Create a snippets map in server/config/ (or equivalent config location) with these initial entries:
+
+email_footer_standard — the standard Well Told email footer with logo, social links, address, and unsubscribe link
+email_header_standard — the standard Well Told email header with logo
+
+The snippetName field in the Canvas editor should render as a dropdown showing available snippet names. Raw HTML entry remains available when no snippet is selected.
+4. Template duplication
+Add a Duplicate button to each template in the template library UI. It should create a full copy of the template with the name appended with "— Copy" and open it for editing. No other changes needed.

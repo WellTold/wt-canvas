@@ -1,0 +1,109 @@
+# Canvas Block Taxonomy
+
+## On Page Types vs. Templates
+
+The current model couples *content type* to *allowed blocks*, which creates rigidity. The better model is:
+
+**Page type = a template assignment, not a content category.**
+
+A “blog article” isn’t a special kind of page — it’s just a template that happens to have a heading, intro paragraph, body sections, and a CTA. A landing page is a different template arrangement. This means:
+
+- The block system is universal and type-agnostic
+- Templates define the structure and AI instructions
+- A content item is just “a page built from a template”
+- You can have 10 different blog templates without needing 10 content types
+
+This also solves email cleanly — email templates are just templates with email-specific blocks in their blueprint. Same architecture, different block palette.
+
+-----
+
+## Full Block Taxonomy
+
+### Tier 1 — Shared Blocks
+
+*Render in both web and email with context-aware output*
+
+|Block    |Fields                       |Web renders as     |Email renders as          |Notes                                 |
+|---------|-----------------------------|-------------------|--------------------------|--------------------------------------|
+|Heading  |text, level (1–6)            |`<h1>`–`<h6>`      |`<h1>`–`<h3>` (email safe)|Cap at h3 for email                   |
+|Paragraph|text                         |`<p>`              |`<p>` with inline styles  |                                      |
+|Image    |url, alt, caption, width     |`<figure>`         |`<img>` with max-width    |Email drops `<figure>`                |
+|List     |items[], ordered             |`<ul>/<ol>`        |Inline-styled list        |                                      |
+|Quote    |text, author                 |`<blockquote>`     |Styled `<table>` cell     |Email can’t rely on blockquote styling|
+|CTA      |text, buttonText, link, style|Styled div + button|MSO-safe button table     |Needs two render paths                |
+|Divider  |style (line/space), spacing  |`<hr>` or margin   |`<table>` spacer row      |                                      |
+|Spacer   |height                       |margin/padding     |`<table>` height row      |                                      |
+
+-----
+
+### Tier 2 — Web-Only Blocks
+
+*Browser rendering, not constrained by email client limitations*
+
+|Block       |Fields                        |Renders as             |Notes                               |
+|------------|------------------------------|-----------------------|------------------------------------|
+|Hero        |headline, subtext, image, cta |Full-width hero section|Above-fold treatment                |
+|Two-Column  |left[], right[] (block arrays)|CSS grid/flex columns  |Nested block arrays                 |
+|Three-Column|columns[] (block arrays)      |CSS grid               |For feature grids                   |
+|Video       |url, poster, caption          |`<video>` or embed     |YouTube/Vimeo support               |
+|Feature Card|icon, headline, body          |Styled card component  |                                    |
+|Logo Grid   |logos[] (url, alt, link)      |Flex row of logos      |Social proof                        |
+|Table       |headers[], rows[][]           |`<table>`              |Data/comparison tables              |
+|Embed       |url, type                     |iFrame or oEmbed       |Maps, forms, etc.                   |
+|HTML Block  |raw html                      |Pass-through           |Keep hidden from non-technical users|
+
+-----
+
+### Tier 3 — Email-Only Blocks
+
+*Required for email, not needed on web*
+
+|Block               |Fields                                   |Renders as              |Notes                      |
+|--------------------|-----------------------------------------|------------------------|---------------------------|
+|Email Header        |logo_url, logo_link, nav_links[]         |MSO-safe header table   |Fixed top of every email   |
+|Email Footer        |address, unsubscribe_link, social_links[]|Required CAN-SPAM block |Fixed bottom of every email|
+|Preheader           |text                                     |Hidden preview text span|Injected before body       |
+|Product Feature     |image, name, description, price, cta     |Single product block    |1-up product               |
+|Product Row         |products[] (image, name, price, cta)     |2–3 column product table|Multi-product              |
+|Promo Code          |headline, code, expiry, instructions     |Styled code block       |                           |
+|Social Share        |platforms[], links[]                     |Icon row                |                           |
+|Review / Testimonial|quote, author, rating, avatar            |Inline-styled block     |Email-safe version of Quote|
+
+-----
+
+## Structural Notes
+
+**Header and Footer should be template-level, not block-level for email.** Every email template should have these locked in place — they shouldn’t be optional blocks that someone forgets to add. They’re constants on the template, not items in the block array.
+
+**Preheader is always the first injected element**, before any user-authored block. It’s a template property, not a block.
+
+**Two-column on email is its own block (Product Row)** because the rendering logic for email columns (nested tables, MSO conditionals) is fundamentally different from web columns. Don’t try to make one column block that renders both — they’ll diverge too much.
+
+**The HTML Block should remain hidden from the marketing team** in the Canvas UI. Keep it as a developer escape hatch.
+
+-----
+
+## Template Category Updates
+
+Replace `blog / landing_page / lead_magnet` with:
+
+|Category        |Description                                    |
+|----------------|-----------------------------------------------|
+|`article`       |Blog/editorial content                         |
+|`landing_page`  |Marketing/conversion pages                     |
+|`lead_magnet`   |Downloadable/gated content                     |
+|`email_campaign`|One-time sends (promo, launch, announcement)   |
+|`email_flow`    |Automated sequences (welcome, abandon, winback)|
+
+-----
+
+## Immediate Gaps to Address in Canvas
+
+In priority order:
+
+1. **Divider + Spacer** — needed for both web and email, quick to add
+1. **Email Header + Footer as template constants** — architectural decision, needs to be in the data model before any email template is built
+1. **Preheader as a template property** — same
+1. **Product Feature + Product Row** — core to Well Told’s email use cases
+1. **Two-Column web block** — needed for landing pages
+1. **Promo Code block** — needed for sale/campaign emails

@@ -1,0 +1,75 @@
+Good work. Nothing in those findings changes the spec — it just means Phase 1 has a clear prerequisite layer before the AI work starts. Here's the full task queue. Do these in order and confirm each one before moving to the next.
+Step 1 — Bump the model version
+In every existing Claude API call (generate-section, improve-content, refine-content, generate-complete-article), update the model string from claude-3-5-sonnet-20241022 to claude-sonnet-4-20250514. This is a one-line change per file. Do this first since it's the lowest risk and highest value change.
+Step 2 — Add blocks JSONB column to the templates table
+Keep the existing structure column as-is for now — don't remove it until all templates have been migrated to the new format. Add a new column alongside it:
+sqlALTER TABLE templates ADD COLUMN blocks JSONB DEFAULT NULL;
+Each entry in the blocks array should follow this shape:
+json[
+  {
+    "block_id": "main_image",
+    "block_type": "image",
+    "ai_fillable": false,
+    "notes": "Hero image. Use Cloudinary picker."
+  },
+  {
+    "block_id": "h1_title",
+    "block_type": "heading",
+    "ai_fillable": true,
+    "notes": "Main page or email headline. Sentence case. 6–10 words."
+  },
+  {
+    "block_id": "intro",
+    "block_type": "paragraph",
+    "ai_fillable": true,
+    "notes": "Opening paragraph. 2–3 sentences."
+  }
+]
+Once the column exists, migrate the existing template records by converting each structure string array into proper blocks JSONB entries. Use these rules for the conversion:
+String value containsblock_typeai_fillableimage, photo, imgimagefalseh1, h2, heading, titleheadingtruecta, buttonctatruepromo, code, discountpromo_codefalseproductproductfalseEverything elseparagraphtrue
+After migrating all existing records, confirm the blocks column is populated on every template row before moving on.
+Step 3 — Add mood column to templates table
+sqlALTER TABLE templates ADD COLUMN mood text DEFAULT 'conversational';
+Then update each existing template record with its correct default mood using this assignment from the spec:
+
+warm-sentimental → F1, F3, F9, F13, F16, F17, F18, C12, C13, C14, C15
+celebratory → C1, C2, F2, F16
+urgent → C7, C8, F5
+helpful → F7, F8, F10, F11, C19
+conversational → F6, F12, F14, F15, F4, C17, C20, C16
+aspirational → C3, C4, C5, C6, C9, C10, C11, C18
+
+Step 4 — Create brand_context table
+sqlCREATE TABLE brand_context (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  voice_document text,
+  avoid_rules text[],
+  always_rules text[],
+  words_we_use text[],
+  words_we_avoid text[],
+  updated_at timestamptz DEFAULT now()
+);
+Insert one empty placeholder row immediately after creating the table so the settings panel always has a row to read from and update — never an empty result.
+Step 5 — Create template_instances table
+sqlCREATE TABLE template_instances (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_id uuid REFERENCES templates(id) ON DELETE SET NULL,
+  user_id uuid,
+  instance_type text NOT NULL,           -- 'email' or 'web_page'
+  title text,
+  description text,
+  context_fields JSONB DEFAULT '{}',
+  blocks JSONB DEFAULT '{}',             -- key: block_id, value: current block content
+  mood_override text DEFAULT NULL,
+  status text DEFAULT 'draft',           -- 'draft', 'ready', 'published'
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+After all 5 steps are done, confirm:
+
+Every existing template record has a populated blocks JSONB column
+The model version is updated across all existing AI routes
+Both new tables exist and the brand_context table has its placeholder row
+No existing functionality is broken — test the current generate endpoints still return responses
+
+Once I get that confirmation we move into the actual Phase 1 AI build from the spec.

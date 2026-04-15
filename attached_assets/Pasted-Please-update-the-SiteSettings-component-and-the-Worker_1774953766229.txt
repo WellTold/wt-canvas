@@ -1,0 +1,194 @@
+Please update the SiteSettings component and the Worker's CSS/HTML renderer with the following changes:
+SiteSettings interface — full updated type:
+typescriptinterface SiteSettingsData {
+  id?: number;
+  // Logo
+  logoUrl: string;
+  logoLink: string;
+  // Announcement bar
+  announcementText: string;
+  announcementLink: string;
+  announcementBgColor: string;
+  announcementTextColor: string;
+  announcementEnabled: boolean;
+  // Navigation
+  navLinks: NavLink[];
+  // Branding
+  primaryColor: string;
+  accentColor: string;
+  // Footer
+  footerBgColor: string;
+  footerColumns: FooterColumn[];
+  footerAddress: string;
+  footerCopyright: string;
+  socialHandle: string;
+  socialLinks: SocialPlatform[];
+}
+
+interface FooterColumn {
+  heading: string;
+  links: FooterLink[];
+}
+
+interface SocialPlatform {
+  platform: 'instagram' | 'facebook' | 'youtube' | 'pinterest' | 'tiktok';
+  url: string;
+}
+DEFAULT values:
+typescriptconst DEFAULT: SiteSettingsData = {
+  logoUrl: "",
+  logoLink: "https://welltolddesign.com",
+  announcementText: "FREE SHIPPING Orders Over $50",
+  announcementLink: "https://welltolddesign.com",
+  announcementBgColor: "#000000",
+  announcementTextColor: "#ffffff",
+  announcementEnabled: true,
+  navLinks: [],
+  primaryColor: "#000000",
+  accentColor: "#04a7cd",
+  footerBgColor: "#F5F5F5",
+  footerColumns: [],
+  footerAddress: "",
+  footerCopyright: "© 2026 Well Told. All rights reserved.",
+  socialHandle: "@WellToldDesign",
+  socialLinks: [],
+};
+Canvas UI — add these sections to the SiteSettings form:
+Announcement Bar section (add between Logo and Navigation):
+
+Toggle switch: Enabled / Disabled (announcementEnabled)
+Text input: Announcement text (announcementText) — placeholder "FREE SHIPPING Orders Over $50"
+Text input: Link URL (announcementLink) — placeholder "https://welltolddesign.com"
+Color picker + hex input: Background color (announcementBgColor) — default #000000
+Color picker + hex input: Text color (announcementTextColor) — default #ffffff
+When announcementEnabled is false, gray out the fields but keep them visible
+
+Branding section — update to include both colors:
+
+Primary color picker: primaryColor — default #000000
+Accent color picker: accentColor — default #04a7cd (teal)
+
+Footer section — replace flat footerLinks array with footerColumns:
+
+Each column has a heading text input and a list of link rows (label + href)
+"Add Column" button adds a new column
+Within each column, "Add Link" button adds a link row
+Each column and each link row has a delete button
+Same add/remove pattern as existing nav links
+
+Social Links section (within footer):
+
+Text input: Social handle (socialHandle) — placeholder "@WellToldDesign"
+Each social link row has: platform selector (instagram / facebook / youtube / pinterest / tiktok) + URL input + delete button
+"Add Social Link" button
+
+Worker CSS — add @font-face and base styles:
+css@font-face {
+  font-family: 'Cera Pro';
+  src: url('https://welltolddesign.com/cdn/shop/t/87/assets/CeraProRegular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Cera Pro';
+  src: url('https://welltolddesign.com/cdn/shop/t/87/assets/CeraProBold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+body {
+  font-family: 'Cera Pro', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 400;
+  color: #000000;
+  margin: 0;
+  padding: 0;
+}
+h1, h2, h3, h4 {
+  font-family: 'Cera Pro', sans-serif;
+  font-weight: 700;
+}
+a { color: inherit; }
+Worker HTML — full page wrapper structure:
+html<!-- Announcement bar (only render if announcementEnabled = true) -->
+<div style="background:{announcementBgColor};color:{announcementTextColor};text-align:center;padding:10px 20px;font-size:13px;font-weight:700;letter-spacing:0.05em;">
+  <a href="{announcementLink}" style="color:{announcementTextColor};text-decoration:none;">
+    {announcementText}
+  </a>
+</div>
+
+<!-- Header -->
+<header style="background:#ffffff;border-bottom:1px solid #e5e5e5;">
+  <div style="max-width:1200px;margin:0 auto;padding:0 40px;display:flex;align-items:center;justify-content:space-between;height:80px;">
+    <a href="{logoLink}" style="display:flex;align-items:center;">
+      <img src="{logoUrl}" alt="Well Told" style="height:48px;width:auto;" />
+    </a>
+    <nav style="display:flex;gap:28px;align-items:center;">
+      {navLinks.map(link =>
+        `<a href="${link.href}" style="font-family:'Cera Pro',sans-serif;font-size:14px;font-weight:400;color:#000;text-decoration:none;letter-spacing:0.02em;">${link.label}</a>`
+      )}
+    </nav>
+  </div>
+</header>
+
+<!-- Page content -->
+<main style="min-height:60vh;">
+  {pageContent}
+</main>
+
+<!-- Footer -->
+<footer style="background:{footerBgColor};padding:60px 40px 30px;">
+  <div style="max-width:1200px;margin:0 auto;">
+    <div style="display:grid;grid-template-columns:220px repeat(auto-fit,minmax(180px,1fr));gap:40px;margin-bottom:48px;">
+      <!-- Logo column -->
+      <div>
+        <a href="{logoLink}">
+          <img src="{logoUrl}" alt="Well Told" style="height:100px;width:auto;" />
+        </a>
+      </div>
+      <!-- Footer columns (loop through footerColumns) -->
+      {footerColumns.map(col => `
+        <div>
+          <h4 style="font-family:'Cera Pro',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;margin:0 0 16px;">${col.heading}</h4>
+          <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;">
+            ${col.links.map(l =>
+              `<li><a href="${l.href}" style="font-family:'Cera Pro',sans-serif;font-size:14px;color:#000;text-decoration:none;">${l.label}</a></li>`
+            ).join('')}
+          </ul>
+        </div>
+      `)}
+      <!-- Social column -->
+      <div>
+        <p style="font-size:14px;font-weight:700;margin:0 0 12px;">{socialHandle}</p>
+        <div style="display:flex;gap:12px;">
+          {socialLinks.map(s =>
+            `<a href="${s.url}" style="color:#000;text-decoration:none;font-size:22px;">${socialIcon(s.platform)}</a>`
+          )}
+        </div>
+      </div>
+    </div>
+    <!-- Bottom bar -->
+    <div style="border-top:1px solid #e5e5e5;padding-top:20px;display:flex;justify-content:center;align-items:center;gap:24px;flex-wrap:wrap;">
+      <span style="font-size:13px;color:#666;">{footerCopyright}</span>
+    </div>
+  </div>
+</footer>
+Social icon helper — use simple text symbols as fallback, or Unicode:
+typescriptfunction socialIcon(platform: string): string {
+  const icons: Record<string, string> = {
+    instagram: '&#xe600;',  // use platform name as text fallback
+    facebook: 'f',
+    youtube: '▶',
+    pinterest: 'P',
+    tiktok: '♪',
+  };
+  // Preferred: use platform name styled as a pill button
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:1.5px solid #000;border-radius:50%;font-size:11px;font-weight:700;text-transform:uppercase;">${platform.charAt(0).toUpperCase()}</span>`;
+}
+Important notes for implementation:
+
+Site settings should be fetched from Supabase by the Worker at request time — not hardcoded — so any Canvas change is live on the next page load with no redeployment
+The announcement bar should only render in HTML output if announcementEnabled === true
+Footer columns replace the old flat footerLinks array entirely — migrate any existing data
+All colors in the Worker HTML should reference the saved settings values, not hardcoded hex strings
+The wt-pages.css stylesheet should include the @font-face declarations and base body styles above

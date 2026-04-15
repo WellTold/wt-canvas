@@ -1,0 +1,80 @@
+# Canvas Block Taxonomy — Supplement
+
+This document extends `canvas-block-taxonomy.md` with additional block types and architectural notes. Do not replace the original — treat this as an addendum.
+
+-----
+
+## Additional Web-Only Blocks
+
+These were missing from the original taxonomy and will show up quickly in real use:
+
+|Block          |Fields                               |Renders as              |Notes                                  |
+|---------------|-------------------------------------|------------------------|---------------------------------------|
+|Accordion / FAQ|items[] (question, answer)           |Expandable rows         |Landing pages, article pages           |
+|Banner / Alert |text, style (info/sale/warning), link|Full-width callout bar  |Announcement, sale, contextual         |
+|Icon + Text Row|items[] (icon, headline, body)       |3-up or 4-up feature row|Product/landing page staple            |
+|Author / Bio   |name, avatar, bio, links[]           |Inline author card      |SEO E-E-A-T signal on articles         |
+|Breadcrumb     |items[] (label, url)                 |Structured nav links    |SEO value on article + collection pages|
+|Related Content|items[] (title, url, image, type)    |Link card row           |Internal linking — high SEO priority   |
+
+-----
+
+## Additional Email-Only Blocks
+
+|Block               |Fields                    |Renders as                    |Notes                                       |
+|--------------------|--------------------------|------------------------------|--------------------------------------------|
+|GIF / Animated Image|url, fallback_url, alt    |`<img>` with static fallback  |Needs fallback for Outlook                  |
+|Countdown Timer     |end_datetime, style       |Hosted timer image or fallback|Common for sale emails — technically complex|
+|Progress / Loyalty  |label, current, goal, unit|Inline progress bar           |Loyalty, points, milestone emails           |
+
+-----
+
+## Shopify Content Blocks (New Tier)
+
+These are first-class blocks, not workarounds. Fields reference Shopify IDs — data is fetched at render time or content-generation time.
+
+|Block             |Fields                                                    |Use        |Notes                       |
+|------------------|----------------------------------------------------------|-----------|----------------------------|
+|Product Card      |shopify_product_id, show_price, show_description, cta_text|Web + Email|Single product feature      |
+|Product Grid      |shopify_collection_id, count, sort_by                     |Web only   |Collection landing pages    |
+|Collection Feature|shopify_collection_id, headline, subtext, cta_text        |Web + Email|Hero-style collection block |
+|Variant Selector  |shopify_product_id, selector_type                         |Web only   |Interactive — see note below|
+
+-----
+
+## Interactive / App Blocks (New Tier)
+
+Interactive blocks are mini-applications embedded in a page. They don’t follow the standard content-field pattern — each one is bespoke. The taxonomy handles them via a thin wrapper:
+
+|Block    |Fields                |Notes                                                      |
+|---------|----------------------|-----------------------------------------------------------|
+|App Block|component_id, config{}|Renders a registered component by name with a config object|
+
+**How it works:**
+Each interactive thing you build (a calculator, quiz, product configurator, visualizer) gets registered as a named component in Canvas. The App Block just says “render the component named X with this config.” It fits the template system without requiring every interactive thing to be specced as a unique block type.
+
+**Examples of registered components Well Told may build over time:**
+
+- Gift finder quiz
+- Product personalizer / engraving preview
+- Size or quantity calculator
+- Loyalty points estimator
+
+These are **web-only**. They should never appear in email templates.
+
+-----
+
+## Architectural Notes
+
+### Two-Zone Block Model
+
+Treat the full block library as two zones:
+
+- **Stable blocks** — fully specced, built, reusable everywhere. All Tier 1–3 blocks from the original taxonomy plus the Shopify tier above.
+- **Registered components** — one-off interactive or integration-heavy builds. They live in Canvas as named components and drop in via the App Block wrapper.
+
+Shopify blocks belong in stable. Interactive visualizations belong in registered components.
+
+### Template Category — No Change Needed
+
+The five categories defined in the original taxonomy (`article`, `landing_page`, `lead_magnet`, `email_campaign`, `email_flow`) accommodate all of the above. Shopify and App blocks simply become available in the block palette for the relevant template types.

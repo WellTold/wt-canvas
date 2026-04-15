@@ -1,0 +1,803 @@
+# WT Canvas — Build Spec & Roadmap
+
+**Version 2.0 | March 2026**
+
+-----
+
+## Current State Summary
+
+A block-based content management system for blog articles, landing pages, and lead magnets. AI-assisted via OpenAI GPT-4o. Content stored in Supabase. Auth in Replit PostgreSQL. Media via Cloudinary.
+
+-----
+
+## Phase 0 — Foundation Fixes (Do First, ~2–3 days)
+
+These changes should happen before anything else. They unlock everything below.
+
+### 0A — Consolidate to Supabase Auth
+
+**Remove:** Replit PostgreSQL entirely.
+**Replace with:** Supabase Auth (built-in).
+
+Steps:
+
+1. Enable Supabase Auth in your Supabase project dashboard
+1. Create a `profiles` table in Supabase linked to `auth.users` for storing team member display names, roles, etc.
+1. Replace Express session middleware + bcrypt with Supabase Auth client-side login (`supabase.auth.signInWithPassword`)
+1. Replace JWT middleware on the backend with Supabase JWT verification (`supabase.auth.getUser(token)`)
+1. Update RLS (Row Level Security) policies on all Supabase tables to scope by `auth.uid()`
+1. Remove the Replit PostgreSQL environment variable and all `pg` / `drizzle` (Replit DB) imports
+
+**Result:** Single database, cleaner auth, proper RLS, and the `sessions` table disappears entirely.
+
+-----
+
+### 0B — Fix Missing Supabase Columns
+
+Run these migrations in Supabase SQL editor:
+
+```sql
+-- blog_articles
+ALTER TABLE blog_articles
+  ADD COLUMN IF NOT EXISTS featured_image TEXT,
+  ADD COLUMN IF NOT EXISTS focus_keyword TEXT,
+  ADD COLUMN IF NOT EXISTS supporting_keywords TEXT,
+  ADD COLUMN IF NOT EXISTS scheduled_publish_date TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS slug TEXT,
+  ADD COLUMN IF NOT EXISTS meta_description TEXT;
+
+-- landing_pages (same set)
+ALTER TABLE landing_pages
+  ADD COLUMN IF NOT EXISTS featured_image TEXT,
+  ADD COLUMN IF NOT EXISTS focus_keyword TEXT,
+  ADD COLUMN IF NOT EXISTS supporting_keywords TEXT,
+  ADD COLUMN IF NOT EXISTS scheduled_publish_date TIMESTAMPTZ;
+
+-- lead_magnets (same set)
+ALTER TABLE lead_magnets
+  ADD COLUMN IF NOT EXISTS featured_image TEXT,
+  ADD COLUMN IF NOT EXISTS focus_keyword TEXT,
+  ADD COLUMN IF NOT EXISTS supporting_keywords TEXT,
+  ADD COLUMN IF NOT EXISTS scheduled_publish_date TIMESTAMPTZ;
+```
+
+-----
+
+### 0C — Migrate OpenAI → Claude (Anthropic)
+
+**Install:** `npm install @anthropic-ai/sdk`
+**Remove:** `openai` package (or keep temporarily during transition)
+
+All 6 AI features live in the Content Editor. Replace each call:
+
+```typescript
+// BEFORE (OpenAI)
+import OpenAI from 'openai';
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const response = await openai.chat.completions.create({
+  model: 'gpt-4o',
+  messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }]
+});
+const text = response.choices[0].message.content;
+
+// AFTER (Claude)
+import Anthropic from '@anthropic-ai/sdk';
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const response = await anthropic.messages.create({
+  model: 'claude-sonnet-4-20250514',
+  max_tokens: 4096,
+  system: systemPrompt,
+  messages: [{ role: 'user', content: userPrompt }]
+});
+const text = response.content[0].type === 'text' ? response.content[0].text : '';
+```
+
+**The 6 features to migrate:**
+
+|Feature                  |System Prompt Change Needed                             |
+|-------------------------|--------------------------------------------------------|
+|Generate Complete Article|None — template structure maps perfectly                |
+|Generate Title           |None                                                    |
+|Generate Meta Description|None                                                    |
+|Improve Content Block    |Rephrase to be more directive (“Improve the following…”)|
+|Refine with Feedback     |None                                                    |
+|Generate Section         |None                                                    |
+
+**Claude-specific tips:**
+
+- Move instructions to `system` (not the user message) — Claude responds better this way
+- Claude is much stronger at following structured JSON output instructions; add `"Respond only with valid JSON"` to system prompt for structured generation
+- Increase `max_tokens` to 8192 for full article generation
+
+-----
+
+## Phase 1 — Hosted Content Rendering (~3–4 days)
+
+This replaces the Framer/Webflow CSV export flow.
+
+### 1A — Content Rendering Engine
+
+Add a rendering module that converts `content_json` blocks into HTML. Create `/src/renderer/`:
+
+```typescript
+// /src/renderer/blockToHtml.ts
+export function renderBlock(block: ContentBlock): string {
+  switch (block.type) {
+    case 'heading':    return `<h${block.level}>${block.text}</h${block.level}>`;
+    case 'paragraph':  return `<p>${block.text}</p>`;
+    case 'image':      return `<figure><img src="${block.url}" alt="${block.alt}" /></figure>`;
+    case 'quote':      return `<blockquote>${block.text}</blockquote>`;
+    case 'list':       return `<ul>${block.items.map(i => `<li>${i}</li>`).join('')}</ul>`;
+    case 'cta':        return `<div class="cta"><a href="${block.url}">${block.text}</a></div>`;
+    default:           return '';
+  }
+}
+
+export function renderPage(article: Article): string {
+  const body = article.content_json.blocks.map(renderBlock).join('\n');
+  return fullPageTemplate({ title: article.title, meta: article.meta_description, body });
+}
+```
+
+### 1B — Public Content Routes (Express)
+
+Add to your Express server:
+
+```typescript
+// GET /p/:slug — serve a public article page
+app.get('/p/:slug', async (req, res) => {
+  const { data: article } = await supabase
+    .from('blog_articles')
+    .select('*')
+    .eq('slug', req.params.slug)
+    .eq('status', 'live')
+    .single();
+
+  if (!article) return res.status(404).send('Not found');
+  
+  const html = renderPage(article);
+  res.setHeader('Content-Type', 'text/html');
+  res.send(html);
+});
+
+// GET /sitemap.xml — auto-generated sitemap
+app.get('/sitemap.xml', async (req, res) => { ... });
+```
+
+### 1C — New Supabase Columns for Hosted Content
+
+```sql
+ALTER TABLE blog_articles
+  ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS custom_css TEXT,
+  ADD COLUMN IF NOT EXISTS og_image TEXT,
+  ADD COLUMN IF NOT EXISTS canonical_url TEXT,
+  ADD COLUMN IF NOT EXISTS page_template TEXT DEFAULT 'default';
+```
+
+### 1D — Proxy Domain Setup
+
+Point your proxy domain’s DNS to your Replit deployment. In Replit:
+
+- Set custom domain in Replit project settings
+- Your Express server already handles routing; no additional config needed
+- Add `SITE_BASE_URL=https://yourdomain.com` to env vars
+
+-----
+
+## Phase 2 — Email Builder (~5–7 days)
+
+### 2A — New Supabase Table
+
+```sql
+CREATE TABLE email_campaigns (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  user_id UUID REFERENCES auth.users(id),
+  name TEXT NOT NULL,
+  subject TEXT,
+  preview_text TEXT,
+  status TEXT DEFAULT 'draft',        -- draft, review, approved, scheduled, sent
+  campaign_type TEXT DEFAULT 'campaign', -- 'campaign' | 'flow' | 'transactional'
+  shopify_resolution TEXT DEFAULT 'send_time', -- 'send_time' | 'open_time' (see §2F)
+  content_json JSONB,                 -- email blocks
+  snapshot_json JSONB,                -- resolved block data captured at send time (campaigns only)
+  klaviyo_campaign_id TEXT,
+  klaviyo_list_id TEXT,
+  scheduled_at TIMESTAMPTZ,
+  sent_at TIMESTAMPTZ,
+  tags TEXT[]
+);
+```
+
+### 2B — Campaign Type & Data Resolution Architecture
+
+This is a first-class architectural decision that affects how every Shopify-connected and dynamic block behaves.
+
+#### The two modes
+
+**Campaigns** (2–3x/week sends, holiday blitzes) use **send-time snapshot**:
+
+- All Shopify product data — images, prices, URLs, inventory state — is resolved and frozen when the campaign is scheduled or sent
+- The email always shows the price and product you intentionally curated, regardless of when it is opened
+- Protects promotional integrity: a flash sale email opened after the sale still shows the sale offer
+- Stored in `snapshot_json` on the campaign record
+
+**Flows** (evergreen behavioral triggers — abandoned cart, win-back, post-purchase) use **open-time resolution**:
+
+- Shopify-connected blocks fetch live data via a dynamic image service or URL template at the moment the email is opened
+- Prices, inventory, and images always reflect current reality
+- Prevents broken experiences: an abandoned cart email opened 48 hours later won’t link to a sold-out product
+
+#### Campaign-level toggle
+
+Set automatically based on `campaign_type`, overridable by the editor:
+
+```typescript
+type EmailCampaign = {
+  campaign_type: 'campaign' | 'flow' | 'transactional'
+  shopify_resolution: 'send_time' | 'open_time'
+  // send_time → snapshot_json populated at schedule time
+  // open_time → blocks render with live URL templates at open time
+}
+
+// Default resolution by type:
+const defaultResolution: Record<string, ShopifyResolution> = {
+  campaign:      'send_time',
+  flow:          'open_time',
+  transactional: 'send_time',
+}
+```
+
+In the Canvas UI this surfaces as a clearly labelled badge on the campaign card and a toggle in campaign settings — no hidden behaviour.
+
+#### Hybrid pattern for flows: snapshot the offer, live-check inventory
+
+For flows, the recommended approach is not fully live — it is a hybrid:
+
+1. **Copy and creative** → snapshotted at flow build time (your curated headline, offer text, brand assets). These don’t change.
+1. **Product image and URL** → live-resolved at open time via Shopify Storefront API or dynamic image URL
+1. **Inventory check** → run at send time (when Klaviyo triggers the flow send). If the product variant is out of stock, either:
+- Swap to a related product (preferred — keeps the email sending)
+- Suppress the send entirely (Klaviyo flow filter)
+
+This gives you stable creative with live product truth, without the risk of sending someone to a 404 or a sold-out PDP.
+
+```typescript
+// Flow email block with hybrid resolution
+type ProductCardBlock = {
+  type: 'product_card'
+  shopify_source: ShopifySource
+  resolution: 'open_time'
+
+  // Snapshotted at flow build — editorial, stable
+  headline: string
+  cta_text: string
+  offer_copy?: string
+
+  // Live at open time — Shopify Storefront API
+  image_url: string       // → dynamic URL template
+  title: string           // → merge tag
+  price: string           // → merge tag
+  product_url: string     // → merge tag
+
+  // Inventory fallback
+  oos_behavior: 'swap_related' | 'suppress' | 'show_anyway'
+  fallback_product_id?: string
+}
+```
+
+### 2C — Email Block Types (Full Set)
+
+Email blocks use table-based HTML with inline styles. All Shopify-connected blocks carry a `shopify_source` field and inherit resolution mode from the campaign.
+
+```typescript
+// Shopify source reference — attached to any block that pulls product data
+type ShopifySource = {
+  type: 'product' | 'collection' | 'variant' | 'page'
+  shopify_id: string
+  handle: string
+  last_synced: string
+}
+
+// Dynamic image block — open-time personalization or pre-rendered 3D asset
+type DynamicImageBlock = {
+  type: 'dynamic_image'
+  source_type: 'url_template' | 'pre_rendered' | 'shopify_product'
+  url_template?: string    // e.g. https://img.example.com/render?name={{first_name}}&sku={{sku}}
+  url: string              // resolved URL (populated at snapshot or used as fallback)
+  fallback_url: string     // always a real static image — never leave this empty
+  render_job_id?: string   // reference to a pre-render task (3D renders)
+  alt: string
+  link_url?: string
+}
+
+// Product card — Shopify-aware
+type ProductCardBlock = {
+  type: 'product_card'
+  shopify_source?: ShopifySource
+  resolution?: 'send_time' | 'open_time'  // inherits from campaign if omitted
+  image_url: string
+  title: string
+  price: string
+  compare_at_price?: string  // for price-drop display
+  product_url: string
+  cta_text: string
+  badge?: string             // 'Bestseller' | 'Sale' | 'New' | custom
+  oos_behavior?: 'swap_related' | 'suppress' | 'show_anyway'
+  fallback_product_id?: string
+}
+
+// Full block type union
+type EmailBlock =
+  // Structure
+  | { type: 'email_header'; logo_url: string; background_color: string; nav_links?: NavLink[] }
+  | { type: 'hero'; image_url: string; headline: string; subtext: string; cta_text: string; cta_url: string; cta_color: string }
+  | { type: 'two_column'; left: EmailBlock[]; right: EmailBlock[] }
+  | { type: 'three_column'; col1: EmailBlock[]; col2: EmailBlock[]; col3: EmailBlock[] }
+  | { type: 'text_image'; text: EmailBlock[]; image_url: string; image_side: 'left' | 'right' }
+  | { type: 'nav_bar'; links: NavLink[]; background_color: string }
+  | { type: 'announcement_bar'; text: string; background_color: string; text_color: string; link_url?: string }
+  | { type: 'email_footer'; unsubscribe_url: string; address: string; social_links: SocialLink[] }
+  // Text & copy
+  | { type: 'text'; content: string; align: 'left' | 'center' }
+  | { type: 'heading'; text: string; level: 1 | 2 | 3; align: 'left' | 'center' }
+  | { type: 'quote'; text: string; attribution?: string }
+  | { type: 'bullet_list'; items: string[]; icon?: 'dot' | 'check' | 'arrow' | string }
+  | { type: 'numbered_steps'; steps: { title: string; description: string }[] }
+  // CTAs & buttons
+  | { type: 'button'; text: string; url: string; color: string; align: 'left' | 'center' | 'right' }
+  | { type: 'button_group'; buttons: { text: string; url: string; style: 'primary' | 'secondary' }[] }
+  | { type: 'coupon_code'; code: string; headline?: string; expires?: string }
+  | { type: 'gift_card'; code: string; balance: string; expiry?: string }
+  | { type: 'text_link_cta'; text: string; url: string; align: 'left' | 'center' }
+  // Media
+  | { type: 'image'; url: string; alt: string; link_url?: string; width: 'full' | 'half'; caption?: string }
+  | { type: 'full_width_image'; url: string; alt: string; link_url?: string }
+  | { type: 'video_thumbnail'; thumbnail_url: string; video_url: string; alt: string }
+  | { type: 'gif_block'; url: string; alt: string; link_url?: string }
+  | { type: 'ugc_grid'; images: { url: string; link_url?: string }[]; columns: 3 | 4 }
+  | DynamicImageBlock
+  // E-commerce (Shopify-connected)
+  | ProductCardBlock
+  | { type: 'product_grid'; shopify_collection_id?: string; columns: 2 | 3; products: ProductCardBlock[] }
+  | { type: 'abandoned_cart_item'; shopify_source?: ShopifySource; image_url: string; title: string; variant: string; price: string; recover_url: string }
+  | { type: 'order_summary'; order_number: string; items: OrderLineItem[]; subtotal: string; shipping: string; total: string }
+  | { type: 'upsell_block'; shopify_source?: ShopifySource; headline: string; product: ProductCardBlock }
+  | { type: 'bundle_card'; headline: string; products: ProductCardBlock[]; bundle_price: string; bundle_url: string }
+  | { type: 'back_in_stock'; shopify_source: ShopifySource; product: ProductCardBlock }
+  | { type: 'price_drop'; shopify_source?: ShopifySource; product: ProductCardBlock }
+  // Social & trust
+  | { type: 'social_links'; links: SocialLink[] }
+  | { type: 'social_share'; subject: string; url: string }
+  | { type: 'testimonial'; quote: string; author: string; rating?: 1|2|3|4|5; avatar_url?: string }
+  | { type: 'star_rating'; rating: number; review_count?: number; link_url?: string }
+  | { type: 'press_logos'; headline?: string; logos: { url: string; alt: string }[] }
+  | { type: 'referral_block'; headline: string; share_url_template: string; reward_copy: string }
+  // Loyalty & personalization
+  | { type: 'loyalty_points'; points_balance: string; earn_copy?: string; redeem_url?: string }
+  | { type: 'rewards_tier'; current_tier: string; next_tier: string; progress_pct: number }
+  | { type: 'personalized_rec'; shopify_source?: ShopifySource; product: ProductCardBlock; rationale_copy?: string }
+  | { type: 'dynamic_content'; klaviyo_condition: string; show_block: EmailBlock; hide_block?: EmailBlock }
+  | { type: 'countdown_timer'; deadline: string; timer_image_service_url: string; fallback_text: string }
+  | { type: 'survey_nps'; question: string; scale_url_template: string; thank_you_url: string }
+  // Utility
+  | { type: 'divider'; style: 'line' | 'space'; color?: string; height?: number }
+  | { type: 'spacer'; height: number }
+  | { type: 'html_block'; html: string }
+  | { type: 'saved_section'; section_id: string }
+```
+
+### 2D — Email HTML Renderer
+
+Separate from the web renderer — email HTML uses tables, inline styles, and MSO conditionals:
+
+```typescript
+// /src/renderer/emailToHtml.ts
+export function renderEmailBlock(block: EmailBlock, mode: 'send_time' | 'open_time'): string {
+  // All layouts use table-based HTML for email client compatibility
+  // Must include MSO (Outlook) conditional comments for VML buttons
+  // All styles inline (no external CSS)
+  // Max width: 600px
+  // Test against: Gmail, Apple Mail, Outlook 2016+, iOS Mail
+
+  // For Shopify-connected blocks:
+  // send_time → use resolved values from snapshot_json (already plain strings)
+  // open_time → emit Klaviyo merge tags {{ product.image }}, {{ product.price }}, etc.
+  //             so Klaviyo's templating engine resolves at send/open time
+}
+
+// Snapshot resolver — runs at schedule time for campaigns
+export async function resolveSnapshot(campaign: EmailCampaign): Promise<SnapshotJson> {
+  // Walk content_json blocks
+  // For each block with shopify_source, call Shopify Storefront API
+  // Store resolved image, title, price, url into snapshot_json
+  // Flag any OOS products — surface warning in Canvas UI before confirming send
+}
+```
+
+### 2E — Snapshot & Inventory Check Flow (Campaigns)
+
+When a campaign is scheduled or sent:
+
+1. `resolveSnapshot(campaign)` → call Shopify Storefront API for all Shopify-connected blocks
+1. Store resolved data in `snapshot_json` on the campaign record
+1. Flag any out-of-stock products — surface as a warning in Canvas UI before confirming send
+1. Always render from `snapshot_json`, not `content_json`, for campaign HTML output
+1. Push HTML template to Klaviyo, create campaign, schedule
+
+### 2F — AI Features for Email
+
+Add to Claude service (same pattern as web content):
+
+|Feature              |Description                                             |
+|---------------------|--------------------------------------------------------|
+|Generate Subject Line|From campaign name + content context                    |
+|Generate Preview Text|Complement to subject, 90 chars                         |
+|Write Email Copy     |Given template + product/goal context                   |
+|A/B Subject Variants |Generate 3 subject line options                         |
+|Improve Block        |Same as web — refine existing email copy                |
+|Flow Copy Tone       |Adjust copy warmth for evergreen vs urgency for campaign|
+
+### 2G — Email Preview
+
+Add a live preview panel in the email editor:
+
+- Desktop preview (600px) and mobile preview (375px)
+- Toggle between HTML source and visual render
+- Campaign type badge: “Evergreen Flow · Live data” or “Campaign · Snapshot at send”
+- “Send test email” button (via Klaviyo transactional or direct SMTP)
+- OOS warning banner if snapshot check finds out-of-stock products
+
+-----
+
+## Phase 3 — Shopify Integration (~3–4 days)
+
+### 3A — Environment Variables
+
+```bash
+SHOPIFY_STORE_DOMAIN=yourstore.myshopify.com
+SHOPIFY_STOREFRONT_API_TOKEN=   # public — used for product search in editor
+SHOPIFY_ADMIN_API_TOKEN=        # private — server-side only, for inventory + metafields
+SHOPIFY_API_VERSION=2024-10
+```
+
+### 3B — Shopify API Service
+
+Create `/server/services/shopify.ts`:
+
+```typescript
+const STOREFRONT_URL = `https://${process.env.SHOPIFY_STORE_DOMAIN}/api/${process.env.SHOPIFY_API_VERSION}/graphql.json`;
+const ADMIN_URL = `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/${process.env.SHOPIFY_API_VERSION}/graphql.json`;
+
+export const shopify = {
+  // Storefront API (safe to call from editor — no sensitive data)
+  searchProducts: (query: string, first = 10) => ...,
+  getProduct: (handle: string) => ...,
+  getCollection: (handle: string) => ...,
+  getCollectionProducts: (handle: string, first = 12) => ...,
+  getVariant: (variantId: string) => ...,
+
+  // Admin API (server-side only — inventory, metafields)
+  checkInventory: (variantId: string) => ...,           // returns available qty
+  getRelatedProducts: (productId: string) => ...,       // from metafields or collection
+  getProductMetafields: (productId: string) => ...,
+
+  // Snapshot resolver
+  resolveBlock: (block: EmailBlock) => Promise<EmailBlock>, // returns block with all fields populated
+}
+```
+
+### 3C — Product Search Drawer (Editor UI)
+
+When a user adds or edits a Shopify-connected block, a slide-over drawer opens:
+
+- Search input → calls `GET /api/shopify/products?q=` → Storefront API
+- Results show: product image thumbnail, title, price range, available status
+- Selecting a product populates the block’s `shopify_source` and auto-fills all display fields
+- “Browse collections” tab → select a collection to populate a product grid block
+- “Sync now” button on existing blocks → re-fetches current data from Shopify
+
+### 3D — Inventory Check Service
+
+Runs server-side at two points:
+
+```typescript
+// 1. At campaign schedule time (for send_time campaigns)
+async function checkCampaignInventory(campaign: EmailCampaign): Promise<OOSWarning[]> {
+  const shopifyBlocks = extractShopifyBlocks(campaign.content_json)
+  const checks = await Promise.all(shopifyBlocks.map(b => shopify.checkInventory(b.shopify_source.shopify_id)))
+  return checks.filter(c => c.available === 0).map(c => ({ block_id: c.id, product: c.title }))
+}
+
+// 2. As a Klaviyo flow filter (for open_time flows)
+// Configure in Klaviyo: "Skip send if property 'product_in_stock' = false"
+// Canvas generates the flow filter config and displays it as a setup checklist
+```
+
+### 3E — Supabase: Shopify Connection Config
+
+```sql
+CREATE TABLE shopify_config (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  store_domain TEXT NOT NULL,
+  storefront_token TEXT NOT NULL,
+  last_tested_at TIMESTAMPTZ,
+  status TEXT DEFAULT 'active'
+);
+
+-- Cache frequently-used product data to reduce API calls
+CREATE TABLE shopify_product_cache (
+  shopify_id TEXT PRIMARY KEY,
+  handle TEXT,
+  title TEXT,
+  price_min TEXT,
+  price_max TEXT,
+  image_url TEXT,
+  available BOOLEAN,
+  data JSONB,              -- full product response
+  cached_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+Cache TTL: 15 minutes for product data, 5 minutes for inventory. Invalidate on explicit “Sync now” action.
+
+### 3F — Shopify Block Behaviour by Campaign Type
+
+|Block              |Campaign (send_time)              |Flow (open_time)                     |
+|-------------------|----------------------------------|-------------------------------------|
+|Product card       |Snapshot price + image at schedule|Klaviyo merge tags for price + image |
+|Product grid       |Snapshot all N products           |Live collection fetch via dynamic URL|
+|Price drop         |Snapshot was/now prices           |Live compare_at_price via merge tag  |
+|Back in stock      |Snapshot current availability     |Live inventory check at trigger time |
+|Abandoned cart item|Snapshot from trigger event data  |Merge tags from Klaviyo event payload|
+|Dynamic image      |Pre-render stored to Cloudinary   |URL template with open-time params   |
+
+-----
+
+## Phase 4 — Klaviyo Integration (~4–5 days)
+
+### 4A — Environment Variables
+
+```
+KLAVIYO_PRIVATE_API_KEY=pk_...
+KLAVIYO_PUBLIC_API_KEY=...
+```
+
+### 4B — Klaviyo API Service
+
+Create `/server/services/klaviyo.ts`:
+
+```typescript
+const KLAVIYO_BASE = 'https://a.klaviyo.com/api';
+const headers = {
+  'Authorization': `Klaviyo-API-Key ${process.env.KLAVIYO_PRIVATE_API_KEY}`,
+  'Content-Type': 'application/json',
+  'revision': '2024-10-15'
+};
+
+// Key endpoints to implement:
+export const klaviyo = {
+  // Lists & Segments
+  getLists: () => fetch(`${KLAVIYO_BASE}/lists`, { headers }),
+  getSegments: () => fetch(`${KLAVIYO_BASE}/segments`, { headers }),
+  
+  // Campaigns
+  createCampaign: (data: KlaviyoCampaignPayload) => ...,
+  updateCampaign: (id: string, data: Partial<KlaviyoCampaignPayload>) => ...,
+  scheduleCampaign: (id: string, scheduledAt: string) => ...,
+  sendCampaign: (id: string) => ...,
+  getCampaignMetrics: (id: string) => ...,
+  
+  // Templates
+  createTemplate: (name: string, html: string) => ...,
+  updateTemplate: (id: string, html: string) => ...,
+  
+  // Send test
+  sendTestEmail: (campaignId: string, emails: string[]) => ...,
+}
+```
+
+### 4C — Sync Flow
+
+When publishing an email campaign:
+
+1. Render `content_json` (or `snapshot_json` for campaigns) → HTML email string
+1. `POST /api/klaviyo/templates` → create/update template in Klaviyo
+1. `POST /api/klaviyo/campaigns` → create campaign linked to template + list
+1. Store `klaviyo_campaign_id` back to Supabase
+1. Schedule or send from Canvas UI
+
+### 4D — Klaviyo Data Pull
+
+Pull into Canvas for the campaign list view:
+
+- Lists/segments (for audience selection in campaign creation)
+- Campaign send metrics (open rate, click rate, revenue) — display alongside campaign record
+- Profile count for selected list
+
+### 4E — New Canvas Sections
+
+Add to top navigation:
+
+- **Campaigns** — email campaigns list + editor
+- **Flows** (future) — placeholder for Klaviyo flow email editing
+- **Lists** — read-only view of Klaviyo lists/segments with subscriber counts
+
+-----
+
+## Phase 5 — SMS Builder (~2–3 days)
+
+### 4A — Supabase Table
+
+```sql
+CREATE TABLE sms_campaigns (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  name TEXT NOT NULL,
+  message TEXT NOT NULL,  -- max 160 chars for single SMS, 306 for MMS
+  status TEXT DEFAULT 'draft',
+  klaviyo_campaign_id TEXT,
+  klaviyo_list_id TEXT,
+  scheduled_at TIMESTAMPTZ,
+  sent_at TIMESTAMPTZ,
+  has_mms BOOLEAN DEFAULT false,
+  mms_image_url TEXT
+);
+```
+
+### 5B — SMS Editor
+
+Much simpler than email — a single text area with:
+
+- Character counter (160 / 306 for MMS)
+- Merge tag picker (`{{ first_name }}`, `{{ coupon_code }}`, etc.)
+- Optional MMS image attachment (from Cloudinary/Supabase Storage)
+- Preview as phone mockup
+- Campaign type toggle: campaign vs flow (same send_time / open_time logic as email)
+- AI assist: “Write this SMS from this campaign brief”
+
+### 5C — Klaviyo SMS API
+
+Same service file as email, additional methods:
+
+```typescript
+createSmsCampaign: (data: KlaviyoSmsCampaignPayload) => ...,
+sendTestSms: (campaignId: string, phoneNumbers: string[]) => ...,
+```
+
+-----
+
+## Phase 6 — Content Library Enhancement (~2 days)
+
+### 6A — Supabase Storage Bucket
+
+Create bucket `wt-assets` for internal assets (brand files, approved images):
+
+- Public read, authenticated write
+- Use for: email header images, product shots, brand logos
+- Keep Cloudinary for the full creative library
+
+### 6B — Asset Tagging
+
+```sql
+CREATE TABLE asset_tags (
+  asset_id TEXT NOT NULL,  -- Cloudinary public_id or Supabase path
+  asset_source TEXT NOT NULL,  -- 'cloudinary' | 'supabase'
+  tags TEXT[],
+  content_type TEXT,  -- 'email', 'web', 'social'
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### 6C — Unified Media Picker
+
+Replace the current Cloudinary-only picker with a tabbed interface:
+
+- Tab 1: Cloudinary (existing)
+- Tab 2: Supabase Storage (brand assets)
+- Tab 3: Shopify product images (search by product)
+- Tab 4: Upload new (direct to Supabase Storage or Cloudinary based on type)
+
+-----
+
+## Routing Map (Post-Build)
+
+```
+/                    → Dashboard (content overview)
+/content/blogs       → Blog article list
+/content/blogs/:id   → Blog editor
+/content/pages       → Landing page list
+/content/pages/:id   → Page editor
+/content/magnets     → Lead magnet list
+/campaigns           → Email campaign list (with type filter: campaign / flow)
+/campaigns/new       → New campaign wizard (type selector first)
+/campaigns/:id       → Email campaign editor (with Klaviyo sync + Shopify drawer)
+/sms                 → SMS campaign list
+/sms/new             → SMS editor
+/templates           → Content + email templates
+/media               → Unified media library
+/settings            → Team, API keys, Klaviyo + Shopify connection status
+
+[Public - served by proxy domain]
+/p/:slug             → Rendered blog/page
+/sitemap.xml         → Auto-generated sitemap
+```
+
+-----
+
+## Environment Variables (Full List)
+
+```bash
+# Supabase
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=   # server-side only
+
+# Anthropic (Claude)
+ANTHROPIC_API_KEY=
+
+# Klaviyo
+KLAVIYO_PRIVATE_API_KEY=
+KLAVIYO_PUBLIC_API_KEY=
+
+# Shopify
+SHOPIFY_STORE_DOMAIN=yourstore.myshopify.com
+SHOPIFY_STOREFRONT_API_TOKEN=   # public — product search in editor
+SHOPIFY_ADMIN_API_TOKEN=        # private — inventory + metafields, server-side only
+SHOPIFY_API_VERSION=2024-10
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+
+# App
+SITE_BASE_URL=https://yourdomain.com
+NODE_ENV=production
+
+# Remove these after Phase 0:
+# OPENAI_API_KEY         ← replaced by ANTHROPIC_API_KEY
+# DATABASE_URL           ← Replit PostgreSQL, no longer needed after auth migration
+```
+
+-----
+
+## Recommended Build Order
+
+|Phase                              |Est. Time|Unlocks                     |
+|-----------------------------------|---------|----------------------------|
+|0A — Auth migration (Supabase)     |1 day    |Clean foundation            |
+|0B — Fix missing columns           |2 hours  |Stable content editing      |
+|0C — OpenAI → Claude               |3–4 hours|Better AI, cost savings     |
+|1 — Hosted content rendering       |3–4 days |Proxy domain live           |
+|2 — Email builder + resolution arch|5–7 days |Core new capability         |
+|3 — Shopify integration            |3–4 days |Smart blocks, product search|
+|4 — Klaviyo integration            |4–5 days |Campaign publishing         |
+|5 — SMS builder                    |2–3 days |Full campaign suite         |
+|6 — Media library                  |2 days   |Unified asset management    |
+
+**Total estimate: ~5–6 weeks of focused development**
+
+-----
+
+## Key Technical Notes for Replit
+
+- Use `tsx` for running TypeScript server files: `"dev": "tsx watch server/index.ts"`
+- Supabase client should be initialized once and exported: `/server/lib/supabase.ts`
+- All Klaviyo and Shopify Admin API calls must go through the backend (never expose private keys to frontend)
+- Shopify Storefront API token is safe to use from the frontend for product search
+- Email HTML rendering should be server-side (keeps template logic in one place)
+- Snapshot resolution (`resolveSnapshot`) runs server-side at schedule time — never in the browser
+- Use TanStack Query’s `invalidateQueries` after every mutation (already partially in place)
+- Add Zod schemas for all Klaviyo and Shopify API payloads before sending
+- Product cache in Supabase reduces Shopify API calls during heavy editing sessions
+
+-----
+
+*Generated March 2026 — WT Canvas v2.0 Build Spec*
+
+-----
+
+*Generated March 2026 — WT Canvas v2.0 Build Spec*

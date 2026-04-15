@@ -1,0 +1,101 @@
+Create a full-stack dashboard web app called **WT Canvas** using **Next.js, Supabase, and Tailwind CSS**. This app is used by the Well Told team to manage all content creation and publishing across multiple web properties. Include the following features:
+
+---
+
+## 🔐 Authentication
+- Use Supabase Auth with email/password login.
+- Pre-create these users with password `WTCanvas25!`:
+  - brian@welltolddesign.com
+  - neil@welltolddesign.com
+  - dan@welltolddesign.com
+- Redirect unauthenticated users to a login page.
+
+---
+
+## 🧭 App Layout
+- Use a sidebar layout.
+- App title: **WT Canvas**
+- Left sidebar includes 2 main sections:
+
+### 1. **Website Content**
+- SEO Blog Articles
+- Lead Magnet Pages
+- Landing Pages
+
+Each opens a page with a table of entries from Supabase (filtered by `type` in `content_items`).
+
+### 2. **Content Library**
+- Brand Logos
+- Lifestyle Images
+- Users can:
+  - Create folders (e.g., "Holiday 2025", "Summer Sale")
+  - Upload images to specific folders
+  - View and preview uploads (grid or list view)
+
+---
+
+## 📄 Content Management
+Each Website Content section includes:
+- A table showing:
+  - Title
+  - Status (`idea`, `draft`, `review`, `approved`, `scheduled`, `live`)
+  - Approval status (`pending`, `approved`, `rejected`)
+  - Scheduled publish date
+  - Published status
+  - Last updated
+- Action buttons:
+  - Edit
+  - Publish Now
+  - Republish
+
+### Edit Page:
+- Full form to edit metadata and content blocks
+- Rich content block builder (`heading`, `text`, `image`, `quote`, `list`, `cta`, etc.)
+- Buttons to trigger OpenAI (Well Told custom GPT) for:
+  - Title generation
+  - Summary writing
+  - Section drafting or improvement
+- Save/update to Supabase
+
+---
+
+## 🚀 Publishing Workflow
+- “Publish Now” and “Republish” trigger a POST to the correct **Framer CMS subdomain** based on type (`blog`, `lead_magnet`, or `campaign_page`)
+- Store `published_at` timestamp on publish
+- Add logic to **auto-publish** approved entries:
+  - Every 5 minutes, check for:
+    - `status = 'approved'`
+    - `published_at IS NULL`
+    - `scheduled_publish_date < now()`
+  - Automatically publish those items
+
+---
+
+## 👤 Top Right User Menu
+- User avatar in top right corner
+- Dropdown includes:
+  - **Profile**
+  - **Settings**
+  - **Logout**
+
+Profile and settings can be basic placeholders for now but should be routable pages for future expansion.
+
+---
+
+## 🧠 Tech Details
+- Use Supabase tables:
+  - `content_items` (articles)
+  - `content_blocks` (sections)
+  - `faq_blocks` (optional)
+  - `media_assets` (for uploads) with folders
+- Use Tailwind CSS for styling
+- Use Framer CMS API for deployment integration
+- Support light/dark mode toggle
+
+---
+
+## 🧩 Optional Enhancements (can scaffold placeholders):
+- Slack notification on publish
+- Framer CMS preview URL generation
+- Drag-and-drop block sorting in content editor
+

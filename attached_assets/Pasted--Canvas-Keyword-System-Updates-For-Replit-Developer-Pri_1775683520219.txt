@@ -1,0 +1,73 @@
+# Canvas — Keyword System Updates
+**For:** Replit Developer  
+**Priority:** Complete before bulk keyword import
+
+---
+
+## Change 1 — Close the Content Target gap in the New Page recommendation endpoint
+
+The keyword library allows users to manually tag each keyword with a `contentTypeTarget` (Blog Article, Landing Page, Lead Magnet). However, the New Page recommendation endpoint currently ignores this stored value and re-guesses the content type from the keyword text. This means every manually tagged keyword has its label wasted.
+
+**Fix:** Update the New Page recommendation endpoint to check for a stored `contentTypeTarget` value first. Only fall back to text-guessing logic if the field is null or empty.
+
+Pseudocode:
+```
+if keyword.contentTypeTarget is not null and not empty:
+    use keyword.contentTypeTarget
+else:
+    run existing text-guessing logic (buy → Landing Page, checklist → Lead Magnet, etc.)
+```
+
+This is a one-line conditional change in the recommendation endpoint. Do not remove the text-guessing fallback — it is still needed for keywords that come in without a stored value (e.g. from AI Suggest before the user has reviewed them).
+
+---
+
+## Change 2 — Add a Priority column to the keywords table and UI
+
+### Why
+When multiple keywords from the same cluster are assigned to the same article, the AI writing system needs to know which keyword is the primary target (used in H1, meta title, meta description, opening paragraph) vs. which are supporting terms (woven in naturally throughout the body). Without this signal, all keywords appear equal and the AI has no way to correctly optimize the page.
+
+### Database
+Add a `priority` column to the keywords table:
+
+```sql
+ALTER TABLE keywords ADD COLUMN priority VARCHAR(20) DEFAULT 'supporting';
+```
+
+Allowed values: `primary` | `supporting`  
+Default: `supporting`  
+Constraint: enforce at application level that only one keyword per article/page can have `priority = 'primary'`. This does not need to be a hard DB constraint — a UI warning is sufficient.
+
+### Keywords Library page
+- Add `Priority` as a new column in the keywords table, positioned after `Cluster` and before `Content Target`
+- Display as a badge: `Primary` (solid, brand color) | `Supporting` (outline/muted)
+- Make it editable inline via a dropdown, same interaction pattern as the existing Type and Content Target badge editors
+- In the AI Suggest flow, default all Claude-suggested keywords to `supporting` — the user should manually promote one to `primary` per article
+
+### New Page flow
+- When a user selects a keyword to build a page around, surface the `priority` value alongside the keyword in the confirmation/summary step
+- If the selected keyword is tagged `supporting` (not `primary`), show a soft warning: "This keyword is tagged as Supporting. Consider selecting a Primary keyword for this article, or update this keyword's priority in the library."
+
+### AI prompt integration
+When assembling the prompt for page/article generation, pass priority context to Claude:
+
+```
+Primary keyword (optimize H1, meta title, meta description, and opening paragraph for this term): [keyword]
+
+Supporting keywords (weave naturally into body copy — do not force, do not repeat excessively):
+- [keyword]
+- [keyword]
+- [keyword]
+```
+
+---
+
+## Summary of changes
+
+| # | Change | Effort | Where |
+|---|---|---|---|
+| 1 | Prefer stored `contentTypeTarget` over text-guessing in New Page endpoint | XS | Recommendation endpoint |
+| 2a | Add `priority` column to keywords DB table | XS | Database |
+| 2b | Add Priority badge column to Keywords Library UI | S | Keywords Library page |
+| 2c | Pass primary/supporting distinction into AI prompt assembly | S | AI generation endpoint |
+| 2d | Surface priority warning in New Page flow | S | New Page flow |

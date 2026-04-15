@@ -1,0 +1,29 @@
+We need to update the Canvas keyword library to support a new CSV import format and add three new columns to the database and UI. This builds on the previous keyword schema work (Priority column + Content Target fix). Here's what's needed:
+1. Add three new columns to the keywords table:
+sqlALTER TABLE keywords ADD COLUMN volume INTEGER DEFAULT NULL;
+ALTER TABLE keywords ADD COLUMN kd INTEGER DEFAULT NULL;
+ALTER TABLE keywords ADD COLUMN article_angle VARCHAR(100) DEFAULT NULL;
+2. Update the Keywords Library UI to display all columns in this order:
+Keyword | Type | Volume | KD | Cluster | Article Angle | Priority | Content Target | Status | Actions
+
+Volume — display as a plain number, right-aligned, sortable. Label "Vol". No badge.
+KD — display as a plain number 0–100, right-aligned, sortable. Label "KD". Optionally color-code: green ≤25, amber 26–35, red 36+.
+Article Angle — display as a muted text badge, editable inline via dropdown. Allowed values: Gift Guide — Standard | Gift Guide — Passion-Led | Story-Led — Mark the Moment | Personal — The Gift That Actually Means Something | Contrarian — Why These Gifts Are Always Boring | Reframe — Gifts for the Parents, Not the Baby | Informational — Build Authority
+
+3. Update the CSV bulk import to accept and map these columns:
+The import CSV will have these exact headers in this order:
+Keyword, Type, Volume, KD, Cluster, Article Angle, Priority, Content Target, Status
+Map each header to its database column. Status should default to Unassigned if blank. Volume and KD should accept blank/null without erroring.
+4. Update the AI prompt assembly to pass Article Angle as tone direction:
+When generating content for a page, include the assigned keyword's article_angle in the prompt context:
+Content angle / tone direction: [article_angle value]
+
+Angle definitions:
+- Gift Guide — Standard: Curated roundup, warm but straightforward
+- Gift Guide — Passion-Led: Enthusiast tone, respect the interest, gifts that honor the lifestyle
+- Story-Led — Mark the Moment: Intimate, quiet, product as vessel for a memory or place
+- Personal — The Gift That Actually Means Something: Emotional, for someone hard to buy for
+- Contrarian — Why These Gifts Are Always Boring: Call out the tired category, then solve it
+- Reframe — Gifts for the Parents, Not the Baby: Shift the recipient framing entirely
+- Informational — Build Authority: Answer the question fully, bridge naturally to product
+5. No breaking changes — all existing keyword rows without these new columns should display gracefully with empty/null values. The existing Type, Cluster, Priority, and Content Target columns and their existing behavior are unchanged.
