@@ -438,9 +438,13 @@ function renderCta(c: any, bg?: BlockBg): string {
     : "";
 
   // Button label typography — use text style fields from the editor, with sensible defaults
+  // Sanitize font family: replace any double-quotes with single-quotes so they don't
+  // break the surrounding style="..." HTML attribute and silently kill all inline styles.
+  const rawFamily     = c.fontFamily || "'Plus Jakarta Sans',Arial,sans-serif";
+  const btnFontFamily = rawFamily.replace(/"/g, "'");
   const btnFontSize   = resolveFontSize(c.fontSize, "15px");
   const btnFontWeight = c.fontWeight || "bold";
-  const btnFontFamily = c.fontFamily || "'Plus Jakarta Sans',Arial,sans-serif";
+  const btnTransform  = c.textTransform && c.textTransform !== "none" ? `text-transform:${c.textTransform};` : "";
   const btnTextAlign  = blockAlign;
 
   // Bulletproof button — table-based so no email client can stretch it full-width
@@ -450,8 +454,8 @@ function renderCta(c: any, bg?: BlockBg): string {
 <table cellpadding="0" cellspacing="0" border="0" align="${tableAlign}" style="${marginStyle}">
   <tr>
     <td align="center" style="${tdStyle}">
-      <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${link}" style="height:48px;v-text-anchor:middle;width:${vmlWidth}px;" arcsize="${radius === "999px" ? "50%" : "0%"}" filled="${vmlFill}" fillcolor="${btnColor}" stroke="${vmlStroke}"${vmlStrokeColor}><center style="color:${anchorColor};font-family:${btnFontFamily};font-size:${btnFontSize};font-weight:${btnFontWeight};">${btnLabel}</center></v:roundrect><![endif]-->
-      <!--[if !mso]><!--><a href="${link}" target="_blank" style="display:block;padding:${pad};font-family:${btnFontFamily};font-size:${btnFontSize};font-weight:${btnFontWeight};color:${anchorColor};text-decoration:${anchorDecoration};text-align:${btnTextAlign};white-space:nowrap;border-radius:${radius};${shadow}">${btnLabel}</a><!--<![endif]-->
+      <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${link}" style="height:48px;v-text-anchor:middle;width:${vmlWidth}px;" arcsize="${radius === "999px" ? "50%" : "0%"}" filled="${vmlFill}" fillcolor="${btnColor}" stroke="${vmlStroke}"${vmlStrokeColor}><center style="color:${anchorColor};font-family:${btnFontFamily};font-size:${btnFontSize};font-weight:${btnFontWeight};${btnTransform}">${btnLabel}</center></v:roundrect><![endif]-->
+      <!--[if !mso]><!--><a href="${link}" target="_blank" style="display:block;padding:${pad};font-family:${btnFontFamily};font-size:${btnFontSize};font-weight:${btnFontWeight};${btnTransform}color:${anchorColor};text-decoration:${anchorDecoration};text-align:${btnTextAlign};white-space:nowrap;border-radius:${radius};${shadow}">${btnLabel}</a><!--<![endif]-->
     </td>
   </tr>
 </table>`;
