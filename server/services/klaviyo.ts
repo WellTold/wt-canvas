@@ -236,3 +236,95 @@ export async function listAudiences(): Promise<KlaviyoAudience[]> {
     ...segments.map((s): KlaviyoAudience => ({ ...s, kind: "segment" })),
   ];
 }
+
+export interface KlaviyoCampaignResult {
+  id: string;
+  url: string;
+}
+
+export interface CreateCampaignOptions {
+  name: string;
+  subject: string;
+  fromEmail: string;
+  fromLabel: string;
+  audienceId: string;
+  audienceType: "list" | "segment";
+  html: string;
+}
+
+interface KlaviyoCampaignResponse {
+  data?: { id?: string };
+}
+
+interface KlaviyoCampaignMessagesResponse {
+  data?: Array<{ id?: string }>;
+}
+
+/**
+ * Create a new Klaviyo Campaign (draft) with the supplied HTML content.
+ * Flow: create campaign → fetch auto-created message → patch message with HTML + subject.
+ */
+export async function createCampaign(opts: CreateCampaignOptions): Promise<KlaviyoCampaignResult> {
+  const apiKey = await getApiKey();
+  const headers = buildHeaders(apiKey);
+
+  // 1. Create the campaign (draft — no send triggered)
+  const createRes = await fetch(`${API_BASE}/campaigns/`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      data: {
+        type: "campaign",
+        attributes: {
+          name: opts.name,
+          audiences: {
+            included: [{ id: opts.audienceId, type: opts.audienceType }],
+          },
+          send_strategy: { method: "static" },
+          channel: "email",
+        },
+      },
+    }),
+  });
+  await assertOk(createRes, "create-campaign");
+  const campaignJson: KlaviyoCampaignResponse = await createRes.json();
+  const campaignId = campaignJson?.data?.id;
+  if (!campaignId) throw new Error("Klaviyo did not return a campaign ID.");
+
+  // 2. Fetch the auto-created campaign message
+  const msgListRes = await fetch(`${API_BASE}/campaigns/${campaignId}/campaign-messages/`, {
+    headers,
+  });
+  await assertOk(msgListRes, "list-campaign-messages");
+  const msgListJson: KlaviyoCampaignMessagesResponse = await msgListRes.json();
+  const messageId = msgListJson?.data?.[0]?.id;
+  if (!messageId) throw new Error("Klaviyo did not return a campaign message ID.");
+
+  // 3. Update the message with subject, from info, and rendered HTML
+  const patchRes = await fetch(`${API_BASE}/campaign-messages/${messageId}/`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify({
+      data: {
+        type: "campaign-message",
+        id: messageId,
+        attributes: {
+          label: opts.name,
+          channel: "email",
+          content: {
+            subject: opts.subject,
+            from_email: opts.fromEmail,
+            from_label: opts.fromLabel,
+            html_body: opts.html,
+          },
+        },
+      },
+    }),
+  });
+  await assertOk(patchRes, "update-campaign-message");
+
+  return {
+    id: campaignId,
+    url: `https://www.klaviyo.com/campaigns/${campaignId}/`,
+  };
+}

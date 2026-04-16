@@ -58,6 +58,7 @@ export const contentItems = pgTable("content_items", {
   framerCmsId: text("framer_cms_id"),
   templateId: text("template_id"),
   klaviyoTemplateId: text("klaviyo_template_id"),
+  klaviyoCampaignId: text("klaviyo_campaign_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   authorId: text("author_id").notNull(),

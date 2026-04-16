@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Mail, ExternalLink, Monitor, Smartphone, Send, Upload } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Mail, ExternalLink, Monitor, Smartphone, Send, Upload, Megaphone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
@@ -14,6 +16,12 @@ export interface EmailPreviewModalProps {
   contentTitle: string;
 }
 
+interface KlaviyoAudience {
+  id: string;
+  name: string;
+  kind: "list" | "segment";
+}
+
 export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: EmailPreviewModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -21,10 +29,25 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [emailPreviewLoading, setEmailPreviewLoading] = useState(false);
   const [emailPreviewDevice, setEmailPreviewDevice] = useState<"desktop" | "mobile">("desktop");
+
+  // Send test state
   const [showSendTest, setShowSendTest] = useState(false);
   const [sendTestEmail, setSendTestEmail] = useState("");
   const [sendTestLoading, setSendTestLoading] = useState(false);
-  const [pushLoading, setPushLoading] = useState(false);
+
+  // Push to Template state
+  const [pushTemplateLoading, setPushTemplateLoading] = useState(false);
+
+  // Push to Campaign state
+  const [showCampaignForm, setShowCampaignForm] = useState(false);
+  const [audiences, setAudiences] = useState<KlaviyoAudience[]>([]);
+  const [audiencesLoading, setAudiencesLoading] = useState(false);
+  const [campaignName, setCampaignName] = useState("");
+  const [campaignSubject, setCampaignSubject] = useState("");
+  const [campaignFromName, setCampaignFromName] = useState("Well Told");
+  const [campaignFromEmail, setCampaignFromEmail] = useState("help@welltolddesign.com");
+  const [campaignAudienceId, setCampaignAudienceId] = useState("");
+  const [campaignLoading, setCampaignLoading] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -32,6 +55,7 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
       setPreviewUrl(null);
       setShowSendTest(false);
       setSendTestEmail("");
+      setShowCampaignForm(false);
       return;
     }
     let cancelled = false;
@@ -45,7 +69,6 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
         const html = await response.text();
         if (cancelled) return;
         setEmailPreviewHtml(html);
-        // Store HTML server-side and get a URL that the iframe can load directly
         const storeRes = await apiRequest("POST", "/api/email-preview-temp", { html });
         if (cancelled) return;
         const { id } = await storeRes.json();
@@ -63,6 +86,11 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
       .finally(() => { if (!cancelled) setEmailPreviewLoading(false); });
     return () => { cancelled = true; };
   }, [open, contentId]);
+
+  // Pre-fill campaign name from content title
+  useEffect(() => {
+    if (contentTitle) setCampaignName(contentTitle);
+  }, [contentTitle]);
 
   const handleOpenInNewTab = () => {
     if (!emailPreviewHtml) return;
@@ -83,11 +111,7 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
       const data = await res.json();
       if (!res.ok) {
         if (data.message === "klaviyo_required") {
-          toast({
-            title: "Klaviyo not connected",
-            description: "Connect Klaviyo in Integrations to enable test sends.",
-            variant: "destructive",
-          });
+          toast({ title: "Klaviyo not connected", description: "Connect Klaviyo in Integrations to enable test sends.", variant: "destructive" });
         } else {
           toast({ title: "Send failed", description: data.message, variant: "destructive" });
         }
@@ -103,38 +127,113 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
     }
   };
 
-  const handlePushToKlaviyo = async () => {
-    setPushLoading(true);
+  const handlePushToTemplate = async () => {
+    setPushTemplateLoading(true);
     try {
       const res = await apiRequest("POST", `/api/content/${contentId}/push-to-klaviyo`);
       const data = await res.json();
       if (!res.ok) {
         if (data.message === "klaviyo_required") {
-          toast({
-            title: "Klaviyo not connected",
-            description: "Connect Klaviyo in Integrations to push templates.",
-            variant: "destructive",
-          });
+          toast({ title: "Klaviyo not connected", description: "Connect Klaviyo in Integrations to push templates.", variant: "destructive" });
         } else {
           toast({ title: "Push failed", description: data.message, variant: "destructive" });
         }
         return;
       }
-      // Invalidate content item cache so klaviyoTemplateId is reflected if user views metadata
       queryClient.invalidateQueries({ queryKey: ["/api/content-items", contentId] });
-      const klaviyoLink = (
-        <span>
-          Template ID: {data.templateId}.{" "}
-          <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline font-medium">
-            View in Klaviyo →
-          </a>
-        </span>
-      );
-      toast({ title: "Pushed to Klaviyo", description: klaviyoLink });
+      toast({
+        title: "Pushed to Klaviyo",
+        description: (
+          <span>
+            Template saved.{" "}
+            <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline font-medium">View in Klaviyo →</a>
+          </span>
+        ),
+      });
     } catch (err: unknown) {
       toast({ title: "Push failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     } finally {
-      setPushLoading(false);
+      setPushTemplateLoading(false);
+    }
+  };
+
+  const handleOpenCampaignForm = async () => {
+    const next = !showCampaignForm;
+    setShowCampaignForm(next);
+    setShowSendTest(false);
+    if (next && audiences.length === 0) {
+      setAudiencesLoading(true);
+      try {
+        const res = await apiRequest("GET", "/api/klaviyo/audiences");
+        if (res.ok) {
+          const data: KlaviyoAudience[] = await res.json();
+          setAudiences(data);
+        } else {
+          const data = await res.json();
+          if (data.message === "klaviyo_required") {
+            toast({ title: "Klaviyo not connected", description: "Connect Klaviyo in Integrations to push campaigns.", variant: "destructive" });
+          } else {
+            toast({ title: "Could not load audiences", description: data.message, variant: "destructive" });
+          }
+          setShowCampaignForm(false);
+        }
+      } catch (err: unknown) {
+        toast({ title: "Could not load audiences", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+        setShowCampaignForm(false);
+      } finally {
+        setAudiencesLoading(false);
+      }
+    }
+  };
+
+  const handlePushToCampaign = async () => {
+    if (!campaignSubject.trim()) {
+      toast({ title: "Subject line required", variant: "destructive" });
+      return;
+    }
+    if (!campaignAudienceId) {
+      toast({ title: "Select an audience", variant: "destructive" });
+      return;
+    }
+    const audience = audiences.find(a => a.id === campaignAudienceId);
+    if (!audience) {
+      toast({ title: "Invalid audience selection", variant: "destructive" });
+      return;
+    }
+    setCampaignLoading(true);
+    try {
+      const res = await apiRequest("POST", `/api/content/${contentId}/push-to-klaviyo-campaign`, {
+        campaignName: campaignName.trim() || contentTitle || "Untitled Email",
+        subject: campaignSubject.trim(),
+        audienceId: audience.id,
+        audienceType: audience.kind,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.message === "klaviyo_required") {
+          toast({ title: "Klaviyo not connected", description: "Connect Klaviyo in Integrations to push campaigns.", variant: "destructive" });
+        } else {
+          toast({ title: "Campaign push failed", description: data.message, variant: "destructive" });
+        }
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/content-items", contentId] });
+      toast({
+        title: "Draft campaign created",
+        description: (
+          <span>
+            Campaign saved as draft.{" "}
+            <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline font-medium">View in Klaviyo →</a>
+          </span>
+        ),
+      });
+      setShowCampaignForm(false);
+      setCampaignSubject("");
+      setCampaignAudienceId("");
+    } catch (err: unknown) {
+      toast({ title: "Campaign push failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setCampaignLoading(false);
     }
   };
 
@@ -170,7 +269,7 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
           <div className="flex items-center gap-3 ml-auto">
             {emailPreviewHtml && (
               <button
-                onClick={() => setShowSendTest(v => !v)}
+                onClick={() => { setShowSendTest(v => !v); setShowCampaignForm(false); }}
                 className={`flex items-center gap-1 text-xs transition-colors ${showSendTest ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
               >
                 <Send className="h-3 w-3" />Send test
@@ -178,12 +277,21 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
             )}
             {emailPreviewHtml && (
               <button
-                onClick={handlePushToKlaviyo}
-                disabled={pushLoading}
+                onClick={handlePushToTemplate}
+                disabled={pushTemplateLoading}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                 title="Create or update Klaviyo template"
               >
-                <Upload className="h-3 w-3" />{pushLoading ? "Pushing…" : "Push to Klaviyo"}
+                <Upload className="h-3 w-3" />{pushTemplateLoading ? "Pushing…" : "Push to Template"}
+              </button>
+            )}
+            {emailPreviewHtml && (
+              <button
+                onClick={handleOpenCampaignForm}
+                className={`flex items-center gap-1 text-xs transition-colors ${showCampaignForm ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                title="Create a new Klaviyo draft campaign"
+              >
+                <Megaphone className="h-3 w-3" />Push to Campaign
               </button>
             )}
             {emailPreviewHtml && (
@@ -223,6 +331,99 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
             >
               Cancel
             </button>
+          </div>
+        )}
+
+        {/* Push to Campaign inline form */}
+        {showCampaignForm && (
+          <div className="px-4 py-3 border-b bg-gray-50 shrink-0 space-y-3">
+            <p className="text-xs font-medium text-foreground">Create Draft Campaign in Klaviyo</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Campaign name</Label>
+                <Input
+                  value={campaignName}
+                  onChange={e => setCampaignName(e.target.value)}
+                  className="h-8 text-sm"
+                  placeholder="Campaign name"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Subject line <span className="text-red-500">*</span></Label>
+                <Input
+                  value={campaignSubject}
+                  onChange={e => setCampaignSubject(e.target.value)}
+                  className="h-8 text-sm"
+                  placeholder="Email subject…"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">From name</Label>
+                <Input
+                  value={campaignFromName}
+                  onChange={e => setCampaignFromName(e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">From email</Label>
+                <Input
+                  value={campaignFromEmail}
+                  onChange={e => setCampaignFromEmail(e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Audience <span className="text-red-500">*</span></Label>
+              {audiencesLoading ? (
+                <p className="text-xs text-muted-foreground py-1">Loading audiences…</p>
+              ) : (
+                <Select value={campaignAudienceId} onValueChange={setCampaignAudienceId}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Select a list or segment…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {audiences.filter(a => a.kind === "list").length > 0 && (
+                      <>
+                        <div className="px-2 py-1 text-xs text-muted-foreground font-medium">Lists</div>
+                        {audiences.filter(a => a.kind === "list").map(a => (
+                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        ))}
+                      </>
+                    )}
+                    {audiences.filter(a => a.kind === "segment").length > 0 && (
+                      <>
+                        <div className="px-2 py-1 text-xs text-muted-foreground font-medium">Segments</div>
+                        {audiences.filter(a => a.kind === "segment").map(a => (
+                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        ))}
+                      </>
+                    )}
+                    {audiences.length === 0 && (
+                      <div className="px-2 py-2 text-xs text-muted-foreground">No lists or segments found in Klaviyo.</div>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                className="h-8 bg-black hover:bg-gray-800 text-white text-xs px-3"
+                onClick={handlePushToCampaign}
+                disabled={campaignLoading}
+              >
+                {campaignLoading ? "Creating…" : "Create Draft Campaign"}
+              </Button>
+              <button
+                onClick={() => setShowCampaignForm(false)}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 

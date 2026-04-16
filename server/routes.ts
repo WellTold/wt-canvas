@@ -977,6 +977,75 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
     }
   });
 
+  // List Klaviyo audiences (lists + segments) for campaign audience picker
+  app.get("/api/klaviyo/audiences", requireAuth, async (req, res) => {
+    try {
+      const { listAudiences } = await import("./services/klaviyo");
+      const audiences = await listAudiences();
+      res.json(audiences);
+    } catch (error: unknown) {
+      const { KlaviyoNotConnectedError } = await import("./services/klaviyo");
+      if (error instanceof KlaviyoNotConnectedError) {
+        return res.status(400).json({ message: "klaviyo_required" });
+      }
+      res.status(500).json({ message: "Failed to fetch audiences: " + (error instanceof Error ? error.message : String(error)) });
+    }
+  });
+
+  // Push to Klaviyo Campaign — renders email HTML then creates a new draft campaign
+  app.post("/api/content/:id/push-to-klaviyo-campaign", requireAuth, async (req, res) => {
+    try {
+      const id = req.params.id;
+      const parsedId: number | string = /^\d+$/.test(id) ? parseInt(id) : id;
+      const item = await storage.getContentItem(parsedId);
+      if (!item) return res.status(404).json({ message: "Content item not found" });
+
+      const itemContentType = (item.contentType ?? item.type ?? "");
+      if (item.type !== "email" && !itemContentType.startsWith("email")) {
+        return res.status(400).json({ message: "Push to Campaign is only available for email content." });
+      }
+
+      const { subject, audienceId, audienceType, campaignName } = req.body as {
+        subject: string;
+        audienceId: string;
+        audienceType: "list" | "segment";
+        campaignName?: string;
+      };
+
+      if (!subject?.trim()) return res.status(400).json({ message: "Subject line is required." });
+      if (!audienceId?.trim()) return res.status(400).json({ message: "Audience selection is required." });
+      if (!audienceType || !["list", "segment"].includes(audienceType)) {
+        return res.status(400).json({ message: "Invalid audience type." });
+      }
+
+      const { renderEmailForItem } = await import("./renderer/renderEmailForItem");
+      const { html } = await renderEmailForItem(item);
+
+      const { createCampaign } = await import("./services/klaviyo");
+      const result = await createCampaign({
+        name: campaignName || item.title || "Untitled Email",
+        subject: subject.trim(),
+        fromEmail: "help@welltolddesign.com",
+        fromLabel: "Well Told",
+        audienceId,
+        audienceType,
+        html,
+      });
+
+      // Persist the latest campaign ID for reference
+      await storage.updateContentItem(parsedId, { klaviyoCampaignId: result.id });
+
+      res.json({ success: true, campaignId: result.id, url: result.url });
+    } catch (error: unknown) {
+      console.error("Push to Klaviyo Campaign error:", error);
+      const { KlaviyoNotConnectedError } = await import("./services/klaviyo");
+      if (error instanceof KlaviyoNotConnectedError) {
+        return res.status(400).json({ message: "klaviyo_required", detail: "Connect Klaviyo in Integrations to enable campaign push." });
+      }
+      res.status(500).json({ message: "Failed to push campaign: " + (error instanceof Error ? error.message : String(error)) });
+    }
+  });
+
   // Supabase publishing routes
   app.post("/api/publish/supabase", requireAuth, async (req, res) => {
     try {

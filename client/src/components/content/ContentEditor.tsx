@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
-import { ArrowLeft, Wand2, Save, Plus, Mail, ExternalLink, Bookmark, BookMarked, ShoppingBag, ChevronUp, ChevronDown, Eye, Settings2, Upload } from "lucide-react";
+import { ArrowLeft, Wand2, Save, Plus, Mail, ExternalLink, Bookmark, BookMarked, ShoppingBag, ChevronUp, ChevronDown, Eye, Settings2, Upload, Megaphone } from "lucide-react";
 import { EmailPreviewModal } from "./EmailPreviewModal";
 import { Badge } from "@/components/ui/badge";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -59,6 +59,15 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [showPagePreview, setShowPagePreview] = useState(false);
   const [pushKlaviyoLoading, setPushKlaviyoLoading] = useState(false);
+  const [showCampaignDialog, setShowCampaignDialog] = useState(false);
+  const [campaignAudiences, setCampaignAudiences] = useState<Array<{ id: string; name: string; kind: "list" | "segment" }>>([]);
+  const [campaignAudiencesLoading, setCampaignAudiencesLoading] = useState(false);
+  const [campaignName, setCampaignName] = useState("");
+  const [campaignSubject, setCampaignSubject] = useState("");
+  const [campaignFromName, setCampaignFromName] = useState("Well Told");
+  const [campaignFromEmail, setCampaignFromEmail] = useState("help@welltolddesign.com");
+  const [campaignAudienceId, setCampaignAudienceId] = useState("");
+  const [campaignLoading, setCampaignLoading] = useState(false);
   const [pagePreviewHtml, setPagePreviewHtml] = useState<string | null>(null);
   const [pagePreviewLoading, setPagePreviewLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1158,6 +1167,82 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
     }
   };
 
+  const handleOpenCampaignDialog = async () => {
+    const itemId = contentItemId || currentContentItem?.id;
+    if (!itemId) {
+      toast({ title: "Save First", description: "Save your content before pushing to a campaign.", variant: "destructive" });
+      return;
+    }
+    setCampaignName(title || "");
+    setCampaignSubject("");
+    setCampaignAudienceId("");
+    setShowCampaignDialog(true);
+    if (campaignAudiences.length === 0) {
+      setCampaignAudiencesLoading(true);
+      try {
+        const res = await apiRequest("GET", "/api/klaviyo/audiences");
+        if (res.ok) {
+          const data = await res.json();
+          setCampaignAudiences(data);
+        } else {
+          const data = await res.json();
+          if (data.message === "klaviyo_required") {
+            toast({ title: "Klaviyo not connected", description: "Connect Klaviyo in Integrations to push campaigns.", variant: "destructive" });
+          } else {
+            toast({ title: "Could not load audiences", description: data.message, variant: "destructive" });
+          }
+          setShowCampaignDialog(false);
+        }
+      } catch (err: unknown) {
+        toast({ title: "Could not load audiences", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+        setShowCampaignDialog(false);
+      } finally {
+        setCampaignAudiencesLoading(false);
+      }
+    }
+  };
+
+  const handleSubmitCampaign = async () => {
+    const itemId = contentItemId || currentContentItem?.id;
+    if (!itemId) return;
+    if (!campaignSubject.trim()) {
+      toast({ title: "Subject line required", variant: "destructive" });
+      return;
+    }
+    if (!campaignAudienceId) {
+      toast({ title: "Select an audience", variant: "destructive" });
+      return;
+    }
+    const audience = campaignAudiences.find(a => a.id === campaignAudienceId);
+    if (!audience) return;
+    setCampaignLoading(true);
+    try {
+      const res = await apiRequest("POST", `/api/content/${itemId}/push-to-klaviyo-campaign`, {
+        campaignName: campaignName.trim() || title || "Untitled Email",
+        subject: campaignSubject.trim(),
+        audienceId: audience.id,
+        audienceType: audience.kind,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.message === "klaviyo_required") {
+          toast({ title: "Klaviyo not connected", description: "Connect Klaviyo in Integrations to push campaigns.", variant: "destructive" });
+        } else {
+          toast({ title: "Campaign push failed", description: data.message, variant: "destructive" });
+        }
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/content-items", itemId] });
+      const link = <span>Campaign saved as draft. <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline font-medium">View in Klaviyo →</a></span>;
+      toast({ title: "Draft campaign created", description: link });
+      setShowCampaignDialog(false);
+    } catch (err: unknown) {
+      toast({ title: "Campaign push failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setCampaignLoading(false);
+    }
+  };
+
   const handleOpenPagePreview = async () => {
     const itemId = contentItemId || currentContentItem?.id;
     if (!itemId) {
@@ -1316,7 +1401,20 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                 title={!(contentItemId || currentContentItem?.id) ? "Save first to push" : "Create or update Klaviyo template"}
               >
                 <Upload className="h-4 w-4 mr-1" />
-                {pushKlaviyoLoading ? "Pushing…" : "Push to Klaviyo"}
+                {pushKlaviyoLoading ? "Pushing…" : "Push to Template"}
+              </Button>
+            )}
+
+            {isEmailContent && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenCampaignDialog}
+                disabled={!(contentItemId || currentContentItem?.id)}
+                title={!(contentItemId || currentContentItem?.id) ? "Save first to push" : "Create a new Klaviyo draft campaign"}
+              >
+                <Megaphone className="h-4 w-4 mr-1" />
+                Push to Campaign
               </Button>
             )}
 
@@ -1885,6 +1983,76 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
         contentId={contentItemId || currentContentItem?.id || 0}
         contentTitle={title || currentContentItem?.title || ""}
       />
+
+      {/* Push to Campaign Dialog */}
+      <Dialog open={showCampaignDialog} onOpenChange={setShowCampaignDialog}>
+        <DialogContent className="max-w-md w-full" style={{ borderRadius: 0 }}>
+          <DialogHeader>
+            <DialogTitle className="text-sm font-medium flex items-center gap-2">
+              <Megaphone className="h-4 w-4" />Create Draft Campaign in Klaviyo
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Campaign name</Label>
+              <Input value={campaignName} onChange={e => setCampaignName(e.target.value)} className="h-8 text-sm" placeholder="Campaign name" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Subject line <span className="text-red-500">*</span></Label>
+              <Input value={campaignSubject} onChange={e => setCampaignSubject(e.target.value)} className="h-8 text-sm" placeholder="Email subject…" autoFocus />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">From name</Label>
+                <Input value={campaignFromName} onChange={e => setCampaignFromName(e.target.value)} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">From email</Label>
+                <Input value={campaignFromEmail} onChange={e => setCampaignFromEmail(e.target.value)} className="h-8 text-sm" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Audience <span className="text-red-500">*</span></Label>
+              {campaignAudiencesLoading ? (
+                <p className="text-xs text-muted-foreground py-1">Loading audiences…</p>
+              ) : (
+                <Select value={campaignAudienceId} onValueChange={setCampaignAudienceId}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Select a list or segment…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {campaignAudiences.filter(a => a.kind === "list").length > 0 && (
+                      <>
+                        <div className="px-2 py-1 text-xs text-muted-foreground font-medium">Lists</div>
+                        {campaignAudiences.filter(a => a.kind === "list").map(a => (
+                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        ))}
+                      </>
+                    )}
+                    {campaignAudiences.filter(a => a.kind === "segment").length > 0 && (
+                      <>
+                        <div className="px-2 py-1 text-xs text-muted-foreground font-medium">Segments</div>
+                        {campaignAudiences.filter(a => a.kind === "segment").map(a => (
+                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        ))}
+                      </>
+                    )}
+                    {campaignAudiences.length === 0 && (
+                      <div className="px-2 py-2 text-xs text-muted-foreground">No lists or segments found in Klaviyo.</div>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="pt-2">
+            <Button variant="outline" size="sm" onClick={() => setShowCampaignDialog(false)} disabled={campaignLoading}>Cancel</Button>
+            <Button size="sm" className="bg-black hover:bg-gray-800 text-white" onClick={handleSubmitCampaign} disabled={campaignLoading}>
+              {campaignLoading ? "Creating…" : "Create Draft Campaign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Page Preview Modal */}
       <Dialog open={showPagePreview} onOpenChange={setShowPagePreview}>
