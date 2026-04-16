@@ -178,6 +178,7 @@ function localRowToContentItem(row: typeof localContentItemsTable.$inferSelect):
     framerCmsId: row.framerCmsId || null,
     templateId: row.templateId || null,
     klaviyoTemplateId: row.klaviyoTemplateId || null,
+    klaviyoCampaignId: row.klaviyoCampaignId || null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     authorId: row.authorId,
@@ -586,6 +587,7 @@ export class DatabaseStorage implements IStorage {
       if (data.scheduledPublishDate !== undefined) updateObj.scheduledPublishDate = data.scheduledPublishDate;
       if (data.templateId !== undefined) updateObj.templateId = data.templateId;
       if (data.klaviyoTemplateId !== undefined) updateObj.klaviyoTemplateId = data.klaviyoTemplateId;
+      if (data.klaviyoCampaignId !== undefined) updateObj.klaviyoCampaignId = data.klaviyoCampaignId;
 
       const [updated] = await db.update(localContentItemsTable)
         .set(updateObj)
