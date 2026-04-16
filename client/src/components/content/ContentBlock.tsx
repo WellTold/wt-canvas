@@ -700,6 +700,35 @@ export function ContentBlock({
               minHeight="100px"
             />
             {renderTextStyleFields(o, onUpdate, 'text')}
+            {/* Width control */}
+            <div className="space-y-2 pt-2 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Width</p>
+              <Select
+                value={o.widthMode || 'full'}
+                onValueChange={(v) => onUpdate({ ...o, widthMode: v })}
+              >
+                <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="full">Full width</SelectItem>
+                  <SelectItem value="px">Custom px</SelectItem>
+                  <SelectItem value="percent">Custom %</SelectItem>
+                </SelectContent>
+              </Select>
+              {(o.widthMode === 'px' || o.widthMode === 'percent') && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={o.widthMode === 'px' ? 552 : 100}
+                    value={o.customWidth || ''}
+                    onChange={(e) => onUpdate({ ...o, customWidth: parseInt(e.target.value) || undefined })}
+                    placeholder={o.widthMode === 'px' ? 'e.g. 400' : 'e.g. 75'}
+                    className="text-sm"
+                  />
+                  <span className="text-xs text-muted-foreground">{o.widthMode === 'px' ? 'px (max 552)' : '%'}</span>
+                </div>
+              )}
+            </div>
           </div>
         );
       }

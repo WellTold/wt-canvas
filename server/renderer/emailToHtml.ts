@@ -214,9 +214,28 @@ function renderParagraph(c: any, bg?: BlockBg): string {
     fontWeight: "normal", fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.7",
   });
   const bgColor = c.backgroundColor || "#ffffff";
-  const inner = c.html
-    ? `<div style="margin:0;${style}">${c.html}</div>`
-    : `<p style="margin:0;${style}">${esc(c.text)}</p>`;
+
+  // Width constraint
+  const widthMode: string = c.widthMode || "full";
+  const customWidth: number = Number(c.customWidth) || 0;
+  let widthCss = "";
+  if (widthMode === "px" && customWidth > 0) {
+    widthCss = `max-width:${Math.min(customWidth, 552)}px;margin-left:auto;margin-right:auto;`;
+  } else if (widthMode === "percent" && customWidth > 0) {
+    widthCss = `max-width:${customWidth}%;margin-left:auto;margin-right:auto;`;
+  }
+
+  // Min height (vertically centers content via table)
+  const minH = c.minHeight ? parseInt(c.minHeight) : 0;
+
+  const textEl = c.html
+    ? `<div style="margin:0;${style}${widthCss}">${c.html}</div>`
+    : `<p style="margin:0;${style}${widthCss}">${esc(c.text)}</p>`;
+
+  const inner = minH > 0
+    ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr><td style="min-height:${minH}px;height:${minH}px;vertical-align:middle;">${textEl}</td></tr></table>`
+    : textEl;
+
   return row(inner, bgColor, "20px 24px", bg);
 }
 
