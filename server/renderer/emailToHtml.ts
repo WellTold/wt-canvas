@@ -471,8 +471,9 @@ function renderCta(c: any, bg?: BlockBg): string {
   // Bulletproof button — table-based so no email client can stretch it full-width
   const tableAlign = blockAlign === "left" ? "left" : blockAlign === "right" ? "right" : "center";
   const marginStyle = tableAlign === "center" ? "margin:0 auto;" : tableAlign === "right" ? "margin:0 0 0 auto;" : "margin:0;";
-  const inner = `${bodyText}
-<table cellpadding="0" cellspacing="0" border="0" align="${tableAlign}" style="${marginStyle}">
+
+  // Core button table
+  const btnTable = `<table cellpadding="0" cellspacing="0" border="0" align="${tableAlign}" style="${marginStyle}">
   <tr>
     <td align="center" style="${tdStyle}">
       <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${link}" style="height:48px;v-text-anchor:middle;width:${vmlWidth}px;" arcsize="${radius === "999px" ? "50%" : "0%"}" filled="${vmlFill}" fillcolor="${btnColor}" stroke="${vmlStroke}"${vmlStrokeColor}><center style="color:${anchorColor};font-family:${btnFontFamily};font-size:${btnFontSize};font-weight:${btnFontWeight};${btnTransform}">${btnLabel}</center></v:roundrect><![endif]-->
@@ -481,6 +482,25 @@ function renderCta(c: any, bg?: BlockBg): string {
   </tr>
 </table>`;
 
+  // Optional dotted ring — wraps the button table in an outer cell with a dotted border
+  let buttonHtml: string;
+  if (c.dottedBorder) {
+    const ringColor = c.dottedBorderColor || btnColor;
+    // Outer radius should be slightly larger than the button's own radius so the ring curves match
+    const outerRadiusMap: Record<string, string> = { sharp: "0px", rounded: "8px", pill: "999px" };
+    const outerRadius = outerRadiusMap[c.borderRadius as string] ?? "8px";
+    buttonHtml = `<table cellpadding="0" cellspacing="0" border="0" align="${tableAlign}" style="${marginStyle}">
+  <tr>
+    <td style="border:2px dotted ${esc(ringColor)};padding:5px;border-radius:${outerRadius};">
+      ${btnTable}
+    </td>
+  </tr>
+</table>`;
+  } else {
+    buttonHtml = btnTable;
+  }
+
+  const inner = `${bodyText}${buttonHtml}`;
   const bgColor = c.backgroundColor || "#ffffff";
   return row(inner, bgColor, "20px 24px", bg);
 }

@@ -1012,6 +1012,35 @@ export function ContentBlock({
                   <span className="text-xs text-gray-600">Enable shadow</span>
                 </div>
               </div>
+              <div className="space-y-1 flex flex-col justify-end col-span-2">
+                <Label className="text-xs">Dotted Border</Label>
+                <div className="flex items-center gap-2 h-8">
+                  <input
+                    type="checkbox"
+                    checked={!!o.dottedBorder}
+                    onChange={(e) => onUpdate({ ...o, dottedBorder: e.target.checked })}
+                    className="h-4 w-4"
+                  />
+                  <span className="text-xs text-gray-600">Show ring outside button</span>
+                  {o.dottedBorder && (
+                    <>
+                      <input
+                        type="color"
+                        value={o.dottedBorderColor || o.buttonColor || '#f15822'}
+                        onChange={(e) => onUpdate({ ...o, dottedBorderColor: e.target.value })}
+                        className="h-7 w-7 cursor-pointer border border-gray-300 p-0.5 shrink-0 ml-2"
+                        title="Dotted border color"
+                      />
+                      <Input
+                        value={o.dottedBorderColor || ''}
+                        onChange={(e) => onUpdate({ ...o, dottedBorderColor: e.target.value })}
+                        placeholder={o.buttonColor || '#f15822'}
+                        className="h-7 text-xs w-24"
+                      />
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
