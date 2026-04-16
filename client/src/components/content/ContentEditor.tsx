@@ -1647,6 +1647,9 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                       <Button variant="outline" size="sm" onClick={() => addBlock("banner")}>
                         <Plus className="h-3 w-3 mr-1" />Banner
                       </Button>
+                      <Button variant="outline" size="sm" onClick={() => addBlock("hero")}>
+                        <Plus className="h-3 w-3 mr-1" />Hero
+                      </Button>
                     </div>
                   </div>
 
@@ -1654,9 +1657,6 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Web Blocks</h3>
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" size="sm" onClick={() => addBlock("hero")}>
-                        <Plus className="h-3 w-3 mr-1" />Hero
-                      </Button>
                       <Button variant="outline" size="sm" onClick={() => addBlock("two_column")}>
                         <Plus className="h-3 w-3 mr-1" />2-Column
                       </Button>
