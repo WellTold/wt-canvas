@@ -221,13 +221,13 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
       }
       queryClient.invalidateQueries({ queryKey: ["/api/content-items", contentId] });
       toast({
-        title: "Draft campaign created",
+        title: "Campaign created",
         description: (
           <span>
             {data.previousCampaignId && (
-              <span className="block text-xs text-muted-foreground mb-0.5">Previous: {data.previousCampaignId}</span>
+              <span className="block text-xs text-muted-foreground mb-0.5">Previous campaign: #{data.previousCampaignId}</span>
             )}
-            Campaign saved as draft.{" "}
+            Saved as draft.{" "}
             <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline font-medium">View in Klaviyo →</a>
           </span>
         ),

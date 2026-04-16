@@ -1238,13 +1238,13 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       const link = (
         <span>
           {data.previousCampaignId && (
-            <span className="block text-xs text-muted-foreground mb-0.5">Previous: {data.previousCampaignId}</span>
+            <span className="block text-xs text-muted-foreground mb-0.5">Previous campaign: #{data.previousCampaignId}</span>
           )}
-          Campaign saved as draft.{" "}
+          Saved as draft.{" "}
           <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline font-medium">View in Klaviyo →</a>
         </span>
       );
-      toast({ title: "Draft campaign created", description: link });
+      toast({ title: "Campaign created", description: link });
       setShowCampaignDialog(false);
     } catch (err: unknown) {
       toast({ title: "Campaign push failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
