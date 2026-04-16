@@ -145,6 +145,7 @@ function textStyle(
   if (c.fontStyle && c.fontStyle !== "normal") parts.push(`font-style:${c.fontStyle}`);
   if (c.textDecoration && c.textDecoration !== "none") parts.push(`text-decoration:${c.textDecoration}`);
   if (c.textTransform && c.textTransform !== "none") parts.push(`text-transform:${c.textTransform}`);
+  if (c.opacity !== undefined && c.opacity !== 100) parts.push(`opacity:${Number(c.opacity) / 100}`);
   return parts.join(";");
 }
 

@@ -152,6 +152,7 @@ function buildTextStyle(c: Record<string, any>): string {
   if (c.fontStyle && c.fontStyle !== "normal") parts.push(`font-style:${escAttr(c.fontStyle)}`);
   if (c.textDecoration && c.textDecoration !== "none") parts.push(`text-decoration:${escAttr(c.textDecoration)}`);
   if (c.textTransform && c.textTransform !== "none") parts.push(`text-transform:${escAttr(c.textTransform)}`);
+  if (c.opacity !== undefined && c.opacity !== 100) parts.push(`opacity:${Number(c.opacity) / 100}`);
   // Width constraint
   const cw = Number(c.customWidth) || 0;
   if (c.widthMode === "px" && cw > 0) { parts.push(`max-width:${cw}px`); parts.push("margin-left:auto"); parts.push("margin-right:auto"); }

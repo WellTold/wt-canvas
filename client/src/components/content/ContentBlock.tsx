@@ -662,6 +662,25 @@ export function ContentBlock({
             <Btn active={o.textTransform === 'capitalize'} onClick={() => update({ ...o, textTransform: 'capitalize' })} title="Capitalize words">
               <span className="text-[10px]">Tt</span>
             </Btn>
+
+            <div className="w-px h-5 bg-gray-300 shrink-0" />
+
+            {/* Opacity */}
+            <div className="flex items-center gap-1.5 shrink-0" title="Opacity">
+              <span className="text-[10px] text-gray-500 select-none">Opacity</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={o.opacity !== undefined ? o.opacity : 100}
+                onChange={(e) => update({ ...o, opacity: Number(e.target.value) })}
+                className="h-1.5 w-20 accent-gray-700"
+              />
+              <span className="text-[10px] text-gray-500 w-8 text-right tabular-nums">
+                {o.opacity !== undefined ? o.opacity : 100}%
+              </span>
+            </div>
           </div>
         </div>
       );
