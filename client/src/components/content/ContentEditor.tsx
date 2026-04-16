@@ -1644,6 +1644,9 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                         <Plus className="h-3 w-3 mr-1" />
                         Spacer
                       </Button>
+                      <Button variant="outline" size="sm" onClick={() => addBlock("banner")}>
+                        <Plus className="h-3 w-3 mr-1" />Banner
+                      </Button>
                     </div>
                   </div>
 
@@ -1659,9 +1662,6 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => addBlock("accordion")}>
                         <Plus className="h-3 w-3 mr-1" />Accordion
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => addBlock("banner")}>
-                        <Plus className="h-3 w-3 mr-1" />Banner
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => addBlock("icon_text_row")}>
                         <Plus className="h-3 w-3 mr-1" />Icon Row
