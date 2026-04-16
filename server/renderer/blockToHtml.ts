@@ -197,9 +197,11 @@ export function renderBlock(block: ContentBlock, shopifyData: Map<string, Shopif
       const figStyle = wm !== "full"
         ? `style="text-align:${escAttr(al)};"`
         : "";
+      const ch: number = Number(c.customHeight) || 0;
+      const hCss = ch > 0 ? `height:${ch}px;object-fit:cover;` : "height:auto;";
       const imgStyle = wm !== "full"
-        ? `style="width:${imgPx}px;max-width:100%;height:auto;" width="${imgPx}"`
-        : `style="width:100%;max-width:100%;height:auto;"`;
+        ? `style="width:${imgPx}px;max-width:100%;${hCss}" width="${imgPx}"`
+        : `style="width:100%;max-width:100%;${hCss}"`;
       return `<figure class="wt-figure" ${figStyle}>
         <img src="${escAttr(c.url || c.src || "")}" alt="${escAttr(c.alt || "")}" loading="lazy" ${imgStyle} />
         ${c.caption ? `<figcaption class="wt-caption">${escHtml(c.caption)}</figcaption>` : ""}

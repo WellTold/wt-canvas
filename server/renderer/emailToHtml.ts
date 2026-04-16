@@ -244,9 +244,11 @@ function renderImage(c: any, bg?: BlockBg): string {
   const align: string = c.align || "center";
   const alignStyle = align === "left" ? "text-align:left;" : align === "right" ? "text-align:right;" : "text-align:center;";
   const isFullWidth = widthMode === "full";
+  const customHeight: number = Number(c.customHeight) || 0;
+  const heightCss = customHeight > 0 ? `height:${customHeight}px;object-fit:cover;` : "height:auto;";
   const imgStyle = isFullWidth
-    ? "display:block;width:100%;height:auto;border:0;"
-    : `display:inline-block;width:${imgWidth}px;max-width:100%;height:auto;border:0;`;
+    ? `display:block;width:100%;${heightCss}border:0;`
+    : `display:inline-block;width:${imgWidth}px;max-width:100%;${heightCss}border:0;`;
   const caption = c.caption
     ? `<p style="margin:8px 0 0;font-size:12px;color:#888888;font-family:'Plus Jakarta Sans',Arial,sans-serif;${alignStyle}">${esc(c.caption)}</p>`
     : "";

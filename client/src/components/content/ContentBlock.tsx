@@ -782,6 +782,22 @@ export function ContentBlock({
                 </div>
               )}
             </div>
+            {/* Height control */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Height</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  max={1200}
+                  value={(safeContent as any)?.customHeight || ''}
+                  onChange={(e) => onUpdate({ ...(safeContent as any), customHeight: parseInt(e.target.value) || undefined })}
+                  placeholder="Auto"
+                  className="text-sm"
+                />
+                <span className="text-xs text-muted-foreground">px (leave blank for auto)</span>
+              </div>
+            </div>
             {/* Alignment control */}
             <div className="space-y-2">
               <Label className="text-xs font-medium">Alignment</Label>
