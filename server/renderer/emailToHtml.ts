@@ -77,11 +77,11 @@ function row(
     return /* html */`
 <tr>
   <td align="center" style="padding:0;background-color:#f4f1ef;">
-    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width:100%;max-width:600px;background-color:${esc(fallback)};">
+    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width:100%;max-width:600px;background-color:${esc(rowBg)};">
       <tr>
-        <td style="padding:0;background-color:${esc(fallback)};">
+        <td style="padding:0;background-color:${esc(rowBg)};">
           ${vmlOpen}
-          <div style="background-color:${esc(fallback)};background-image:url('${esc(bg.imageUrl)}');background-size:${size};background-position:center;background-repeat:no-repeat;">
+          <div style="background-color:${esc(rowBg)};background-image:url('${esc(bg.imageUrl)}');background-size:${size};background-position:center;background-repeat:no-repeat;">
             <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width:100%;max-width:600px;">
               <tr>
                 <td style="padding:${padding};">
