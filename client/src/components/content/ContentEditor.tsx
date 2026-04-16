@@ -1220,6 +1220,8 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       const res = await apiRequest("POST", `/api/content/${itemId}/push-to-klaviyo-campaign`, {
         campaignName: campaignName.trim() || title || "Untitled Email",
         subject: campaignSubject.trim(),
+        fromName: campaignFromName.trim(),
+        fromEmail: campaignFromEmail.trim(),
         audienceId: audience.id,
         audienceType: audience.kind,
       });
@@ -1233,7 +1235,15 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
         return;
       }
       queryClient.invalidateQueries({ queryKey: ["/api/content-items", itemId] });
-      const link = <span>Campaign saved as draft. <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline font-medium">View in Klaviyo →</a></span>;
+      const link = (
+        <span>
+          {data.previousCampaignId && (
+            <span className="block text-xs text-muted-foreground mb-0.5">Previous: {data.previousCampaignId}</span>
+          )}
+          Campaign saved as draft.{" "}
+          <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline font-medium">View in Klaviyo →</a>
+        </span>
+      );
       toast({ title: "Draft campaign created", description: link });
       setShowCampaignDialog(false);
     } catch (err: unknown) {

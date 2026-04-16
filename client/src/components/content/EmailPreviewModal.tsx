@@ -205,6 +205,8 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
       const res = await apiRequest("POST", `/api/content/${contentId}/push-to-klaviyo-campaign`, {
         campaignName: campaignName.trim() || contentTitle || "Untitled Email",
         subject: campaignSubject.trim(),
+        fromName: campaignFromName.trim(),
+        fromEmail: campaignFromEmail.trim(),
         audienceId: audience.id,
         audienceType: audience.kind,
       });
@@ -222,6 +224,9 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
         title: "Draft campaign created",
         description: (
           <span>
+            {data.previousCampaignId && (
+              <span className="block text-xs text-muted-foreground mb-0.5">Previous: {data.previousCampaignId}</span>
+            )}
             Campaign saved as draft.{" "}
             <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline font-medium">View in Klaviyo →</a>
           </span>

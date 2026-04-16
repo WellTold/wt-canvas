@@ -1005,11 +1005,13 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         return res.status(400).json({ message: "Push to Campaign is only available for email content." });
       }
 
-      const { subject, audienceId, audienceType, campaignName } = req.body as {
+      const { subject, audienceId, audienceType, campaignName, fromName, fromEmail } = req.body as {
         subject: string;
         audienceId: string;
         audienceType: "list" | "segment";
         campaignName?: string;
+        fromName?: string;
+        fromEmail?: string;
       };
 
       if (!subject?.trim()) return res.status(400).json({ message: "Subject line is required." });
@@ -1018,6 +1020,8 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         return res.status(400).json({ message: "Invalid audience type." });
       }
 
+      const previousCampaignId = item.klaviyoCampaignId ?? null;
+
       const { renderEmailForItem } = await import("./renderer/renderEmailForItem");
       const { html } = await renderEmailForItem(item);
 
@@ -1025,8 +1029,8 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       const result = await createCampaign({
         name: campaignName || item.title || "Untitled Email",
         subject: subject.trim(),
-        fromEmail: "help@welltolddesign.com",
-        fromLabel: "Well Told",
+        fromEmail: fromEmail?.trim() || "help@welltolddesign.com",
+        fromLabel: fromName?.trim() || "Well Told",
         audienceId,
         audienceType,
         html,
@@ -1035,7 +1039,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       // Persist the latest campaign ID for reference
       await storage.updateContentItem(parsedId, { klaviyoCampaignId: result.id });
 
-      res.json({ success: true, campaignId: result.id, url: result.url });
+      res.json({ success: true, campaignId: result.id, url: result.url, previousCampaignId });
     } catch (error: unknown) {
       console.error("Push to Klaviyo Campaign error:", error);
       const { KlaviyoNotConnectedError } = await import("./services/klaviyo");
