@@ -370,7 +370,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
         const blocks = currentContentItem.content.map((block: any, index: number) => ({
           ...block,
           id: block.id || Date.now() + index,
-          order: index
+          order: block.order ?? index,
         }));
         setLocalBlocks(blocks);
       } else if (currentContentItem.content) {
@@ -381,7 +381,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
             const blocks = parsedContent.map((block: any, index: number) => ({
               ...block,
               id: block.id || Date.now() + index,
-              order: index
+              order: block.order ?? index,
             }));
             setLocalBlocks(blocks);
           } else {
@@ -884,7 +884,9 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       let cleanContent;
       if (Array.isArray(localBlocks)) { // Use localBlocks as it's the source of truth for the editor state
         console.log('🧼 Cleaning array content...');
-        cleanContent = localBlocks.map((block: any) => {
+        // Sort by order before saving so the JSON array order matches the visual order
+        const sortedBlocks = [...localBlocks].sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
+        cleanContent = sortedBlocks.map((block: any) => {
           // Create a plain object with only the properties we need
           const cleanBlockContent: Record<string, unknown> = {};
           const cleanBlock: Record<string, unknown> = {
