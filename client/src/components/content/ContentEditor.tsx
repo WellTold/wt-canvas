@@ -911,6 +911,10 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
             if (block._bg.imageUrl) bg.imageUrl = String(block._bg.imageUrl);
             if (block._bg.imageSize) bg.imageSize = String(block._bg.imageSize);
             if (block._bg.fallbackColor) bg.fallbackColor = String(block._bg.fallbackColor);
+            if (block._bg.paddingTop !== undefined) bg.paddingTop = Number(block._bg.paddingTop);
+            if (block._bg.paddingRight !== undefined) bg.paddingRight = Number(block._bg.paddingRight);
+            if (block._bg.paddingBottom !== undefined) bg.paddingBottom = Number(block._bg.paddingBottom);
+            if (block._bg.paddingLeft !== undefined) bg.paddingLeft = Number(block._bg.paddingLeft);
             if (Object.keys(bg).length > 0) cleanBlock._bg = bg;
           }
 
