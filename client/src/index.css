@@ -429,7 +429,7 @@ h4 {
 }
 
 .wt-content-block:hover {
-  border-color: var(--color-accent);
+  border-color: #1a1a1a;
 }
 
 .wt-content-block-header {

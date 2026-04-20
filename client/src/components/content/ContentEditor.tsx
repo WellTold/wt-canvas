@@ -965,6 +965,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
               if (contentObj.textColor !== undefined) cleanBlockContent.textColor = String(contentObj.textColor);
               if (contentObj.backgroundColor !== undefined) cleanBlockContent.backgroundColor = String(contentObj.backgroundColor);
               if (contentObj.backgroundImageUrl !== undefined) cleanBlockContent.backgroundImageUrl = String(contentObj.backgroundImageUrl);
+              if (contentObj.fontFamily !== undefined) cleanBlockContent.fontFamily = String(contentObj.fontFamily);
               if (contentObj.fontSize !== undefined) cleanBlockContent.fontSize = String(contentObj.fontSize);
               if (contentObj.fontWeight !== undefined) cleanBlockContent.fontWeight = String(contentObj.fontWeight);
               if (contentObj.textAlign !== undefined) cleanBlockContent.textAlign = String(contentObj.textAlign);
