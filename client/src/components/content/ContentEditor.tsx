@@ -936,6 +936,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
               // Pass through all fields as-is for complex block types
               Object.assign(cleanBlockContent, contentObj);
             } else {
+              if (contentObj.html !== undefined) cleanBlockContent.html = String(contentObj.html);
               if (contentObj.text !== undefined) cleanBlockContent.text = String(contentObj.text);
               if (contentObj.items !== undefined) cleanBlockContent.items = Array.isArray(contentObj.items) ? contentObj.items.map(String) : [String(contentObj.items)];
               if (contentObj.url !== undefined) cleanBlockContent.url = String(contentObj.url);
