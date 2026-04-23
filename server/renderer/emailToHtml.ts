@@ -275,7 +275,7 @@ function renderImage(c: any, bg?: BlockBg): string {
   const inner = isFullWidth
     ? `<img src="${esc(src)}" alt="${esc(c.alt || "")}" width="${imgWidth}" style="${imgStyle}" />${caption}`
     : `<div style="${alignStyle}"><img src="${esc(src)}" alt="${esc(c.alt || "")}" width="${imgWidth}" style="${imgStyle}" /></div>${caption}`;
-  return row(inner, "#ffffff", "16px 24px", bg);
+  return row(inner, "#ffffff", isFullWidth ? "0" : "16px 24px", bg);
 }
 
 /** Hero block — full-width image with optional headline below it */
