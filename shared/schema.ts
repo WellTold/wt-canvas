@@ -364,6 +364,7 @@ export const keywords = pgTable("keywords", {
   priority: text("priority").notNull().default("supporting"), // primary | supporting
   contentTypeTarget: text("content_type_target"), // blog_article | landing_page | lead_magnet
   status: text("status").notNull().default("untargeted"), // untargeted | in_progress | published
+  contentItemId: text("content_item_id"), // linked content item (local int id or Supabase UUID)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

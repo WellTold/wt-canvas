@@ -100,6 +100,8 @@ export interface GenerateArticleParams {
   articleAngle?: string | null;
   metaDescription?: string;
   additionalInstructions?: string;
+  internalLinks?: Array<{ title: string; url: string; keyword: string | null }>;
+  shopifyProducts?: Array<{ title: string; handle: string; price: string; description: string }>;
   template?: {
     templateId?: string;
     systemPrompt?: string;
@@ -296,6 +298,8 @@ export async function generateCompleteArticle({
   articleAngle,
   metaDescription,
   additionalInstructions,
+  internalLinks,
+  shopifyProducts,
   template,
 }: GenerateArticleParams) {
   try {
@@ -335,6 +339,21 @@ export async function generateCompleteArticle({
     const baseSystemPrompt =
       template?.systemPrompt || `You are an expert content writer specializing in content creation.`;
 
+    let internalLinksContext = "";
+    if (internalLinks && internalLinks.length > 0) {
+      internalLinksContext = `\n\nINTERNAL LINKS — where relevant, link to these published pages using their exact URLs. Only link where it adds value; do not force links:\n${internalLinks
+        .slice(0, 20)
+        .map((l) => `- "${l.title}"${l.keyword ? ` (keyword: ${l.keyword})` : ""} → ${l.url}`)
+        .join("\n")}`;
+    }
+
+    let shopifyProductsContext = "";
+    if (shopifyProducts && shopifyProducts.length > 0) {
+      shopifyProductsContext = `\n\nSHOPIFY PRODUCTS — these are real products from the store. Reference them naturally where relevant (e.g. in gift guides or product comparisons). Use their Shopify handle to build URLs like /products/{handle}:\n${shopifyProducts
+        .map((p) => `- "${p.title}" (${p.price}) → /products/${p.handle}`)
+        .join("\n")}`;
+    }
+
     const systemPrompt = `${baseSystemPrompt} Respond only with valid JSON.
 
 ${template?.existingContent ? "Reformat and incorporate the existing content into" : "Create"} high-quality, engaging content for this ${contentType}.
@@ -354,7 +373,7 @@ Content Generation Rules:
 
 Keywords:
 - Primary keyword (optimise H1, meta title, meta description, first paragraph, and key subheadings): ${primaryKeyword || "not specified"}${supportingKeywords ? `\n- Supporting keywords (weave in naturally, do not force): ${supportingKeywords}` : ""}
-Meta description context: ${metaDescription || "not specified"}${articleAngle ? `\n\nContent angle / tone direction: ${articleAngle}\nAngle guidance: ${ARTICLE_ANGLE_DEFINITIONS[articleAngle] ?? ""}` : ""}${existingContentContext}`;
+Meta description context: ${metaDescription || "not specified"}${articleAngle ? `\n\nContent angle / tone direction: ${articleAngle}\nAngle guidance: ${ARTICLE_ANGLE_DEFINITIONS[articleAngle] ?? ""}` : ""}${internalLinksContext}${shopifyProductsContext}${existingContentContext}`;
 
     const userPrompt = `Create a comprehensive ${contentType} titled "${title}" as a JSON array of blocks.
 

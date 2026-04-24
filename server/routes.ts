@@ -5,7 +5,8 @@ import { storage } from "./storage";
 import { seedUsers } from "./services/auth";
 import { insertContentItemSchema, insertContentBlockSchema, blockPresets, siteSettings, integrations, insertIntegrationSchema, emailStyles, insertEmailStyleSchema, insertKeywordSchema } from "@shared/schema";
 import { z } from "zod";
-import { improveContent, refineContent, generateTitle, generateMetaDescription, generateSection, suggestKeywords } from "./services/claude";
+import { improveContent, refineContent, generateTitle, generateMetaDescription, generateSection, suggestKeywords, generateCompleteArticle } from "./services/claude";
+import { fetchProductList, isShopifyConfigured } from "./services/shopify";
 import { supabaseLegacyPublisher } from "./services/supabase-legacy";
 import { markdownToHtml } from "./utils/markdown";
 import { COMPONENT_REGISTRY } from "./config/componentRegistry";
@@ -2111,6 +2112,178 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
     } catch (err) {
       res.status(500).json({ message: (err as Error).message });
     }
+  });
+
+  // ── Keyword Batch Generation ──────────────────────────────────────────────────
+  interface BatchJobItem {
+    keywordId: number;
+    keyword: string;
+    status: "pending" | "processing" | "done" | "error";
+    contentItemId?: string;
+    title?: string;
+    error?: string;
+  }
+  interface BatchJob {
+    total: number;
+    completed: number;
+    items: BatchJobItem[];
+    startedAt: number;
+  }
+  const batchJobs = new Map<string, BatchJob>();
+
+  async function getInternalLinksIndex(): Promise<Array<{ title: string; url: string; keyword: string | null }>> {
+    try {
+      const tables = ["blog_articles", "landing_pages", "lead_magnets"];
+      const allLinks: Array<{ title: string; url: string; keyword: string | null }> = [];
+      for (const table of tables) {
+        const { data } = await supabaseClient
+          .from(table)
+          .select("title, slug, focus_keyword")
+          .eq("status", "published")
+          .limit(50);
+        if (data) {
+          for (const row of data) {
+            allLinks.push({
+              title: row.title || "",
+              url: `/pages/${row.slug || ""}`,
+              keyword: row.focus_keyword || null,
+            });
+          }
+        }
+      }
+      return allLinks;
+    } catch {
+      return [];
+    }
+  }
+
+  async function runBatchGeneration(job: BatchJob, authorId: string) {
+    const internalLinks = await getInternalLinksIndex();
+    const shopifyAvailable = await isShopifyConfigured().catch(() => false);
+
+    for (const item of job.items) {
+      item.status = "processing";
+      try {
+        const kw = await storage.getKeyword(item.keywordId);
+        if (!kw) throw new Error("Keyword not found");
+
+        const targetType = kw.contentTypeTarget || "blog_article";
+
+        let shopifyProducts: Array<{ title: string; handle: string; price: string; description: string }> = [];
+        if (shopifyAvailable) {
+          try {
+            const result = await fetchProductList(5, kw.keyword);
+            shopifyProducts = result.items.map((p) => ({
+              title: p.title,
+              handle: p.handle,
+              price: `${p.currencyCode} ${p.price}`,
+              description: "",
+            }));
+          } catch {
+            shopifyProducts = [];
+          }
+        }
+
+        const title = await generateTitle(kw.keyword, targetType, kw.keyword).catch(
+          () => `${kw.keyword.charAt(0).toUpperCase() + kw.keyword.slice(1)}: A Complete Guide`
+        );
+
+        const { sections } = await generateCompleteArticle({
+          title,
+          type: targetType,
+          primaryKeyword: kw.keyword,
+          supportingKeywords: undefined,
+          articleAngle: kw.articleAngle ?? undefined,
+          internalLinks,
+          shopifyProducts,
+        });
+
+        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+        const created = await storage.createContentItem({
+          title,
+          slug,
+          type: targetType,
+          status: "draft",
+          approvalStatus: "pending",
+          content: sections as any,
+          primaryKeyword: kw.keyword,
+          authorId,
+        });
+
+        const contentId = String(created.id);
+        await storage.updateKeyword(kw.id, { contentItemId: contentId, status: "in_progress" });
+
+        item.status = "done";
+        item.contentItemId = contentId;
+        item.title = title;
+      } catch (err) {
+        item.status = "error";
+        item.error = (err as Error).message;
+        console.error(`Batch generation error for keyword ${item.keywordId}:`, err);
+      }
+      job.completed++;
+    }
+  }
+
+  app.post("/api/keywords/batch-create", requireAuth, async (req, res) => {
+    try {
+      const { n = 3, clusterFilter } = req.body as { n?: number; clusterFilter?: string };
+      const count = Math.min(Math.max(Math.floor(n) || 1, 1), 10);
+      const authorId = (req as any).user?.id || "batch-ai";
+
+      const filters: Record<string, string> = { status: "untargeted" };
+      if (clusterFilter) filters.cluster = clusterFilter;
+      const candidates = await storage.getKeywords(filters);
+
+      const picked = candidates
+        .sort((a, b) => {
+          if (a.priority === "primary" && b.priority !== "primary") return -1;
+          if (b.priority === "primary" && a.priority !== "primary") return 1;
+          return (b.volume ?? 0) - (a.volume ?? 0);
+        })
+        .slice(0, count);
+
+      if (picked.length === 0) {
+        return res.status(400).json({ message: "No untargeted keywords available" });
+      }
+
+      const jobId = `batch_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const job: BatchJob = {
+        total: picked.length,
+        completed: 0,
+        startedAt: Date.now(),
+        items: picked.map((kw) => ({
+          keywordId: kw.id,
+          keyword: kw.keyword,
+          status: "pending",
+        })),
+      };
+      batchJobs.set(jobId, job);
+
+      // Run in background — do not await
+      runBatchGeneration(job, authorId).catch((err) =>
+        console.error("Batch generation fatal error:", err)
+      );
+
+      // Clean up old jobs after 1 hour
+      setTimeout(() => batchJobs.delete(jobId), 3_600_000);
+
+      res.json({ jobId, total: picked.length, keywords: picked.map((k) => k.keyword) });
+    } catch (err) {
+      res.status(500).json({ message: (err as Error).message });
+    }
+  });
+
+  app.get("/api/keywords/batch-status/:jobId", requireAuth, (req, res) => {
+    const job = batchJobs.get(req.params.jobId);
+    if (!job) return res.status(404).json({ message: "Job not found or expired" });
+    res.json({
+      total: job.total,
+      completed: job.completed,
+      done: job.completed >= job.total,
+      items: job.items,
+    });
   });
 
   // ── Page Recommendation ──────────────────────────────────────────────────────

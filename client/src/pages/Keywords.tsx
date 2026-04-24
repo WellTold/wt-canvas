@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -22,8 +22,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Trash2, Pencil, Plus, Upload, Sparkles, Check, X } from "lucide-react";
+import { Trash2, Pencil, Plus, Upload, Sparkles, Check, X, ExternalLink, Loader2, Zap, LayoutList, Library } from "lucide-react";
 import type { Keyword } from "@shared/schema";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -259,6 +265,23 @@ export default function Keywords() {
   const [suggestCluster, setSuggestCluster] = useState("");
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
 
+  // ── Tabs & Content Plan ─────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<"library" | "plan">("library");
+  const [planClusterFilter, setPlanClusterFilter] = useState("");
+
+  // ── Batch generation ────────────────────────────────────────────────────────
+  const [showBatchDialog, setShowBatchDialog] = useState(false);
+  const [batchN, setBatchN] = useState(3);
+  const [batchClusterFilter, setBatchClusterFilter] = useState("");
+  const [batchJobId, setBatchJobId] = useState<string | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{
+    total: number;
+    completed: number;
+    done: boolean;
+    items: Array<{ keywordId: number; keyword: string; status: string; title?: string; contentItemId?: string; error?: string }>;
+  } | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const buildQuery = () => {
     const params = new URLSearchParams();
     if (filterCluster) params.set("cluster", filterCluster);
@@ -391,6 +414,45 @@ export default function Keywords() {
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
+
+  const batchMutation = useMutation({
+    mutationFn: async ({ n, clusterFilter }: { n: number; clusterFilter?: string }) => {
+      const res = await checkResponse(await apiRequest("POST", "/api/keywords/batch-create", { n, clusterFilter }));
+      return res.json() as Promise<{ jobId: string; total: number; keywords: string[] }>;
+    },
+    onSuccess: (data) => {
+      setBatchJobId(data.jobId);
+      setBatchProgress({ total: data.total, completed: 0, done: false, items: data.keywords.map((k, i) => ({ keywordId: i, keyword: k, status: "pending" })) });
+      toast({ title: `Generating ${data.total} article${data.total !== 1 ? "s" : ""}…`, description: "This may take a few minutes." });
+    },
+    onError: (err: Error) => toast({ title: "Batch failed", description: err.message, variant: "destructive" }),
+  });
+
+  useEffect(() => {
+    if (!batchJobId) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await apiRequest("GET", `/api/keywords/batch-status/${batchJobId}`);
+        const data = await res.json();
+        setBatchProgress(data);
+        if (data.done) {
+          clearInterval(interval);
+          pollIntervalRef.current = null;
+          queryClient.invalidateQueries({ queryKey: ["/api/keywords"] });
+          const doneCount = data.items.filter((i: any) => i.status === "done").length;
+          const errCount = data.items.filter((i: any) => i.status === "error").length;
+          toast({
+            title: `Batch complete: ${doneCount} created${errCount ? `, ${errCount} failed` : ""}`,
+          });
+        }
+      } catch {
+        clearInterval(interval);
+        pollIntervalRef.current = null;
+      }
+    }, 4000);
+    pollIntervalRef.current = interval;
+    return () => clearInterval(interval);
+  }, [batchJobId]);
 
   const handleBulkSubmit = () => {
     const lines = bulkText
@@ -555,40 +617,317 @@ export default function Keywords() {
     setEditRow({ ...BLANK_ROW });
   };
 
+  // Content plan helpers
+  const allClusters = Array.from(new Set(keywords.map((k) => k.cluster).filter(Boolean))) as string[];
+
+  const planKeywords = keywords
+    .filter((k) => !planClusterFilter || k.cluster === planClusterFilter)
+    .sort((a, b) => {
+      if (a.priority === "primary" && b.priority !== "primary") return -1;
+      if (b.priority === "primary" && a.priority !== "primary") return 1;
+      const clusterCmp = (a.cluster ?? "").localeCompare(b.cluster ?? "");
+      if (clusterCmp !== 0) return clusterCmp;
+      return (b.volume ?? 0) - (a.volume ?? 0);
+    });
+
+  const planGrouped = planKeywords.reduce((acc, kw) => {
+    const key = kw.cluster || "Unclustered";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(kw);
+    return acc;
+  }, {} as Record<string, Keyword[]>);
+
+  const contentItemUrl = (contentItemId: string) => {
+    const isNumeric = /^\d+$/.test(contentItemId);
+    if (isNumeric) return `/content/${contentItemId}`;
+    return `/pages/builder?id=${contentItemId}`;
+  };
+
+  const untargetedCount = keywords.filter((k) => k.status === "untargeted").length;
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Keyword Library</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage your SEO keyword bank for strategic content planning</p>
+          <h1 className="text-2xl font-semibold">Keywords</h1>
+          <p className="text-sm text-gray-500 mt-1">Keyword library and content planning</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowSuggestPanel(true)}>
-            <Sparkles size={15} className="mr-1.5" />
-            AI Suggest
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()}>
-            <Upload size={15} className="mr-1.5" />
-            Import CSV
-          </Button>
-          <input ref={csvInputRef} type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
-          <Button variant="outline" size="sm" onClick={() => setShowBulkPanel(!showBulkPanel)}>
-            <Plus size={15} className="mr-1.5" />
-            Bulk Add
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => {
-              setShowAddRow(true);
-              setNewKw({ ...BLANK_ROW });
-              setEditingId(null);
-            }}
-          >
-            <Plus size={15} className="mr-1.5" />
-            Add Keyword
-          </Button>
+          {activeTab === "plan" && (
+            <Button
+              size="sm"
+              className="bg-black hover:bg-gray-800 text-white"
+              onClick={() => setShowBatchDialog(true)}
+              disabled={untargetedCount === 0}
+            >
+              <Zap size={15} className="mr-1.5" />
+              Generate Next Articles
+            </Button>
+          )}
+          {activeTab === "library" && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setShowSuggestPanel(true)}>
+                <Sparkles size={15} className="mr-1.5" />
+                AI Suggest
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()}>
+                <Upload size={15} className="mr-1.5" />
+                Import CSV
+              </Button>
+              <input ref={csvInputRef} type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
+              <Button variant="outline" size="sm" onClick={() => setShowBulkPanel(!showBulkPanel)}>
+                <Plus size={15} className="mr-1.5" />
+                Bulk Add
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setShowAddRow(true);
+                  setNewKw({ ...BLANK_ROW });
+                  setEditingId(null);
+                }}
+              >
+                <Plus size={15} className="mr-1.5" />
+                Add Keyword
+              </Button>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 dark:border-gray-700">
+        <button
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "library" ? "border-black text-black dark:border-white dark:text-white" : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+          onClick={() => setActiveTab("library")}
+        >
+          <Library size={14} />
+          Keyword Library
+          <span className="ml-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded-full">{keywords.length}</span>
+        </button>
+        <button
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "plan" ? "border-black text-black dark:border-white dark:text-white" : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+          onClick={() => setActiveTab("plan")}
+        >
+          <LayoutList size={14} />
+          Content Plan
+          {untargetedCount > 0 && (
+            <span className="ml-1 text-xs bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 px-1.5 py-0.5 rounded-full">{untargetedCount} to do</span>
+          )}
+        </button>
+      </div>
+
+      {/* Batch generation dialog */}
+      <Dialog open={showBatchDialog} onOpenChange={(v) => { if (!v) setShowBatchDialog(false); }}>
+        <DialogContent className="max-w-md border-black rounded-none bg-[#fbfaf9]">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold">Generate Next Articles</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {!batchJobId || batchProgress?.done ? (
+              <>
+                <p className="text-sm text-gray-500">
+                  AI will pick the next untargeted keywords (primary priority first, then highest volume), generate a full article for each, and save them as drafts.
+                </p>
+                <p className="text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-3 py-2">
+                  {untargetedCount} untargeted keyword{untargetedCount !== 1 ? "s" : ""} available.
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs font-bold uppercase tracking-wider mb-1.5 block">How many articles?</Label>
+                    <div className="flex gap-2 flex-wrap">
+                      {[1, 2, 3, 5, 10].filter((v) => v <= untargetedCount || v === 1).map((v) => (
+                        <button
+                          key={v}
+                          className={`px-4 py-2 text-sm border font-medium transition-all ${batchN === v ? "border-black bg-black text-white" : "border-gray-300 bg-white hover:border-black"}`}
+                          onClick={() => setBatchN(v)}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                      <Input
+                        type="number"
+                        min={1}
+                        max={Math.min(10, untargetedCount)}
+                        value={batchN}
+                        onChange={(e) => setBatchN(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
+                        className="w-20 h-9 text-sm rounded-none border-gray-300"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-bold uppercase tracking-wider mb-1.5 block">Cluster (optional)</Label>
+                    <Select value={batchClusterFilter || "all"} onValueChange={(v) => setBatchClusterFilter(v === "all" ? "" : v)}>
+                      <SelectTrigger className="h-9 text-sm rounded-none"><SelectValue placeholder="Any cluster" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Any cluster</SelectItem>
+                        {allClusters.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    className="bg-black hover:bg-gray-800 text-white rounded-none"
+                    disabled={batchMutation.isPending}
+                    onClick={() => batchMutation.mutate({ n: batchN, clusterFilter: batchClusterFilter || undefined })}
+                  >
+                    {batchMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Starting…</> : <><Zap size={15} className="mr-1.5" />Generate {batchN} article{batchN !== 1 ? "s" : ""}</>}
+                  </Button>
+                  <Button variant="outline" className="rounded-none" onClick={() => setShowBatchDialog(false)}>Cancel</Button>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-black" />
+                  <span className="text-sm font-medium">Generating {batchProgress.total} article{batchProgress.total !== 1 ? "s" : ""}…</span>
+                </div>
+                <div className="w-full bg-gray-100 dark:bg-gray-800 h-2">
+                  <div
+                    className="bg-black h-2 transition-all"
+                    style={{ width: `${batchProgress.total > 0 ? (batchProgress.completed / batchProgress.total) * 100 : 0}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500">{batchProgress.completed} of {batchProgress.total} complete</p>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {batchProgress.items.map((item, i) => (
+                    <div key={i} className="flex items-start gap-2 text-sm">
+                      {item.status === "done" && <Check size={14} className="text-green-600 mt-0.5 shrink-0" />}
+                      {item.status === "error" && <X size={14} className="text-red-500 mt-0.5 shrink-0" />}
+                      {item.status === "processing" && <Loader2 size={14} className="animate-spin text-blue-500 mt-0.5 shrink-0" />}
+                      {item.status === "pending" && <div className="w-3.5 h-3.5 rounded-full border border-gray-300 mt-0.5 shrink-0" />}
+                      <div>
+                        <span className="font-medium">{item.keyword}</span>
+                        {item.title && <span className="text-gray-500 ml-1">→ {item.title}</span>}
+                        {item.error && <p className="text-xs text-red-500">{item.error}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Button variant="outline" className="rounded-none w-full" onClick={() => { setShowBatchDialog(false); setBatchJobId(null); setBatchProgress(null); }}>
+                  Close (continues in background)
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── CONTENT PLAN TAB ─────────────────────────────────────────────────── */}
+      {activeTab === "plan" && (
+        <div className="space-y-4">
+          {/* Batch progress banner (if running) */}
+          {batchJobId && batchProgress && !batchProgress.done && (
+            <div className="flex items-center gap-3 border border-black bg-[#f0ebe7] px-4 py-3">
+              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Generating articles… {batchProgress.completed}/{batchProgress.total}</p>
+                <div className="w-full bg-gray-200 h-1.5 mt-1">
+                  <div className="bg-black h-1.5 transition-all" style={{ width: `${(batchProgress.completed / batchProgress.total) * 100}%` }} />
+                </div>
+              </div>
+              <Button size="sm" variant="outline" className="text-xs h-7 rounded-none" onClick={() => setShowBatchDialog(true)}>Details</Button>
+            </div>
+          )}
+
+          {/* Cluster filter */}
+          <div className="flex items-center gap-3">
+            <Select value={planClusterFilter || "all"} onValueChange={(v) => setPlanClusterFilter(v === "all" ? "" : v)}>
+              <SelectTrigger className="w-52 h-8 text-xs rounded-none border-black"><SelectValue placeholder="All clusters" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All clusters</SelectItem>
+                {allClusters.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <span className="text-xs text-gray-500">{planKeywords.length} keyword{planKeywords.length !== 1 ? "s" : ""} · {planKeywords.filter((k) => k.status === "untargeted").length} untargeted</span>
+          </div>
+
+          {/* Grouped clusters */}
+          {isLoading ? (
+            <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div>
+          ) : Object.keys(planGrouped).length === 0 ? (
+            <div className="border border-dashed border-gray-300 p-12 text-center text-gray-500">
+              <p className="text-sm">No keywords yet. Add some in the Keyword Library tab.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {Object.entries(planGrouped).map(([cluster, kws]) => {
+                const doneCount = kws.filter((k) => k.status === "published").length;
+                const inProgressCount = kws.filter((k) => k.status === "in_progress").length;
+                const untargetedClusterCount = kws.filter((k) => k.status === "untargeted").length;
+                return (
+                  <div key={cluster} className="border border-black overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-[#f0ebe7] border-b border-black">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold">{cluster}</span>
+                        <span className="text-xs text-gray-500">{kws.length} keyword{kws.length !== 1 ? "s" : ""}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        {doneCount > 0 && <span className="text-green-700">{doneCount} published</span>}
+                        {inProgressCount > 0 && <span className="text-blue-700">{inProgressCount} in progress</span>}
+                        {untargetedClusterCount > 0 && <span className="text-amber-700">{untargetedClusterCount} untargeted</span>}
+                      </div>
+                    </div>
+                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {kws.map((kw) => (
+                        <div key={kw.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-900 group">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium truncate">{kw.keyword}</span>
+                              {kw.volume != null && (
+                                <span className="text-xs text-gray-400 tabular-nums">{kw.volume.toLocaleString()}/mo</span>
+                              )}
+                              {kw.kd != null && (
+                                <span className={`text-xs tabular-nums ${kdColor(kw.kd)}`}>KD {kw.kd}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${PRIORITY_COLORS[kw.priority ?? "supporting"]}`}>
+                                {kw.priority === "primary" ? "Primary" : "Supporting"}
+                              </span>
+                              {kw.contentTypeTarget && (
+                                <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                                  {CONTENT_TYPE_LABELS[kw.contentTypeTarget] ?? kw.contentTypeTarget}
+                                </span>
+                              )}
+                              {kw.articleAngle && (
+                                <span className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-500 dark:text-gray-400 truncate max-w-[200px]" title={kw.articleAngle}>
+                                  {kw.articleAngle}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {kw.contentItemId ? (
+                              <a
+                                href={contentItemUrl(kw.contentItemId)}
+                                className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-2 py-1"
+                              >
+                                <ExternalLink size={11} />
+                                View article
+                              </a>
+                            ) : (
+                              <span className={`text-xs px-2 py-1 font-medium ${STATUS_COLORS[kw.status] ?? ""}`}>
+                                {kw.status === "in_progress" ? "In Progress" : kw.status.charAt(0).toUpperCase() + kw.status.slice(1)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── LIBRARY TAB ──────────────────────────────────────────────────────── */}
+      {activeTab === "library" && (
+        <div className="space-y-4">
 
       {/* Bulk paste panel */}
       {showBulkPanel && (
@@ -767,8 +1106,8 @@ export default function Keywords() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex gap-3 flex-wrap">
+        {/* Filters */}
+        <div className="flex gap-3 flex-wrap">
         <Select
           value={filterCluster || "all"}
           onValueChange={(v) => setFilterCluster(v === "all" ? "" : v)}
@@ -981,6 +1320,8 @@ export default function Keywords() {
           </TableBody>
         </Table>
       </div>
+      </div>
+      )}
     </div>
   );
 }
