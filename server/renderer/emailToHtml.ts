@@ -280,34 +280,50 @@ function renderImage(c: any, bg?: BlockBg): string {
 
 /** Hero block — full-width image with optional headline below it */
 function renderHero(c: any, bg?: BlockBg): string {
-  const src = c.imageUrl || c.url || c.src || "";
+  const src      = c.imageUrl || c.url || c.src || "";
   const headline = c.text || c.headline || "";
   const subtext  = c.subtext || c.body || "";
+  const above    = c.textPosition === "above";
+
+  // Headline style
+  const hs = c.headlineStyle || {};
+  const headlineStyleStr = textStyle(hs, {
+    fontSize: "28px", color: "#1a1a1a", fontWeight: "bold",
+    fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.25",
+  });
+  // Subtext style
+  const ss = c.subtextStyle || {};
+  const subtextStyleStr = textStyle(ss, {
+    fontSize: "15px", color: "#555555", fontWeight: "normal",
+    fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.6",
+  });
 
   const imgHtml = src
-    ? `<img src="${esc(src)}" alt="${esc(c.alt || headline || "")}" width="600" style="display:block;width:100%;height:auto;border:0;" />`
+    ? `<img src="${esc(src)}" alt="${esc(c.alt || c.imageAlt || headline || "")}" width="600" style="display:block;width:100%;height:auto;border:0;" />`
     : `<div style="background:#f0ebe7;border:2px dashed #c8bfb8;padding:60px 24px;text-align:center;color:#a09080;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;">[ No hero image selected ]</div>`;
 
   const headlineHtml = headline
-    ? `<h1 style="margin:16px 0 0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:28px;font-weight:bold;color:#1a1a1a;${c.textTransform ? `text-transform:${c.textTransform};` : ""}">${esc(headline)}</h1>`
+    ? `<h1 style="margin:0 0 ${subtext ? "10px" : "0"};${headlineStyleStr}">${esc(headline)}</h1>`
     : "";
   const subtextHtml = subtext
-    ? `<p style="margin:10px 0 0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;color:#555555;line-height:1.6;">${esc(subtext)}</p>`
+    ? `<p style="margin:0;${subtextStyleStr}">${esc(subtext)}</p>`
     : "";
 
+  const textBg  = hs.backgroundColor || ss.backgroundColor || "#ffffff";
   const textBlock = (headlineHtml || subtextHtml)
-    ? `<table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width:100%;max-width:600px;background:#ffffff;">
+    ? `<table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background:${textBg};">
     <tr><td style="padding:20px 24px;">${headlineHtml}${subtextHtml}</td></tr>
   </table>`
     : "";
 
+  const imgRow = `<table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background:#ffffff;">
+      <tr><td style="padding:0;">${imgHtml}</td></tr>
+    </table>`;
+
   return `
 <tr>
   <td align="center" style="padding:0;background-color:#f4f1ef;">
-    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background:#ffffff;">
-      <tr><td style="padding:0;">${imgHtml}</td></tr>
-    </table>
-    ${textBlock}
+    ${above ? `${textBlock}\n    ${imgRow}` : `${imgRow}\n    ${textBlock}`}
   </td>
 </tr>`;
 }

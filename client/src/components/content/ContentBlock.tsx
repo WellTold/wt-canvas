@@ -1266,17 +1266,58 @@ export function ContentBlock({
 
       // ── Web-only blocks (Tier 2) ──────────────────────────────────────────
 
-      case 'hero':
+      case 'hero': {
+        const hs = safeContent?.headlineStyle || {};
+        const ss = safeContent?.subtextStyle  || {};
+        const textPos = safeContent?.textPosition || 'below';
         return (
           <div className="space-y-3">
-            <div>
-              <Label className="text-xs">Headline</Label>
-              <Input value={safeContent?.headline || ''} onChange={(e) => onUpdate({ ...safeContent, headline: e.target.value })} placeholder="Hero headline…" className="mt-1 font-semibold text-lg" />
+            {/* Image position toggle */}
+            <div className="flex items-center gap-2">
+              <Label className="text-xs shrink-0">Text position</Label>
+              <div className="flex border border-gray-300 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => onUpdate({ ...safeContent, textPosition: 'below' })}
+                  className={`px-3 py-1 text-xs transition-colors ${textPos === 'below' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+                >
+                  Below image
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onUpdate({ ...safeContent, textPosition: 'above' })}
+                  className={`px-3 py-1 text-xs transition-colors ${textPos === 'above' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+                >
+                  Above image
+                </button>
+              </div>
             </div>
-            <div>
-              <Label className="text-xs">Subtext</Label>
-              <Textarea value={safeContent?.subtext || ''} onChange={(e) => onUpdate({ ...safeContent, subtext: e.target.value })} placeholder="Short supporting text…" rows={2} className="mt-1" />
+
+            {/* Headline */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Headline</Label>
+              <Input
+                value={safeContent?.headline || ''}
+                onChange={(e) => onUpdate({ ...safeContent, headline: e.target.value })}
+                placeholder="Hero headline…"
+                className="font-semibold text-lg"
+              />
+              {renderTextStyleFields(hs, (updated) => onUpdate({ ...safeContent, headlineStyle: updated }), 'heading')}
             </div>
+
+            {/* Subtext */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Subtext</Label>
+              <Textarea
+                value={safeContent?.subtext || ''}
+                onChange={(e) => onUpdate({ ...safeContent, subtext: e.target.value })}
+                placeholder="Short supporting text…"
+                rows={2}
+              />
+              {renderTextStyleFields(ss, (updated) => onUpdate({ ...safeContent, subtextStyle: updated }), 'text')}
+            </div>
+
+            {/* Image */}
             <div>
               <Label className="text-xs">Image</Label>
               <div className="flex gap-2 mt-1">
@@ -1285,6 +1326,8 @@ export function ContentBlock({
               </div>
               <Input value={safeContent?.imageAlt || ''} onChange={(e) => onUpdate({ ...safeContent, imageAlt: e.target.value })} placeholder="Alt text" className="mt-1 text-sm" />
             </div>
+
+            {/* CTA */}
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs">CTA Text</Label>
@@ -1295,6 +1338,7 @@ export function ContentBlock({
                 <Input value={safeContent?.ctaLink || ''} onChange={(e) => onUpdate({ ...safeContent, ctaLink: e.target.value })} placeholder="https://…" className="mt-1 text-sm" />
               </div>
             </div>
+
             {safeContent?.imageUrl && (
               <img src={safeContent.imageUrl} alt={safeContent.imageAlt || ''} className="w-full h-32 object-cover rounded border" />
             )}
@@ -1307,6 +1351,7 @@ export function ContentBlock({
             />
           </div>
         );
+      }
 
       case 'two_column': {
         const leftBlocks: any[] = Array.isArray(safeContent?.leftBlocks)  ? safeContent.leftBlocks  : [];
