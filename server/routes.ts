@@ -2230,6 +2230,9 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         const kw = await storage.getKeyword(item.keywordId);
         if (!kw) throw new Error("Keyword not found");
 
+        // Mark keyword in_progress immediately when processing starts
+        await storage.updateKeyword(kw.id, { status: "in_progress" }).catch(() => null);
+
         const targetType = kw.contentTypeTarget || "blog_article";
 
         // Cluster-scoped internal links (pages already created in the same cluster)
