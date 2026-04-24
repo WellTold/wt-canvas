@@ -132,6 +132,20 @@ export function ContentTable({ type, onEdit }: ContentTableProps) {
     },
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: (number | string)[]) => {
+      await Promise.all(ids.map(id => apiRequest("DELETE", `/api/content-items/${id}`)));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content-items"] });
+      setSelectedItems(new Set());
+      toast({ title: "Deleted", description: "Selected items have been deleted." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: `Failed to delete: ${error.message}`, variant: "destructive" });
+    },
+  });
+
   const duplicateMutation = useMutation({
     mutationFn: async (id: number | string) => {
       const response = await apiRequest("POST", `/api/content-items/${id}/duplicate`);
@@ -211,14 +225,14 @@ export function ContentTable({ type, onEdit }: ContentTableProps) {
     <div className="space-y-4">
       {/* Bulk Actions Bar */}
       {selectedItems.size > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
-          <span className="text-sm text-blue-800">
+        <div className="bg-[#f0ebe7] border border-black p-3 flex items-center justify-between gap-3">
+          <span className="text-xs font-medium">
             {selectedItems.size} item{selectedItems.size > 1 ? 's' : ''} selected
           </span>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <Select value={bulkStatus} onValueChange={setBulkStatus}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Update status to..." />
+              <SelectTrigger className="w-36 h-8 text-xs">
+                <SelectValue placeholder="Change status…" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="idea">Idea</SelectItem>
@@ -229,19 +243,51 @@ export function ContentTable({ type, onEdit }: ContentTableProps) {
                 <SelectItem value="live">Live</SelectItem>
               </SelectContent>
             </Select>
-            <Button 
+            <Button
+              size="sm"
+              className="h-8 text-xs"
               onClick={handleBulkStatusUpdate}
               disabled={!bulkStatus || bulkUpdateStatusMutation.isPending}
-              size="sm"
             >
               Update Status
             </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => setSelectedItems(new Set())}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs border-black text-red-600 hover:bg-red-50 hover:text-red-700 flex items-center gap-1.5"
+                  disabled={bulkDeleteMutation.isPending}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete {selectedItems.size > 1 ? `(${selectedItems.size})` : ""}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete {selectedItems.size} item{selectedItems.size > 1 ? 's' : ''}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete {selectedItems.size === 1 ? "this item" : `these ${selectedItems.size} items`}. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => bulkDeleteMutation.mutate(Array.from(selectedItems))}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <Button
+              variant="ghost"
               size="sm"
+              className="h-8 text-xs"
+              onClick={() => setSelectedItems(new Set())}
             >
-              Clear Selection
+              Clear
             </Button>
           </div>
         </div>
@@ -257,7 +303,7 @@ export function ContentTable({ type, onEdit }: ContentTableProps) {
             <col style={{ width: "80px" }} />
             <col style={{ width: "80px" }} />
             <col style={{ width: "90px" }} />
-            <col style={{ width: "130px" }} />
+            <col style={{ width: "110px" }} />
           </colgroup>
           <thead>
             <tr>
@@ -396,35 +442,6 @@ export function ContentTable({ type, onEdit }: ContentTableProps) {
                           <Rocket className="h-3.5 w-3.5" />
                         </Button>
                       )}
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Content</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete "{item.title}"? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteMutation.mutate(item.id)}
-                              className="bg-red-600 hover:bg-red-700"
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
                     </div>
                   </td>
                 </tr>
