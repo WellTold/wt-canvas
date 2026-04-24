@@ -447,8 +447,8 @@ export default function Keywords() {
           clearInterval(interval);
           pollIntervalRef.current = null;
           queryClient.invalidateQueries({ queryKey: ["/api/keywords"] });
-          const doneCount = data.items.filter((i: any) => i.status === "done").length;
-          const errCount = data.items.filter((i: any) => i.status === "error").length;
+          const doneCount = data.items.filter((i: { status: string }) => i.status === "done").length;
+          const errCount = data.items.filter((i: { status: string }) => i.status === "error").length;
           toast({
             title: `Batch complete: ${doneCount} created${errCount ? `, ${errCount} failed` : ""}`,
           });
@@ -915,6 +915,17 @@ export default function Keywords() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
+                              {/* Per-keyword status badge — always shown */}
+                              {kw.status === "published" && (
+                                <span className="text-xs px-2 py-0.5 font-medium bg-green-100 text-green-800 border border-green-300">Live</span>
+                              )}
+                              {kw.status === "in_progress" && (
+                                <span className="text-xs px-2 py-0.5 font-medium bg-blue-100 text-blue-800 border border-blue-300">Draft</span>
+                              )}
+                              {kw.status === "untargeted" && (
+                                <span className="text-xs px-2 py-0.5 font-medium border border-dashed border-gray-300 text-gray-400 italic">Gap</span>
+                              )}
+                              {/* Article link — shown when a content item is linked */}
                               {kw.contentItemId ? (
                                 <a
                                   href={contentItemUrl(kw.contentItemId)}
@@ -924,11 +935,7 @@ export default function Keywords() {
                                   <ExternalLink size={11} className="shrink-0" />
                                   <span className="truncate">{kw.contentItemTitle || "View article"}</span>
                                 </a>
-                              ) : (
-                                <span className="text-xs px-2 py-1 font-medium border border-dashed border-gray-300 text-gray-400 italic">
-                                  No article yet
-                                </span>
-                              )}
+                              ) : null}
                             </div>
                           </div>
                         ))}

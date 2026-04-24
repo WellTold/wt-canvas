@@ -179,6 +179,7 @@ function localRowToContentItem(row: typeof localContentItemsTable.$inferSelect):
     templateId: row.templateId || null,
     klaviyoTemplateId: row.klaviyoTemplateId || null,
     klaviyoCampaignId: row.klaviyoCampaignId || null,
+    keywordId: row.keywordId || null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     authorId: row.authorId,
@@ -493,6 +494,7 @@ export class DatabaseStorage implements IStorage {
         tags: item.tags || null,
         scheduledPublishDate: item.scheduledPublishDate || null,
         templateId: (item as any).templateId || null,
+        keywordId: (item as any).keywordId ?? null,
         authorId: item.authorId,
       }).returning();
       return localRowToContentItem(row);
@@ -589,6 +591,7 @@ export class DatabaseStorage implements IStorage {
       if (data.templateId !== undefined) updateObj.templateId = data.templateId;
       if (data.klaviyoTemplateId !== undefined) updateObj.klaviyoTemplateId = data.klaviyoTemplateId;
       if (data.klaviyoCampaignId !== undefined) updateObj.klaviyoCampaignId = data.klaviyoCampaignId;
+      if ((data as any).keywordId !== undefined) updateObj.keywordId = (data as any).keywordId;
 
       const [updated] = await db.update(localContentItemsTable)
         .set(updateObj)

@@ -417,6 +417,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Publish lifecycle: sync keyword status when content is published via this route
+      try {
+        const linkedKw = await storage.getKeywordByContentItemId(rawId);
+        if (linkedKw && linkedKw.status !== "published") {
+          await storage.updateKeyword(linkedKw.id, { status: "published" });
+        }
+      } catch {
+        // Non-fatal
+      }
+
       const baseUrl = process.env.SITE_BASE_URL || "https://welltold.design";
 
       res.json({ ...item, url: item.slug ? `${baseUrl}/pages/${item.slug}` : null });
@@ -2144,19 +2154,56 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
   }
   const batchJobs = new Map<string, BatchJob>();
 
-  // Build cluster-scoped internal links: same-cluster keywords with a linked content item
+  // Build cluster-scoped internal links: published pages in the same keyword cluster.
+  // For each linked keyword, we look up the slug from Supabase (UUID IDs) so the AI gets
+  // a proper /pages/{slug} URL rather than a raw content ID.
   async function getClusterInternalLinks(
     cluster: string | null
   ): Promise<Array<{ title: string; url: string; keyword: string | null }>> {
     try {
-      // Get same-cluster keywords that have a linked content item and are in progress or published
       const clusterKws = cluster ? await storage.getKeywords({ cluster }) : [];
-      const linked = clusterKws.filter((k) => k.contentItemId && k.contentItemTitle);
-      return linked.map((k) => ({
-        title: k.contentItemTitle!,
-        url: `/pages/${k.contentItemId}`,
-        keyword: k.keyword,
-      }));
+      // Only include keywords that already have a linked article (in progress or published)
+      const linked = clusterKws.filter(
+        (k) => k.contentItemId && k.contentItemTitle && k.status !== "untargeted"
+      );
+      if (linked.length === 0) return [];
+
+      // Separate Supabase UUIDs from local integer IDs
+      const uuids = linked
+        .filter((k) => k.contentItemId && !/^\d+$/.test(k.contentItemId!))
+        .map((k) => k.contentItemId!);
+
+      // Fetch slug + title + primary keyword from Supabase for UUID-based articles
+      const slugMap = new Map<string, { slug: string; title: string; keyword: string | null }>();
+      if (uuids.length > 0) {
+        for (const table of ["blog_articles", "landing_pages", "lead_magnets"]) {
+          const { data } = await supabaseClient
+            .from(table)
+            .select("id, title, slug, focus_keyword")
+            .eq("status", "published")
+            .in("id", uuids)
+            .limit(50);
+          if (data) {
+            for (const row of data) {
+              slugMap.set(row.id, {
+                slug: row.slug || row.id,
+                title: row.title || "",
+                keyword: row.focus_keyword || null,
+              });
+            }
+          }
+        }
+      }
+
+      return linked.map((k) => {
+        const isUuid = k.contentItemId && !/^\d+$/.test(k.contentItemId!);
+        if (isUuid && slugMap.has(k.contentItemId!)) {
+          const row = slugMap.get(k.contentItemId!)!;
+          return { title: row.title || k.contentItemTitle!, url: `/pages/${row.slug}`, keyword: row.keyword || k.keyword };
+        }
+        // Local integer IDs (email content) — use cached title and content path
+        return { title: k.contentItemTitle!, url: `/content/${k.contentItemId}`, keyword: k.keyword };
+      });
     } catch {
       return [];
     }
@@ -2217,8 +2264,9 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
           approvalStatus: "pending",
           content: sections as Array<{ id: string; type: string; order: number; content: Record<string, unknown> }>,
           primaryKeyword: kw.keyword,
+          keywordId: kw.id,
           authorId,
-        });
+        } as any);
 
         const contentId = String(created.id);
         await storage.updateKeyword(kw.id, {
