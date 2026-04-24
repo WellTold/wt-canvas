@@ -59,6 +59,7 @@ export const contentItems = pgTable("content_items", {
   templateId: text("template_id"),
   klaviyoTemplateId: text("klaviyo_template_id"),
   klaviyoCampaignId: text("klaviyo_campaign_id"),
+  keywordId: integer("keyword_id"), // FK → keywords.id for local email content items
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   authorId: text("author_id").notNull(),
@@ -365,6 +366,7 @@ export const keywords = pgTable("keywords", {
   contentTypeTarget: text("content_type_target"), // blog_article | landing_page | lead_magnet
   status: text("status").notNull().default("untargeted"), // untargeted | in_progress | published
   contentItemId: text("content_item_id"), // linked content item (local int id or Supabase UUID)
+  contentItemTitle: text("content_item_title"), // cached title of the linked article
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

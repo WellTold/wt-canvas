@@ -274,6 +274,7 @@ export interface IStorage {
   // Keywords
   getKeywords(filters?: { cluster?: string; type?: string; status?: string }): Promise<Keyword[]>;
   getKeyword(id: number): Promise<Keyword | null>;
+  getKeywordByContentItemId(contentItemId: string): Promise<Keyword | null>;
   createKeyword(keyword: InsertKeyword): Promise<Keyword>;
   createKeywordsBulk(keywords: InsertKeyword[]): Promise<Keyword[]>;
   updateKeyword(id: number, keyword: Partial<InsertKeyword>): Promise<Keyword>;
@@ -973,6 +974,13 @@ export class DatabaseStorage implements IStorage {
 
   async getKeyword(id: number): Promise<Keyword | null> {
     const [row] = await db.select().from(keywordsTable).where(eq(keywordsTable.id, id)).limit(1);
+    return row ?? null;
+  }
+
+  async getKeywordByContentItemId(contentItemId: string): Promise<Keyword | null> {
+    const [row] = await db.select().from(keywordsTable)
+      .where(eq(keywordsTable.contentItemId, contentItemId))
+      .limit(1);
     return row ?? null;
   }
 

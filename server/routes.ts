@@ -356,6 +356,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`✅ Updated content item ${id} successfully`);
+
+      // Publish lifecycle: if content is marked published, update the linked keyword status
+      if (updateData.status === "published") {
+        try {
+          const linkedKw = await storage.getKeywordByContentItemId(String(id));
+          if (linkedKw && linkedKw.status !== "published") {
+            await storage.updateKeyword(linkedKw.id, { status: "published" });
+          }
+        } catch {
+          // Non-fatal — don't fail the content update if keyword sync fails
+        }
+      }
+
       res.json(item);
     } catch (error) {
       console.error(`❌ Failed to update content item ${id}:`, error);
@@ -2131,34 +2144,25 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
   }
   const batchJobs = new Map<string, BatchJob>();
 
-  async function getInternalLinksIndex(): Promise<Array<{ title: string; url: string; keyword: string | null }>> {
+  // Build cluster-scoped internal links: same-cluster keywords with a linked content item
+  async function getClusterInternalLinks(
+    cluster: string | null
+  ): Promise<Array<{ title: string; url: string; keyword: string | null }>> {
     try {
-      const tables = ["blog_articles", "landing_pages", "lead_magnets"];
-      const allLinks: Array<{ title: string; url: string; keyword: string | null }> = [];
-      for (const table of tables) {
-        const { data } = await supabaseClient
-          .from(table)
-          .select("title, slug, focus_keyword")
-          .eq("status", "published")
-          .limit(50);
-        if (data) {
-          for (const row of data) {
-            allLinks.push({
-              title: row.title || "",
-              url: `/pages/${row.slug || ""}`,
-              keyword: row.focus_keyword || null,
-            });
-          }
-        }
-      }
-      return allLinks;
+      // Get same-cluster keywords that have a linked content item and are in progress or published
+      const clusterKws = cluster ? await storage.getKeywords({ cluster }) : [];
+      const linked = clusterKws.filter((k) => k.contentItemId && k.contentItemTitle);
+      return linked.map((k) => ({
+        title: k.contentItemTitle!,
+        url: `/pages/${k.contentItemId}`,
+        keyword: k.keyword,
+      }));
     } catch {
       return [];
     }
   }
 
   async function runBatchGeneration(job: BatchJob, authorId: string) {
-    const internalLinks = await getInternalLinksIndex();
     const shopifyAvailable = await isShopifyConfigured().catch(() => false);
 
     for (const item of job.items) {
@@ -2169,10 +2173,15 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
 
         const targetType = kw.contentTypeTarget || "blog_article";
 
+        // Cluster-scoped internal links (pages already created in the same cluster)
+        const internalLinks = await getClusterInternalLinks(kw.cluster ?? null);
+
+        // Shopify product context: search by keyword + cluster for relevance
         let shopifyProducts: Array<{ title: string; handle: string; price: string; description: string }> = [];
         if (shopifyAvailable) {
           try {
-            const result = await fetchProductList(5, kw.keyword);
+            const searchQuery = kw.cluster ? `${kw.keyword} ${kw.cluster}` : kw.keyword;
+            const result = await fetchProductList(5, searchQuery);
             shopifyProducts = result.items.map((p) => ({
               title: p.title,
               handle: p.handle,
@@ -2192,7 +2201,6 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
           title,
           type: targetType,
           primaryKeyword: kw.keyword,
-          supportingKeywords: undefined,
           articleAngle: kw.articleAngle ?? undefined,
           internalLinks,
           shopifyProducts,
@@ -2200,19 +2208,24 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
 
         const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
+        // Use typed content array — sections from generateCompleteArticle are plain JSON blocks
         const created = await storage.createContentItem({
           title,
           slug,
           type: targetType,
           status: "draft",
           approvalStatus: "pending",
-          content: sections as any,
+          content: sections as Array<{ id: string; type: string; order: number; content: Record<string, unknown> }>,
           primaryKeyword: kw.keyword,
           authorId,
         });
 
         const contentId = String(created.id);
-        await storage.updateKeyword(kw.id, { contentItemId: contentId, status: "in_progress" });
+        await storage.updateKeyword(kw.id, {
+          contentItemId: contentId,
+          contentItemTitle: title,
+          status: "in_progress",
+        });
 
         item.status = "done";
         item.contentItemId = contentId;
@@ -2236,10 +2249,13 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
       if (clusterFilter) filters.cluster = clusterFilter;
       const candidates = await storage.getKeywords(filters);
 
+      // Sort: primary priority first → then by cluster (alphabetical) → then by volume desc
       const picked = candidates
         .sort((a, b) => {
           if (a.priority === "primary" && b.priority !== "primary") return -1;
           if (b.priority === "primary" && a.priority !== "primary") return 1;
+          const clusterCmp = (a.cluster ?? "").localeCompare(b.cluster ?? "");
+          if (clusterCmp !== 0) return clusterCmp;
           return (b.volume ?? 0) - (a.volume ?? 0);
         })
         .slice(0, count);

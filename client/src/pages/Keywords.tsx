@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Trash2, Pencil, Plus, Upload, Sparkles, Check, X, ExternalLink, Loader2, Zap, LayoutList, Library } from "lucide-react";
+import { Trash2, Pencil, Plus, Upload, Sparkles, Check, X, ExternalLink, Loader2, Zap, LayoutList, Library, ChevronRight, ChevronDown } from "lucide-react";
 import type { Keyword } from "@shared/schema";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -268,6 +268,14 @@ export default function Keywords() {
   // ── Tabs & Content Plan ─────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"library" | "plan">("library");
   const [planClusterFilter, setPlanClusterFilter] = useState("");
+  const [collapsedClusters, setCollapsedClusters] = useState<Set<string>>(new Set());
+
+  const toggleCluster = (cluster: string) =>
+    setCollapsedClusters((prev) => {
+      const next = new Set(prev);
+      next.has(cluster) ? next.delete(cluster) : next.add(cluster);
+      return next;
+    });
 
   // ── Batch generation ────────────────────────────────────────────────────────
   const [showBatchDialog, setShowBatchDialog] = useState(false);
@@ -728,7 +736,7 @@ export default function Keywords() {
             {!batchJobId || batchProgress?.done ? (
               <>
                 <p className="text-sm text-gray-500">
-                  AI will pick the next untargeted keywords (primary priority first, then highest volume), generate a full article for each, and save them as drafts.
+                  AI will pick the next untargeted keywords (primary priority first → then by cluster → then highest volume), generate a full article for each, and save them as drafts.
                 </p>
                 <p className="text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-3 py-2">
                   {untargetedCount} untargeted keyword{untargetedCount !== 1 ? "s" : ""} available.
@@ -856,67 +864,76 @@ export default function Keywords() {
               {Object.entries(planGrouped).map(([cluster, kws]) => {
                 const doneCount = kws.filter((k) => k.status === "published").length;
                 const inProgressCount = kws.filter((k) => k.status === "in_progress").length;
-                const untargetedClusterCount = kws.filter((k) => k.status === "untargeted").length;
+                const gapCount = kws.filter((k) => k.status === "untargeted").length;
+                const isCollapsed = collapsedClusters.has(cluster);
                 return (
                   <div key={cluster} className="border border-black overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-2.5 bg-[#f0ebe7] border-b border-black">
+                    {/* Cluster header — click anywhere to collapse/expand */}
+                    <button
+                      onClick={() => toggleCluster(cluster)}
+                      className="w-full flex items-center justify-between px-4 py-2.5 bg-[#f0ebe7] border-b border-black hover:bg-[#e8e2dd] transition-colors text-left"
+                    >
                       <div className="flex items-center gap-3">
-                        <span className="text-sm font-bold">{cluster}</span>
+                        {isCollapsed ? <ChevronRight size={14} className="shrink-0" /> : <ChevronDown size={14} className="shrink-0" />}
+                        <span className="text-sm font-bold">{cluster || "Uncategorised"}</span>
                         <span className="text-xs text-gray-500">{kws.length} keyword{kws.length !== 1 ? "s" : ""}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                        {doneCount > 0 && <span className="text-green-700">{doneCount} published</span>}
-                        {inProgressCount > 0 && <span className="text-blue-700">{inProgressCount} in progress</span>}
-                        {untargetedClusterCount > 0 && <span className="text-amber-700">{untargetedClusterCount} untargeted</span>}
+                      <div className="flex items-center gap-2 text-xs">
+                        {doneCount > 0 && <span className="text-green-700 font-medium">{doneCount} published</span>}
+                        {inProgressCount > 0 && <span className="text-blue-700 font-medium">{inProgressCount} in progress</span>}
+                        {gapCount > 0 && <span className="text-amber-700 font-medium">{gapCount} gap{gapCount !== 1 ? "s" : ""}</span>}
                       </div>
-                    </div>
-                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                      {kws.map((kw) => (
-                        <div key={kw.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-900 group">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-medium truncate">{kw.keyword}</span>
-                              {kw.volume != null && (
-                                <span className="text-xs text-gray-400 tabular-nums">{kw.volume.toLocaleString()}/mo</span>
-                              )}
-                              {kw.kd != null && (
-                                <span className={`text-xs tabular-nums ${kdColor(kw.kd)}`}>KD {kw.kd}</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${PRIORITY_COLORS[kw.priority ?? "supporting"]}`}>
-                                {kw.priority === "primary" ? "Primary" : "Supporting"}
-                              </span>
-                              {kw.contentTypeTarget && (
-                                <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-                                  {CONTENT_TYPE_LABELS[kw.contentTypeTarget] ?? kw.contentTypeTarget}
+                    </button>
+                    {!isCollapsed && (
+                      <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {kws.map((kw) => (
+                          <div key={kw.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-900 group">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-medium truncate">{kw.keyword}</span>
+                                {kw.volume != null && (
+                                  <span className="text-xs text-gray-400 tabular-nums">{kw.volume.toLocaleString()}/mo</span>
+                                )}
+                                {kw.kd != null && (
+                                  <span className={`text-xs tabular-nums ${kdColor(kw.kd)}`}>KD {kw.kd}</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${PRIORITY_COLORS[kw.priority ?? "supporting"]}`}>
+                                  {kw.priority === "primary" ? "Primary" : "Supporting"}
                                 </span>
-                              )}
-                              {kw.articleAngle && (
-                                <span className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-500 dark:text-gray-400 truncate max-w-[200px]" title={kw.articleAngle}>
-                                  {kw.articleAngle}
+                                {kw.contentTypeTarget && (
+                                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                                    {CONTENT_TYPE_LABELS[kw.contentTypeTarget] ?? kw.contentTypeTarget}
+                                  </span>
+                                )}
+                                {kw.articleAngle && (
+                                  <span className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-500 dark:text-gray-400 truncate max-w-[200px]" title={kw.articleAngle}>
+                                    {kw.articleAngle}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {kw.contentItemId ? (
+                                <a
+                                  href={contentItemUrl(kw.contentItemId)}
+                                  className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-2 py-1 max-w-[200px] truncate"
+                                  title={kw.contentItemTitle || "View article"}
+                                >
+                                  <ExternalLink size={11} className="shrink-0" />
+                                  <span className="truncate">{kw.contentItemTitle || "View article"}</span>
+                                </a>
+                              ) : (
+                                <span className="text-xs px-2 py-1 font-medium border border-dashed border-gray-300 text-gray-400 italic">
+                                  No article yet
                                 </span>
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {kw.contentItemId ? (
-                              <a
-                                href={contentItemUrl(kw.contentItemId)}
-                                className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-2 py-1"
-                              >
-                                <ExternalLink size={11} />
-                                View article
-                              </a>
-                            ) : (
-                              <span className={`text-xs px-2 py-1 font-medium ${STATUS_COLORS[kw.status] ?? ""}`}>
-                                {kw.status === "in_progress" ? "In Progress" : kw.status.charAt(0).toUpperCase() + kw.status.slice(1)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
