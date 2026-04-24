@@ -135,7 +135,7 @@ function textStyle(
   defaults: { color: string; fontSize: string; fontWeight: string; fontFamily: string; lineHeight: string }
 ): string {
   const parts: string[] = [
-    `font-family:${c.fontFamily || defaults.fontFamily}`,
+    `font-family:${(c.fontFamily || defaults.fontFamily).replace(/"/g, "'")}`,
     `font-size:${resolveFontSize(c.fontSize, defaults.fontSize)}`,
     `line-height:${defaults.lineHeight}`,
     `color:${c.textColor || defaults.color}`,
