@@ -53,6 +53,15 @@ function stars(n: number): string {
   return filled + empty;
 }
 
+/** Parse a CSS shorthand padding string into [top, right, bottom, left] as numbers */
+function parseDefaultPadding(s: string): [number, number, number, number] {
+  const parts = s.trim().split(/\s+/).map((p) => parseFloat(p) || 0);
+  if (parts.length === 1) return [parts[0], parts[0], parts[0], parts[0]];
+  if (parts.length === 2) return [parts[0], parts[1], parts[0], parts[1]];
+  if (parts.length === 3) return [parts[0], parts[1], parts[2], parts[1]];
+  return [parts[0], parts[1], parts[2], parts[3]];
+}
+
 // Wrapper table row at 600 px width — used by every block
 // bg: optional BlockBackground for per-block background color/image/padding
 function row(
@@ -61,10 +70,13 @@ function row(
   defaultPadding = "20px 24px",
   bg?: BlockBg
 ): string {
-  // Build padding string from individual bg padding fields if any are set
+  // Build padding string from individual bg padding fields if any are set.
+  // Use the block's own defaultPadding values as ?? fallbacks so e.g. a full-width
+  // image (defaultPadding "0") doesn't suddenly get 24px side-padding injected.
+  const [dTop, dRight, dBottom, dLeft] = parseDefaultPadding(defaultPadding);
   const hasPadding = bg && (bg.paddingTop !== undefined || bg.paddingRight !== undefined || bg.paddingBottom !== undefined || bg.paddingLeft !== undefined);
   const padding = hasPadding
-    ? `${bg!.paddingTop ?? 20}px ${bg!.paddingRight ?? 24}px ${bg!.paddingBottom ?? 20}px ${bg!.paddingLeft ?? 24}px`
+    ? `${bg!.paddingTop ?? dTop}px ${bg!.paddingRight ?? dRight}px ${bg!.paddingBottom ?? dBottom}px ${bg!.paddingLeft ?? dLeft}px`
     : defaultPadding;
   const rowBg = (bg?.color) || bgColor;
   const fallback = bg?.fallbackColor || "#ffffff";
@@ -935,7 +947,38 @@ export async function renderEmailToHtml(
   }
 
   const preheader   = opts.preheaderText || "";
-  const bodyRows    = blocks.map((b) => renderBlockToEmailHtml(b, shopifyData, opts.siteBaseUrl)).join("\n");
+
+  // ── Banner edge-flush: auto-zero the padding of any block that sits directly
+  //    adjacent to a banner, so its internal white space doesn't create a visible
+  //    "white border" next to the banner's coloured area.
+  //    Only applies when the adjacent block has NO user-set _bg overrides.
+  function hasUserBg(b: { _bg?: BlockBg }): boolean {
+    const bg = b._bg;
+    if (!bg) return false;
+    return !!(bg.color || bg.imageUrl ||
+      bg.paddingTop !== undefined || bg.paddingRight !== undefined ||
+      bg.paddingBottom !== undefined || bg.paddingLeft !== undefined);
+  }
+
+  const bodyRows = blocks.map((b, i) => {
+    const prevIsBanner = i > 0 && blocks[i - 1].type === "banner";
+    const nextIsBanner = i < blocks.length - 1 && blocks[i + 1].type === "banner";
+
+    // Banner and hero blocks are exempt — they manage their own edges
+    if (b.type === "banner" || b.type === "hero" || b.type === "spacer" || b.type === "divider") {
+      return renderBlockToEmailHtml(b, shopifyData, opts.siteBaseUrl);
+    }
+
+    if ((prevIsBanner || nextIsBanner) && !hasUserBg(b)) {
+      const autoBg: BlockBg = {};
+      if (prevIsBanner) autoBg.paddingTop = 0;
+      if (nextIsBanner) autoBg.paddingBottom = 0;
+      return renderBlockToEmailHtml({ ...b, _bg: autoBg }, shopifyData, opts.siteBaseUrl);
+    }
+
+    return renderBlockToEmailHtml(b, shopifyData, opts.siteBaseUrl);
+  }).join("\n");
+
   const headerRow   = opts.header ? renderEmailHeader(opts.header) : "";
   const footerRow   = opts.footer ? renderEmailFooter(opts.footer) : "";
   const usedGFonts  = new Set(["Plus Jakarta Sans", ...collectGoogleFonts(blocks)]);
