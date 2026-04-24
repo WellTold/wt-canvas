@@ -539,33 +539,13 @@ export function ContentBlock({
             </div>
           </div>
 
-          {/* BG image URL + min height on same row */}
-          <div className="flex gap-2">
-            <Input
-              value={o.backgroundImageUrl || ''}
-              onChange={(e) => update({ ...o, backgroundImageUrl: e.target.value })}
-              placeholder="Background image URL"
-              className="h-7 text-xs flex-1"
+          {/* Font family — not shown for banner (renderer hardcodes the font) */}
+          {blockType !== 'banner' && (
+            <FontPicker
+              value={o.fontFamily}
+              onChange={(css) => update({ ...o, fontFamily: css })}
             />
-            <div className="flex items-center gap-1 shrink-0">
-              <Label className="text-xs text-gray-500 whitespace-nowrap">H:</Label>
-              <Input
-                type="number"
-                min={0}
-                placeholder="auto"
-                value={o.minHeight ? parseInt(o.minHeight) : ''}
-                onChange={(e) => update({ ...o, minHeight: e.target.value ? `${e.target.value}px` : undefined })}
-                className="h-7 text-xs w-16"
-              />
-              <span className="text-xs text-gray-400">px</span>
-            </div>
-          </div>
-
-          {/* Font family */}
-          <FontPicker
-            value={o.fontFamily}
-            onChange={(css) => update({ ...o, fontFamily: css })}
-          />
+          )}
 
           {/* Size + icon toolbar */}
           <div className="flex items-center gap-1.5 flex-wrap">
