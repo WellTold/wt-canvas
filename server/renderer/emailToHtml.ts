@@ -228,28 +228,75 @@ function renderParagraph(c: any, bg?: BlockBg): string {
   });
   const bgColor = c.backgroundColor || "#ffffff";
 
-  // Width constraint
   const widthMode: string = c.widthMode || "full";
   const customWidth: number = Number(c.customWidth) || 0;
-  let widthCss = "";
-  if (widthMode === "px" && customWidth > 0) {
-    widthCss = `max-width:${Math.min(customWidth, 552)}px;margin-left:auto;margin-right:auto;`;
-  } else if (widthMode === "percent" && customWidth > 0) {
-    widthCss = `max-width:${customWidth}%;margin-left:auto;margin-right:auto;`;
-  }
-
-  // Min height (vertically centers content via table)
   const minH = c.minHeight ? parseInt(c.minHeight) : 0;
 
   const textEl = c.html
-    ? `<div style="margin:0;${style}${widthCss}">${c.html}</div>`
-    : `<p style="margin:0;${style}${widthCss}">${esc(c.text)}</p>`;
+    ? `<div style="margin:0;${style}">${c.html}</div>`
+    : `<p style="margin:0;${style}">${esc(c.text)}</p>`;
 
-  const inner = minH > 0
+  const textContent = minH > 0
     ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr><td style="min-height:${minH}px;height:${minH}px;vertical-align:middle;">${textEl}</td></tr></table>`
     : textEl;
 
-  return row(inner, bgColor, "20px 24px", bg);
+  // ── Inset "floating rectangle" mode ──────────────────────────────────────
+  // When a custom width is set the text renders in its own constrained inner
+  // table, allowing the outer block background (colour or image) to show on
+  // the sides — matching the look in the design reference.
+  if ((widthMode === "px" || widthMode === "percent") && customWidth > 0) {
+    const boxPx = widthMode === "px"
+      ? Math.min(customWidth, 552)
+      : Math.round(552 * customWidth / 100);
+
+    const outerBg = bg?.color || "#f4f1ef";
+    const [dTop, dRight, dBottom, dLeft] = parseDefaultPadding("20px 24px");
+    const hasBgPadding = bg && (bg.paddingTop !== undefined || bg.paddingRight !== undefined || bg.paddingBottom !== undefined || bg.paddingLeft !== undefined);
+    const outerPadding = hasBgPadding
+      ? `${bg!.paddingTop ?? dTop}px ${bg!.paddingRight ?? dRight}px ${bg!.paddingBottom ?? dBottom}px ${bg!.paddingLeft ?? dLeft}px`
+      : "20px 24px";
+    const fallback = bg?.fallbackColor || "#ffffff";
+
+    const insetTable = `<table cellpadding="0" cellspacing="0" border="0" role="presentation" align="center" width="${boxPx}" style="width:${boxPx}px;max-width:100%;background-color:${bgColor};margin:0 auto;">
+  <tr><td style="padding:20px 24px;">${textContent}</td></tr>
+</table>`;
+
+    if (bg?.imageUrl) {
+      const size = bg.imageSize === "contain" ? "contain" : "cover";
+      const vmlOpen = `<!--[if gte mso 9]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:600px;"><v:fill type="frame" src="${esc(bg.imageUrl)}" color="${esc(fallback)}" /><v:textbox inset="0,0,0,0"><![endif]-->`;
+      const vmlClose = `<!--[if gte mso 9]></v:textbox></v:rect><![endif]-->`;
+      return `
+<tr>
+  <td align="center" style="padding:0;background-color:#f4f1ef;">
+    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background-color:${esc(outerBg)};">
+      <tr>
+        <td style="padding:0;background-color:${esc(outerBg)};">
+          ${vmlOpen}
+          <div style="background-color:${esc(outerBg)};background-image:url('${esc(bg.imageUrl)}');background-size:${size};background-position:center;background-repeat:no-repeat;">
+            <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;">
+              <tr><td style="padding:${outerPadding};text-align:center;">${insetTable}</td></tr>
+            </table>
+          </div>
+          ${vmlClose}
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>`;
+    }
+
+    return `
+<tr>
+  <td align="center" style="padding:0;background-color:#f4f1ef;">
+    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background-color:${outerBg};">
+      <tr><td style="padding:${outerPadding};text-align:center;">${insetTable}</td></tr>
+    </table>
+  </td>
+</tr>`;
+  }
+
+  // ── Full-width mode (default) ─────────────────────────────────────────────
+  return row(textContent, bgColor, "20px 24px", bg);
 }
 
 function renderImage(c: any, bg?: BlockBg): string {
@@ -492,13 +539,16 @@ function renderCta(c: any, bg?: BlockBg): string {
     vmlStrokeColor = "";
   }
 
-  // Body text above the button (uses textStyle for styling fields)
+  // Body text — position is 'above' (default) or 'below' the button
+  const bodyTextPosition: string = c.bodyTextPosition || "above";
   const bodyStyle = textStyle(c, {
     color: "#333333", fontSize: "15px", fontWeight: "normal",
     fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.7",
   });
   const bodyText = c.bodyText
-    ? `<p style="margin:0 0 16px;${bodyStyle}">${esc(c.bodyText)}</p>`
+    ? bodyTextPosition === "below"
+      ? `<p style="margin:16px 0 0;${bodyStyle}">${esc(c.bodyText)}</p>`
+      : `<p style="margin:0 0 16px;${bodyStyle}">${esc(c.bodyText)}</p>`
     : "";
 
   // Button label typography — use text style fields from the editor, with sensible defaults
@@ -543,7 +593,9 @@ function renderCta(c: any, bg?: BlockBg): string {
     buttonHtml = btnTable;
   }
 
-  const inner = `${bodyText}${buttonHtml}`;
+  const inner = bodyTextPosition === "below"
+    ? `${buttonHtml}${bodyText}`
+    : `${bodyText}${buttonHtml}`;
   const bgColor = c.backgroundColor || "#ffffff";
   return row(inner, bgColor, "20px 24px", bg);
 }

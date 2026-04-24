@@ -711,23 +711,26 @@ export function ContentBlock({
                 <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="full">Full width</SelectItem>
-                  <SelectItem value="px">Custom px</SelectItem>
-                  <SelectItem value="percent">Custom %</SelectItem>
+                  <SelectItem value="px">Custom px — inset box</SelectItem>
+                  <SelectItem value="percent">Custom % — inset box</SelectItem>
                 </SelectContent>
               </Select>
               {(o.widthMode === 'px' || o.widthMode === 'percent') && (
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={o.widthMode === 'px' ? 552 : 100}
-                    value={o.customWidth || ''}
-                    onChange={(e) => onUpdate({ ...o, customWidth: parseInt(e.target.value) || undefined })}
-                    placeholder={o.widthMode === 'px' ? 'e.g. 400' : 'e.g. 75'}
-                    className="text-sm"
-                  />
-                  <span className="text-xs text-muted-foreground">{o.widthMode === 'px' ? 'px (max 552)' : '%'}</span>
-                </div>
+                <>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={o.widthMode === 'px' ? 552 : 100}
+                      value={o.customWidth || ''}
+                      onChange={(e) => onUpdate({ ...o, customWidth: parseInt(e.target.value) || undefined })}
+                      placeholder={o.widthMode === 'px' ? 'e.g. 400' : 'e.g. 75'}
+                      className="text-sm"
+                    />
+                    <span className="text-xs text-muted-foreground">{o.widthMode === 'px' ? 'px (max 552)' : '%'}</span>
+                  </div>
+                  <p className="text-xs text-gray-400">The text box floats inside the block. Set the outer band colour via "Block Background" below.</p>
+                </>
               )}
             </div>
           </div>
@@ -949,11 +952,25 @@ export function ContentBlock({
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Body Text (above button)</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Body Text</Label>
+                <div className="flex border border-gray-300 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => onUpdate({ ...o, bodyTextPosition: 'above' })}
+                    className={`px-2 py-0.5 text-xs transition-colors ${(!o.bodyTextPosition || o.bodyTextPosition === 'above') ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+                  >Above</button>
+                  <button
+                    type="button"
+                    onClick={() => onUpdate({ ...o, bodyTextPosition: 'below' })}
+                    className={`px-2 py-0.5 text-xs transition-colors ${o.bodyTextPosition === 'below' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+                  >Below</button>
+                </div>
+              </div>
               <Textarea
                 value={o.bodyText || ''}
                 onChange={(e) => onUpdate({ ...o, bodyText: e.target.value })}
-                placeholder="Optional paragraph above button…"
+                placeholder="Optional paragraph…"
                 className="min-h-[60px] resize-none text-sm"
               />
             </div>
