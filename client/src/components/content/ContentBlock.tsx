@@ -1420,40 +1420,45 @@ export function ContentBlock({
             </div>
             {safeContent?.style === 'custom' && (
               <div className="space-y-1.5">
-                <Label className="text-xs">Custom Colours</Label>
                 <div className="flex gap-2">
-                  <div className="flex gap-1 items-center flex-1 min-w-0">
-                    <input
-                      type="color"
-                      value={safeContent?.textColor || '#1a1a1a'}
-                      onChange={(e) => onUpdate({ ...safeContent, style: 'custom', textColor: e.target.value })}
-                      title="Text colour"
-                      className="h-7 w-7 cursor-pointer border border-gray-300 p-0.5 shrink-0"
-                    />
-                    <Input
-                      value={safeContent?.textColor || ''}
-                      onChange={(e) => onUpdate({ ...safeContent, style: 'custom', textColor: e.target.value })}
-                      placeholder="Text colour"
-                      className="h-7 text-xs min-w-0"
-                    />
+                  <div className="flex-1 min-w-0">
+                    <Label className="text-xs">Text colour</Label>
+                    <div className="flex gap-1 items-center mt-1">
+                      <input
+                        type="color"
+                        value={safeContent?.textColor || '#1a1a1a'}
+                        onChange={(e) => onUpdate({ ...safeContent, style: 'custom', textColor: e.target.value })}
+                        title="Text colour"
+                        className="h-7 w-7 cursor-pointer border border-gray-300 p-0.5 shrink-0"
+                      />
+                      <Input
+                        value={safeContent?.textColor || ''}
+                        onChange={(e) => onUpdate({ ...safeContent, style: 'custom', textColor: e.target.value })}
+                        placeholder="#1a1a1a"
+                        className="h-7 text-xs min-w-0"
+                      />
+                    </div>
                   </div>
-                  <div className="flex gap-1 items-center flex-1 min-w-0">
-                    <input
-                      type="color"
-                      value={safeContent?.backgroundColor || '#ffffff'}
-                      onChange={(e) => onUpdate({ ...safeContent, style: 'custom', backgroundColor: e.target.value })}
-                      title="Background colour"
-                      className="h-7 w-7 cursor-pointer border border-gray-300 p-0.5 shrink-0"
-                    />
-                    <Input
-                      value={safeContent?.backgroundColor || ''}
-                      onChange={(e) => onUpdate({ ...safeContent, style: 'custom', backgroundColor: e.target.value })}
-                      placeholder="BG colour"
-                      className="h-7 text-xs min-w-0"
-                    />
+                  <div className="flex-1 min-w-0">
+                    <Label className="text-xs">Background colour</Label>
+                    <div className="flex gap-1 items-center mt-1">
+                      <input
+                        type="color"
+                        value={safeContent?.backgroundColor || '#f0ebe7'}
+                        onChange={(e) => onUpdate({ ...safeContent, style: 'custom', backgroundColor: e.target.value })}
+                        title="Background colour"
+                        className="h-7 w-7 cursor-pointer border border-gray-300 p-0.5 shrink-0"
+                      />
+                      <Input
+                        value={safeContent?.backgroundColor || ''}
+                        onChange={(e) => onUpdate({ ...safeContent, style: 'custom', backgroundColor: e.target.value })}
+                        placeholder="#f0ebe7"
+                        className="h-7 text-xs min-w-0"
+                      />
+                    </div>
                   </div>
                 </div>
-                <p className="text-[10px] text-gray-400">Border colour follows the text colour.</p>
+                <p className="text-[10px] text-gray-400">Border colour matches your text colour.</p>
               </div>
             )}
             <div className="grid grid-cols-2 gap-2">
