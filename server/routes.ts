@@ -207,6 +207,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/content-items/:id/duplicate", requireAuth, async (req, res) => {
+    try {
+      const rawId = req.params.id;
+      const id: number | string = /^\d+$/.test(rawId) ? parseInt(rawId) : rawId;
+      const original = await storage.getContentItem(id);
+      if (!original) return res.status(404).json({ message: "Content item not found" });
+
+      const { id: _id, createdAt, updatedAt, publishedAt, klaviyoTemplateId, ...rest } = original as any;
+      const copy = await storage.createContentItem({
+        ...rest,
+        title: `Copy of ${original.title}`,
+        slug: original.slug ? `${original.slug}-copy-${Date.now()}` : null,
+        status: "draft",
+        approvalStatus: "pending",
+        authorId: req.userId,
+        scheduledPublishDate: null,
+      } as any);
+
+      // Duplicate content blocks if any
+      const blocks = await storage.getContentBlocks(typeof id === "number" ? id : parseInt(String(id)));
+      for (const block of blocks) {
+        const { id: _bid, contentItemId: _cid, createdAt: _bc, updatedAt: _bu, ...blockRest } = block as any;
+        await storage.createContentBlock({ ...blockRest, contentItemId: copy.id });
+      }
+
+      res.json(copy);
+    } catch (error) {
+      console.error("Duplicate error:", error);
+      res.status(500).json({ message: "Failed to duplicate: " + (error as Error).message });
+    }
+  });
+
   app.put("/api/content-items/:id", requireAuth, async (req, res) => {
     try {
       const rawId = req.params.id;

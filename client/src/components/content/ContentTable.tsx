@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Edit, ExternalLink, Rocket, RotateCcw, Trash2 } from "lucide-react";
+import { Copy, Edit, ExternalLink, Rocket, RotateCcw, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
@@ -125,18 +125,28 @@ export function ContentTable({ type, onEdit }: ContentTableProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/content-items"] });
-      toast({
-        title: "Success",
-        description: "Content deleted successfully",
-      });
+      toast({ title: "Success", description: "Content deleted successfully" });
     },
     onError: (error: Error) => {
-      console.error("Delete error:", error);
-      toast({
-        title: "Error",
-        description: `Failed to delete content: ${error.message}`,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: `Failed to delete: ${error.message}`, variant: "destructive" });
+    },
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: async (id: number | string) => {
+      const response = await apiRequest("POST", `/api/content-items/${id}/duplicate`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content-items"] });
+      toast({ title: "Duplicated", description: "A copy has been created as a draft." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: `Failed to duplicate: ${error.message}`, variant: "destructive" });
     },
   });
 
@@ -238,56 +248,66 @@ export function ContentTable({ type, onEdit }: ContentTableProps) {
       )}
 
       <div className="wt-table-container">
-        <table className="wt-table">
+        <table className="wt-table" style={{ tableLayout: "fixed", width: "100%" }}>
+          <colgroup>
+            <col style={{ width: "36px" }} />
+            <col style={{ width: "auto" }} />
+            <col style={{ width: "110px" }} />
+            <col style={{ width: "80px" }} />
+            <col style={{ width: "80px" }} />
+            <col style={{ width: "80px" }} />
+            <col style={{ width: "90px" }} />
+            <col style={{ width: "130px" }} />
+          </colgroup>
           <thead>
             <tr>
-              <th className="w-12 px-4">
+              <th className="!px-2 !py-2">
                 <Checkbox
                   checked={selectedItems.size === items.length && items.length > 0}
                   onCheckedChange={handleSelectAll}
                 />
               </th>
-              <th>Title</th>
-              <th>Status</th>
-              <th>Approval</th>
-              <th>Scheduled</th>
-              <th>Published</th>
-              <th>Updated</th>
-              <th>Actions</th>
+              <th className="!px-3 !py-2">Title</th>
+              <th className="!px-2 !py-2">Status</th>
+              <th className="!px-2 !py-2">Approval</th>
+              <th className="!px-2 !py-2">Sched.</th>
+              <th className="!px-2 !py-2">Pub.</th>
+              <th className="!px-2 !py-2">Updated</th>
+              <th className="!px-2 !py-2">Actions</th>
             </tr>
           </thead>
-        <tbody>
+          <tbody>
             {items.length === 0 ? (
               <tr>
                 <td colSpan={8} className="text-center py-8 text-muted-foreground">
-                  No content items found. Create your first {type.replace('_', ' ')} article!
+                  No content items found. Create your first {type.replace('_', ' ')} email!
                 </td>
               </tr>
             ) : (
               items.map((item) => (
                 <tr key={item.id}>
-                  <td className="px-4">
+                  <td className="!px-2 !py-1.5">
                     <Checkbox
                       checked={selectedItems.has(item.id)}
                       onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)}
                     />
                   </td>
-                  <td>
+                  <td className="!px-3 !py-1.5 !whitespace-normal">
                     <Link
                       href={`/content/${item.id}`}
-                      className="text-blue-600 hover:text-blue-800 hover:underline"
-                      onClick={() => console.log('🔗 Navigating to content view with ID:', item.id)}
+                      className="text-blue-600 hover:text-blue-800 hover:underline text-xs font-medium leading-snug block truncate"
+                      title={item.title}
                     >
-                      <strong>{item.title}</strong>
+                      {item.title}
                     </Link>
                   </td>
-                  <td>
-                    <Select 
-                      value={item.status} 
+                  <td className="!px-2 !py-1.5">
+                    <Select
+                      value={item.status}
                       onValueChange={(status) => handleStatusChange(item.id, status)}
                       disabled={updateStatusMutation.isPending}
                     >
-                      <SelectTrigger className="w-24 h-8 text-xs">
+                      <SelectTrigger className="w-full h-7 text-xs px-2">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -300,102 +320,115 @@ export function ContentTable({ type, onEdit }: ContentTableProps) {
                       </SelectContent>
                     </Select>
                   </td>
-                  <td>
-                    <div className={`wt-status-badge wt-status-${item.approvalStatus === 'approved' ? 'approved' : 'idea'}`}>
+                  <td className="!px-2 !py-1.5">
+                    <div className={`wt-status-badge text-[10px] !px-1.5 !py-0.5 wt-status-${item.approvalStatus === 'approved' ? 'approved' : 'idea'}`}>
                       {item.approvalStatus
                         ? item.approvalStatus.charAt(0).toUpperCase() + item.approvalStatus.slice(1)
                         : 'Pending'}
                     </div>
                   </td>
-                  <td>{formatDate(item.scheduledPublishDate)}</td>
-                  <td>{formatDate(item.publishedAt)}</td>
-                  <td>{getRelativeTime(item.updatedAt)}</td>
-                <td>
-                  <div className="flex gap-2">
-                    {onEdit ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          console.log('✏️ Edit button clicked for item:', item.id, item);
-                          onEdit(item.id);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    ) : (
-                      <Link href={`/content-editor/${item.id}`}>
-                        <Button variant="outline" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                    )}
-                    {item.slug && !item.type?.includes('email') && !(item as any).contentType?.includes('email') && (
-                      <a
-                        href={`https://welltold.design/pages/${item.slug}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Button variant="outline" size="sm" title="View live page">
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      </a>
-                    )}
-                    {item.status === 'approved' && !item.publishedAt ? (
-                      <Button
-                        size="sm"
-                        onClick={() => handlePublish(item.id)}
-                        disabled={publishMutation.isPending}
-                        className="bg-black hover:bg-gray-800 text-white"
-                      >
-                        <Rocket className="h-4 w-4" />
-                      </Button>
-                    ) : item.publishedAt ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePublish(item.id)}
-                        disabled={publishMutation.isPending}
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" disabled>
-                        <Rocket className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
+                  <td className="!px-2 !py-1.5 text-xs text-muted-foreground">{formatDate(item.scheduledPublishDate)}</td>
+                  <td className="!px-2 !py-1.5 text-xs text-muted-foreground">{formatDate(item.publishedAt)}</td>
+                  <td className="!px-2 !py-1.5 text-xs text-muted-foreground">{getRelativeTime(item.updatedAt)}</td>
+                  <td className="!px-2 !py-1.5">
+                    <div className="flex gap-1">
+                      {onEdit ? (
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          className="h-7 w-7 p-0"
+                          title="Edit"
+                          onClick={() => onEdit(item.id)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Edit className="h-3.5 w-3.5" />
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Content</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to delete "{item.title}"? This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => deleteMutation.mutate(item.id)}
-                            className="bg-red-600 hover:bg-red-700"
+                      ) : (
+                        <Link href={`/content-editor/${item.id}`}>
+                          <Button variant="outline" size="sm" className="h-7 w-7 p-0" title="Edit">
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                        </Link>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        title="Duplicate"
+                        disabled={duplicateMutation.isPending}
+                        onClick={() => duplicateMutation.mutate(item.id)}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                      {item.slug && !item.type?.includes('email') && !(item as any).contentType?.includes('email') && (
+                        <a
+                          href={`https://welltold.design/pages/${item.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button variant="outline" size="sm" className="h-7 w-7 p-0" title="View live page">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Button>
+                        </a>
+                      )}
+                      {item.status === 'approved' && !item.publishedAt ? (
+                        <Button
+                          size="sm"
+                          className="h-7 w-7 p-0 bg-black hover:bg-gray-800 text-white"
+                          title="Publish"
+                          onClick={() => handlePublish(item.id)}
+                          disabled={publishMutation.isPending}
+                        >
+                          <Rocket className="h-3.5 w-3.5" />
+                        </Button>
+                      ) : item.publishedAt ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          title="Republish"
+                          onClick={() => handlePublish(item.id)}
+                          disabled={publishMutation.isPending}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </Button>
+                      ) : (
+                        <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled>
+                          <Rocket className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Delete"
                           >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </td>
-              </tr>
-            ))
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Content</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{item.title}"? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteMutation.mutate(item.id)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>
