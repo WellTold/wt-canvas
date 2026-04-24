@@ -814,8 +814,8 @@ export default function Keywords() {
                     </div>
                   ))}
                 </div>
-                <Button variant="outline" className="rounded-none w-full" onClick={() => { setShowBatchDialog(false); setBatchJobId(null); setBatchProgress(null); }}>
-                  Close (continues in background)
+                <Button variant="outline" className="rounded-none w-full" onClick={() => setShowBatchDialog(false)}>
+                  Hide (continues in background)
                 </Button>
               </div>
             )}

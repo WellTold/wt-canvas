@@ -2301,8 +2301,8 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
 
   app.post("/api/keywords/batch-create", requireAuth, async (req, res) => {
     try {
-      // Support both `count` (spec) and legacy `n` field
-      const { n, count: countParam = 3, clusterFilter } = req.body as { n?: number; count?: number; clusterFilter?: string };
+      // Support both `count` (spec) and legacy `n` field — no default in destructure to avoid masking
+      const { n, count: countParam, clusterFilter } = req.body as { n?: number; count?: number; clusterFilter?: string };
       const count = Math.min(Math.max(Math.floor(countParam ?? n ?? 3) || 1, 1), 10);
       const authorId = (req as any).user?.id || "batch-ai";
 
