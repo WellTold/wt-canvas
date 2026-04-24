@@ -278,7 +278,7 @@ function renderImage(c: any, bg?: BlockBg): string {
   return row(inner, "#ffffff", isFullWidth ? "0" : "16px 24px", bg);
 }
 
-/** Hero block — full-width image with optional headline below it */
+/** Hero block — full-width image with optional headline above or below */
 function renderHero(c: any, bg?: BlockBg): string {
   const src      = c.imageUrl || c.url || c.src || "";
   const headline = c.text || c.headline || "";
@@ -309,21 +309,28 @@ function renderHero(c: any, bg?: BlockBg): string {
     ? `<p style="margin:0;${subtextStyleStr}">${esc(subtext)}</p>`
     : "";
 
-  const textBg  = hs.backgroundColor || ss.backgroundColor || "#ffffff";
-  const textBlock = (headlineHtml || subtextHtml)
-    ? `<table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background:${textBg};">
-    <tr><td style="padding:20px 24px;">${headlineHtml}${subtextHtml}</td></tr>
-  </table>`
-    : "";
+  // Text section background and padding — _bg padding applies here
+  const textBg = hs.backgroundColor || ss.backgroundColor || "#ffffff";
+  const hasBgPadding = bg && (bg.paddingTop !== undefined || bg.paddingRight !== undefined || bg.paddingBottom !== undefined || bg.paddingLeft !== undefined);
+  const textPadding = hasBgPadding
+    ? `${bg!.paddingTop ?? 20}px ${bg!.paddingRight ?? 24}px ${bg!.paddingBottom ?? 20}px ${bg!.paddingLeft ?? 24}px`
+    : "20px 24px";
 
-  const imgRow = `<table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background:#ffffff;">
-      <tr><td style="padding:0;">${imgHtml}</td></tr>
-    </table>`;
+  // Outer email-body background — use _bg.color only for the background strip, never white-pollutes the image row
+  const outerBg = bg?.color || "#f4f1ef";
+
+  // Single table, two rows — no inter-table gap in email clients
+  const imgRow  = `<tr><td style="padding:0;font-size:0;line-height:0;">${imgHtml}</td></tr>`;
+  const textRow = (headlineHtml || subtextHtml)
+    ? `<tr><td style="padding:${textPadding};background-color:${textBg};">${headlineHtml}${subtextHtml}</td></tr>`
+    : "";
 
   return `
 <tr>
-  <td align="center" style="padding:0;background-color:#f4f1ef;">
-    ${above ? `${textBlock}\n    ${imgRow}` : `${imgRow}\n    ${textBlock}`}
+  <td align="center" style="padding:0;background-color:${outerBg};">
+    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background-color:#ffffff;">
+      ${above ? `${textRow}${imgRow}` : `${imgRow}${textRow}`}
+    </table>
   </td>
 </tr>`;
 }
@@ -348,15 +355,15 @@ function renderBanner(c: any, bg?: BlockBg): string {
   const inner = c.html
     ? `<div style="margin:0;${bannerBaseStyle}">${c.html}</div>${link}`
     : `<p style="margin:0;${bannerBaseStyle}">${esc(c.text || "")}</p>${link}`;
-  // Outer wrapper: respect block-level _bg colour and padding just like other blocks via row()
-  const outerBgColor = bg?.color || "#f4f1ef";
+  // Outer wrapper: always use the email body background (#f4f1ef) — banner manages its own interior colour.
+  // Only _bg padding is respected (not _bg colour) to avoid white outer gaps.
   const hasBgPadding = bg && (bg.paddingTop !== undefined || bg.paddingRight !== undefined || bg.paddingBottom !== undefined || bg.paddingLeft !== undefined);
   const outerPadding = hasBgPadding
     ? `${bg!.paddingTop ?? 0}px ${bg!.paddingRight ?? 0}px ${bg!.paddingBottom ?? 0}px ${bg!.paddingLeft ?? 0}px`
     : "0";
   return `
 <tr>
-  <td align="center" style="padding:${outerPadding};background-color:${outerBgColor};">
+  <td align="center" style="padding:${outerPadding};background-color:#f4f1ef;">
     <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background-color:${bannerBg};border-top:2px solid ${bannerBorder};border-bottom:2px solid ${bannerBorder};">
       <tr>
         <td style="padding:14px 24px;">${inner}</td>
