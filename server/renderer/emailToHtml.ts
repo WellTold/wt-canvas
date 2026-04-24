@@ -221,6 +221,33 @@ function renderHeading(c: any, bg?: BlockBg): string {
   return row(`<${tag} style="margin:0;${style}">${headingContent}</${tag}>`, bgColor, "20px 24px", bg);
 }
 
+/** Post-process HTML: replace every <a> tag's styles with inline button styles */
+function buttonifyLinks(html: string, opts: {
+  btnBg: string; btnColor: string; radius: string; fontFamily: string; fontSize: string;
+}): string {
+  const radiusMap: Record<string, string> = { sharp: "0px", rounded: "4px", pill: "999px" };
+  const r = radiusMap[opts.radius] ?? opts.radius ?? "0px";
+  const btnStyle = [
+    "display:inline-block",
+    "padding:10px 20px",
+    `background-color:${opts.btnBg}`,
+    `color:${opts.btnColor}`,
+    "text-decoration:none",
+    `border-radius:${r}`,
+    `font-family:${opts.fontFamily}`,
+    `font-size:${opts.fontSize}`,
+    "font-weight:bold",
+    "line-height:1.4",
+  ].join(";");
+  // Strip any existing style/color attrs on <a> then inject button style
+  return html.replace(/<a(\s[^>]*)?>/gi, (_, attrs: string = "") => {
+    const clean = attrs
+      .replace(/\s*style="[^"]*"/gi, "")
+      .replace(/\s*color="[^"]*"/gi, "");
+    return `<a${clean} style="${btnStyle}">`;
+  });
+}
+
 function renderParagraph(c: any, bg?: BlockBg): string {
   const style = textStyle(c, {
     color: "#333333", fontSize: "15px",
@@ -232,9 +259,30 @@ function renderParagraph(c: any, bg?: BlockBg): string {
   const customWidth: number = Number(c.customWidth) || 0;
   const minH = c.minHeight ? parseInt(c.minHeight) : 0;
 
-  const textEl = c.html
-    ? `<div style="margin:0;${style}">${c.html}</div>`
-    : `<p style="margin:0;${style}">${esc(c.text)}</p>`;
+  // ── Link button styling ───────────────────────────────────────────────────
+  // "reverse" defaults: button bg = text colour, button text = block bg colour
+  const linkStyle: string = c.linkStyle || "underline";
+  const resolvedFamily = (c.fontFamily || "'Plus Jakarta Sans',Arial,sans-serif").replace(/"/g, "'");
+  const resolvedSize   = resolveFontSize(c.fontSize, "15px");
+
+  function processHtml(raw: string): string {
+    if (linkStyle !== "button") return raw;
+    const btnBg    = c.linkButtonBg    || c.color           || "#333333";
+    const btnColor = c.linkButtonColor || c.backgroundColor || "#ffffff";
+    return buttonifyLinks(raw, {
+      btnBg, btnColor,
+      radius: c.linkButtonRadius || "sharp",
+      fontFamily: resolvedFamily,
+      fontSize:   resolvedSize,
+    });
+  }
+
+  const rawHtml = c.html || (c.text ? c.text.split(/\n\n+/).map((p: string) => `<p>${p}</p>`).join("") : "");
+  const processedHtml = processHtml(rawHtml);
+
+  const textEl = c.html || c.text
+    ? `<div style="margin:0;${style}">${processedHtml}</div>`
+    : "";
 
   const textContent = minH > 0
     ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr><td style="min-height:${minH}px;height:${minH}px;vertical-align:middle;">${textEl}</td></tr></table>`

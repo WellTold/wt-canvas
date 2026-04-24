@@ -733,6 +733,74 @@ export function ContentBlock({
                 </>
               )}
             </div>
+
+            {/* Link style */}
+            <div className="space-y-2 pt-2 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Links</p>
+              <div className="flex border border-gray-300 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => onUpdate({ ...o, linkStyle: 'underline' })}
+                  className={`flex-1 py-1 text-xs transition-colors ${(!o.linkStyle || o.linkStyle === 'underline') ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+                >Underline</button>
+                <button
+                  type="button"
+                  onClick={() => onUpdate({ ...o, linkStyle: 'button' })}
+                  className={`flex-1 py-1 text-xs transition-colors ${o.linkStyle === 'button' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+                >Button</button>
+              </div>
+              {o.linkStyle === 'button' && (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Button BG</Label>
+                      <div className="flex gap-1">
+                        <input
+                          type="color"
+                          value={o.linkButtonBg || o.color || '#333333'}
+                          onChange={(e) => onUpdate({ ...o, linkButtonBg: e.target.value })}
+                          className="h-8 w-8 p-0.5 border border-gray-300 cursor-pointer flex-shrink-0"
+                        />
+                        <Input
+                          value={o.linkButtonBg || o.color || '#333333'}
+                          onChange={(e) => onUpdate({ ...o, linkButtonBg: e.target.value })}
+                          className="text-xs h-8 font-mono"
+                          placeholder="#333333"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Button Text</Label>
+                      <div className="flex gap-1">
+                        <input
+                          type="color"
+                          value={o.linkButtonColor || o.backgroundColor || '#ffffff'}
+                          onChange={(e) => onUpdate({ ...o, linkButtonColor: e.target.value })}
+                          className="h-8 w-8 p-0.5 border border-gray-300 cursor-pointer flex-shrink-0"
+                        />
+                        <Input
+                          value={o.linkButtonColor || o.backgroundColor || '#ffffff'}
+                          onChange={(e) => onUpdate({ ...o, linkButtonColor: e.target.value })}
+                          className="text-xs h-8 font-mono"
+                          placeholder="#ffffff"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Corner Radius</Label>
+                    <Select value={o.linkButtonRadius || 'sharp'} onValueChange={(v) => onUpdate({ ...o, linkButtonRadius: v })}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sharp" className="text-xs">Sharp</SelectItem>
+                        <SelectItem value="rounded" className="text-xs">Rounded (4px)</SelectItem>
+                        <SelectItem value="pill" className="text-xs">Pill</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         );
       }
