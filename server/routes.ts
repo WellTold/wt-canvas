@@ -201,6 +201,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = insertContentItemSchema.parse(dataForValidation);
       const item = await storage.createContentItem(validatedData);
+
+      // Hard link: if a keywordId was provided, update the keyword with the new content item id
+      if (validatedData.keywordId) {
+        try {
+          await storage.updateKeyword(validatedData.keywordId, {
+            contentItemId: String(item.id),
+            contentItemTitle: item.title,
+            status: "in_progress",
+          });
+        } catch {
+          // Non-fatal — don't block content creation if keyword sync fails
+        }
+      }
+
       res.json(item);
     } catch (error) {
       console.error('Content item creation error:', error);
@@ -2195,15 +2209,13 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         }
       }
 
-      return linked.map((k) => {
-        const isUuid = k.contentItemId && !/^\d+$/.test(k.contentItemId!);
-        if (isUuid && slugMap.has(k.contentItemId!)) {
+      // Only emit pages we found as published in Supabase (slug-based canonical URLs)
+      return linked
+        .filter((k) => k.contentItemId && !/^\d+$/.test(k.contentItemId!) && slugMap.has(k.contentItemId!))
+        .map((k) => {
           const row = slugMap.get(k.contentItemId!)!;
           return { title: row.title || k.contentItemTitle!, url: `/pages/${row.slug}`, keyword: row.keyword || k.keyword };
-        }
-        // Local integer IDs (email content) — use cached title and content path
-        return { title: k.contentItemTitle!, url: `/content/${k.contentItemId}`, keyword: k.keyword };
-      });
+        });
     } catch {
       return [];
     }
@@ -2255,18 +2267,18 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
 
         const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-        // Use typed content array — sections from generateCompleteArticle are plain JSON blocks
+        // Create the content item — keywordId links it back to the source keyword
         const created = await storage.createContentItem({
           title,
           slug,
           type: targetType,
           status: "draft",
           approvalStatus: "pending",
-          content: sections as Array<{ id: string; type: string; order: number; content: Record<string, unknown> }>,
+          content: sections as unknown,
           primaryKeyword: kw.keyword,
           keywordId: kw.id,
           authorId,
-        } as any);
+        });
 
         const contentId = String(created.id);
         await storage.updateKeyword(kw.id, {
@@ -2289,8 +2301,9 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
 
   app.post("/api/keywords/batch-create", requireAuth, async (req, res) => {
     try {
-      const { n = 3, clusterFilter } = req.body as { n?: number; clusterFilter?: string };
-      const count = Math.min(Math.max(Math.floor(n) || 1, 1), 10);
+      // Support both `count` (spec) and legacy `n` field
+      const { n, count: countParam = 3, clusterFilter } = req.body as { n?: number; count?: number; clusterFilter?: string };
+      const count = Math.min(Math.max(Math.floor(countParam ?? n ?? 3) || 1, 1), 10);
       const authorId = (req as any).user?.id || "batch-ai";
 
       const filters: Record<string, string> = { status: "untargeted" };
