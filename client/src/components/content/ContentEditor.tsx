@@ -1309,16 +1309,16 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
     if (!s) return null;
     // Derive site base URL from logoLink in site settings (strip trailing path/slash).
     // Falls back to the canonical production domain.
-    const logoLink: string = siteSettings?.logoLink || "https://welltold.design";
+    const logoLink: string = siteSettings?.logoLink || "https://welltolddesign.com";
     let base = logoLink.replace(/\/$/, "");
     // logoLink may point to a deep path like https://welltolddesign.com/shop — strip to origin
     try {
       const u = new URL(base);
       base = u.origin;
     } catch {
-      base = "https://welltold.design";
+      base = "https://welltolddesign.com";
     }
-    return `${base}/pages/${s}`;
+    return `${base}/articles/${s}`;
   })();
 
   return (
@@ -1501,7 +1501,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                     onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/--+/g, '-'))}
                     placeholder="auto-generated-from-title"
                   />
-                  <div className="text-xs text-gray-500">welltold.design/pages/{slug || "auto-generated"}</div>
+                  <div className="text-xs text-gray-500">welltolddesign.com/articles/{slug || "auto-generated"}</div>
                 </div>
               )}
 
@@ -1634,7 +1634,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                         id="canonicalUrl"
                         value={canonicalUrl}
                         onChange={(e) => { setCanonicalUrl(e.target.value); setHasUnsavedChanges(true); }}
-                        placeholder={`https://welltold.design/pages/${currentContentItem?.slug || 'slug'}`}
+                        placeholder={`https://welltolddesign.com/articles/${currentContentItem?.slug || 'slug'}`}
                         className="text-sm"
                       />
                       <p className="text-[10px] text-muted-foreground">Overrides default. Leave blank to use auto-generated value.</p>

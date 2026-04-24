@@ -6,7 +6,7 @@ export const SNIPPET_MAP: Record<string, string> = {
   email_header_standard: `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;">
   <tr>
     <td align="center" style="padding:24px 20px;">
-      <a href="https://welltold.design" target="_blank" style="text-decoration:none;">
+      <a href="https://welltolddesign.com" target="_blank" style="text-decoration:none;">
         <img src="https://cdn.welltold.design/brand/welltold-logo.png" alt="Well Told" width="140" height="auto" style="display:block;border:0;max-width:140px;" />
       </a>
     </td>
@@ -16,7 +16,7 @@ export const SNIPPET_MAP: Record<string, string> = {
   email_footer_standard: `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f0ebe7;border-top:1px solid #e0d8d2;">
   <tr>
     <td align="center" style="padding:32px 20px 24px;">
-      <a href="https://welltold.design" target="_blank" style="text-decoration:none;">
+      <a href="https://welltolddesign.com" target="_blank" style="text-decoration:none;">
         <img src="https://cdn.welltold.design/brand/welltold-logo.png" alt="Well Told" width="100" height="auto" style="display:block;margin:0 auto 20px;border:0;max-width:100px;" />
       </a>
       <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 20px;">
@@ -30,7 +30,7 @@ export const SNIPPET_MAP: Record<string, string> = {
           </td>
           <td style="padding:0 2px;font-family:Arial,sans-serif;font-size:13px;color:#999999;">|</td>
           <td style="padding:0 10px;">
-            <a href="https://welltold.design" target="_blank" style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;text-decoration:none;">Website</a>
+            <a href="https://welltolddesign.com" target="_blank" style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;text-decoration:none;">Website</a>
           </td>
         </tr>
       </table>
@@ -38,7 +38,7 @@ export const SNIPPET_MAP: Record<string, string> = {
         Well Told Design Ltd &middot; London, United Kingdom
       </p>
       <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#999999;line-height:1.5;text-align:center;">
-        You're receiving this because you opted in at welltold.design.&nbsp;
+        You're receiving this because you opted in at welltolddesign.com.&nbsp;
         <a href="{{unsubscribe_url}}" style="color:#666666;text-decoration:underline;">Unsubscribe</a>
       </p>
     </td>

@@ -211,7 +211,7 @@ export default function SiteSettings() {
         <div className="mb-4">
           <h1 className="wt-page-title">Site Settings</h1>
           <p className="text-gray-500 text-sm mt-1">
-            Global header and footer configuration for welltold.design. Changes are live on the next page request — no redeployment needed.
+            Global header and footer configuration for welltolddesign.com. Changes are live on the next page request — no redeployment needed.
           </p>
         </div>
         <Button
@@ -533,7 +533,7 @@ export default function SiteSettings() {
             <span className="font-semibold text-sm">How this works</span>
           </div>
           <p className="text-sm text-gray-500">
-            These settings are fetched by the Cloudflare Worker at request time and rendered around every page on welltold.design. Changes take effect on the next page request — no redeployment needed.
+            These settings are fetched by the Cloudflare Worker at request time and rendered around every page on welltolddesign.com. Changes take effect on the next page request — no redeployment needed.
           </p>
         </div>
 

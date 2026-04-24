@@ -402,9 +402,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Purge Cloudflare edge cache if configured
       if (process.env.CF_ZONE_ID && process.env.CF_API_TOKEN && item.slug) {
-        // Use SITE_BASE_URL if available, otherwise default to welltold.design
-        const baseUrl = process.env.SITE_BASE_URL || "https://welltold.design";
-        const purgeUrl = `${baseUrl}/pages/${item.slug}`;
+        // Use SITE_BASE_URL if available, otherwise default to welltolddesign.com
+        const baseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
+        const purgeUrl = `${baseUrl}/articles/${item.slug}`;
         
         console.log(`Attempting Cloudflare cache purge for: ${purgeUrl}`);
         try {
@@ -441,9 +441,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Non-fatal
       }
 
-      const baseUrl = process.env.SITE_BASE_URL || "https://welltold.design";
+      const baseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
 
-      res.json({ ...item, url: item.slug ? `${baseUrl}/pages/${item.slug}` : null });
+      res.json({ ...item, url: item.slug ? `${baseUrl}/articles/${item.slug}` : null });
     } catch (error) {
       console.error("Failed to publish content item:", error);
       res.status(500).json({ message: "Failed to publish content item" });
@@ -2214,7 +2214,7 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         .filter((k) => k.contentItemId && !/^\d+$/.test(k.contentItemId!) && slugMap.has(k.contentItemId!))
         .map((k) => {
           const row = slugMap.get(k.contentItemId!)!;
-          return { title: row.title || k.contentItemTitle!, url: `/pages/${row.slug}`, keyword: row.keyword || k.keyword };
+          return { title: row.title || k.contentItemTitle!, url: `/articles/${row.slug}`, keyword: row.keyword || k.keyword };
         });
     } catch {
       return [];

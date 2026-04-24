@@ -99,7 +99,7 @@ export async function sendTestEmail(html: string, toEmail: string, subject: stri
         type: "email-message",
         attributes: {
           body: { html },
-          from_email: "hello@welltold.design",
+          from_email: "hello@welltolddesign.com",
           from_label: "Well Told",
           subject,
           to: [toEmail],

@@ -61,7 +61,7 @@ export async function renderEmailForItem(item: ContentItem): Promise<EmailRender
       header: emailHeader,
       footer: emailFooter,
       title: item.title,
-      siteBaseUrl: process.env.SITE_BASE_URL || "https://welltold.design",
+      siteBaseUrl: process.env.SITE_BASE_URL || "https://welltolddesign.com",
     },
     shopifyFetcher,
   );
