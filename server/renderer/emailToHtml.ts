@@ -465,7 +465,7 @@ function renderBanner(c: any, bg?: BlockBg): string {
   const schemeBorder:Record<string, string> = { info: "#1a3a8f", sale: "#78350f", warning: "#7f1d1d" };
   const bannerBg     = isCustom ? (c.backgroundColor || "#f0ebe7") : schemeBg[style];
   const bannerColor  = isCustom ? (c.textColor       || "#1a1a1a") : schemeText[style];
-  const bannerBorder = isCustom ? (c.textColor       || "#1a1a1a") : schemeBorder[style];
+  const bannerBorder = isCustom ? (c.bannerBorderColor || null) : schemeBorder[style];
   const transform    = c.textTransform && c.textTransform !== "none" ? `text-transform:${c.textTransform};` : "";
   const textAlign    = c.textAlign || "center";
   const bannerFontSize   = resolveFontSize(c.fontSize, "15px");
@@ -486,7 +486,7 @@ function renderBanner(c: any, bg?: BlockBg): string {
   return `
 <tr>
   <td align="center" style="padding:${outerPadding};background-color:#f4f1ef;">
-    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background-color:${bannerBg};border-top:2px solid ${bannerBorder};border-bottom:2px solid ${bannerBorder};">
+    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background-color:${bannerBg};${bannerBorder ? `border-top:2px solid ${bannerBorder};border-bottom:2px solid ${bannerBorder};` : ''}">
       <tr>
         <td style="padding:14px 24px;">${inner}</td>
       </tr>

@@ -1582,7 +1582,31 @@ export function ContentBlock({
                     </div>
                   </div>
                 </div>
-                <p className="text-[10px] text-gray-400">Border colour matches your text colour.</p>
+                <div className="flex-1 min-w-0">
+                  <Label className="text-xs">Border colour <span className="text-gray-400 font-normal">(optional — leave blank for no border)</span></Label>
+                  <div className="flex gap-1 items-center mt-1">
+                    <input
+                      type="color"
+                      value={safeContent?.bannerBorderColor || '#1a1a1a'}
+                      onChange={(e) => onUpdate({ ...safeContent, style: 'custom', bannerBorderColor: e.target.value })}
+                      title="Border colour"
+                      className="h-7 w-7 cursor-pointer border border-gray-300 p-0.5 shrink-0"
+                    />
+                    <Input
+                      value={safeContent?.bannerBorderColor || ''}
+                      onChange={(e) => onUpdate({ ...safeContent, style: 'custom', bannerBorderColor: e.target.value || undefined })}
+                      placeholder="none"
+                      className="h-7 text-xs min-w-0"
+                    />
+                    {safeContent?.bannerBorderColor && (
+                      <button
+                        type="button"
+                        onClick={() => onUpdate({ ...safeContent, bannerBorderColor: undefined })}
+                        className="h-7 px-2 text-xs border border-gray-300 bg-white hover:bg-gray-50 shrink-0"
+                      >✕</button>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
             <div className="grid grid-cols-2 gap-2">
