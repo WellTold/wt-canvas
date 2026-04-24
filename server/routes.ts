@@ -225,11 +225,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         scheduledPublishDate: null,
       } as any);
 
-      // Duplicate content blocks if any
-      const blocks = await storage.getContentBlocks(typeof id === "number" ? id : parseInt(String(id)));
-      for (const block of blocks) {
-        const { id: _bid, contentItemId: _cid, createdAt: _bc, updatedAt: _bu, ...blockRest } = block as any;
-        await storage.createContentBlock({ ...blockRest, contentItemId: copy.id });
+      // Duplicate content blocks only for non-email types (emails store blocks inline in content JSON)
+      const isEmailType = original.type?.includes('email');
+      if (!isEmailType) {
+        const numericId = typeof id === "number" ? id : (isNaN(parseInt(String(id))) ? null : parseInt(String(id)));
+        if (numericId !== null) {
+          const blocks = await storage.getContentBlocks(numericId);
+          for (const block of blocks) {
+            const { id: _bid, contentItemId: _cid, createdAt: _bc, updatedAt: _bu, ...blockRest } = block as any;
+            await storage.createContentBlock({ ...blockRest, contentItemId: copy.id });
+          }
+        }
       }
 
       res.json(copy);
