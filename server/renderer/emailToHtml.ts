@@ -313,13 +313,14 @@ function renderHero(c: any, bg?: BlockBg): string {
 }
 
 function renderBanner(c: any, bg?: BlockBg): string {
+  const isCustom = c.style === "custom";
   const style = ["info", "sale", "warning"].includes(c.style) ? c.style : "info";
-  const schemeBg:   Record<string, string> = { info: "#e8f0fe", sale: "#fef3c7", warning: "#fde8e8" };
-  const schemeText: Record<string, string> = { info: "#1a3a8f", sale: "#78350f",  warning: "#7f1d1d"  };
-  const schemeBorder:Record<string,string> = { info: "#1a3a8f", sale: "#78350f",  warning: "#7f1d1d"  };
-  const bannerBg     = c.backgroundColor || schemeBg[style];
-  const bannerColor  = c.textColor       || schemeText[style];
-  const bannerBorder = schemeBorder[style];
+  const schemeBg:    Record<string, string> = { info: "#e8f0fe", sale: "#fef3c7", warning: "#fde8e8" };
+  const schemeText:  Record<string, string> = { info: "#1a3a8f", sale: "#78350f", warning: "#7f1d1d" };
+  const schemeBorder:Record<string, string> = { info: "#1a3a8f", sale: "#78350f", warning: "#7f1d1d" };
+  const bannerBg     = isCustom ? (c.backgroundColor || "#f0ebe7") : schemeBg[style];
+  const bannerColor  = isCustom ? (c.textColor       || "#1a1a1a") : schemeText[style];
+  const bannerBorder = isCustom ? (c.textColor       || "#1a1a1a") : schemeBorder[style];
   const transform    = c.textTransform && c.textTransform !== "none" ? `text-transform:${c.textTransform};` : "";
   const textAlign    = c.textAlign || "center";
   const bannerFontSize   = resolveFontSize(c.fontSize, "15px");

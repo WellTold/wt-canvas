@@ -505,39 +505,41 @@ export function ContentBlock({
         <div className="space-y-2 pt-3 border-t border-gray-200">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Text Styling</p>
 
-          {/* Colors row */}
-          <div className="flex gap-2">
-            <div className="flex gap-1 items-center flex-1 min-w-0">
-              <input
-                type="color"
-                value={o.textColor || '#1a1a1a'}
-                onChange={(e) => update({ ...o, textColor: e.target.value })}
-                title="Text color"
-                className="h-7 w-7 cursor-pointer border border-gray-300 p-0.5 shrink-0"
-              />
-              <Input
-                value={o.textColor || ''}
-                onChange={(e) => update({ ...o, textColor: e.target.value })}
-                placeholder="Text color"
-                className="h-7 text-xs min-w-0"
-              />
+          {/* Colors row — not shown for banner, which manages colours inline per-style */}
+          {blockType !== 'banner' && (
+            <div className="flex gap-2">
+              <div className="flex gap-1 items-center flex-1 min-w-0">
+                <input
+                  type="color"
+                  value={o.textColor || '#1a1a1a'}
+                  onChange={(e) => update({ ...o, textColor: e.target.value })}
+                  title="Text color"
+                  className="h-7 w-7 cursor-pointer border border-gray-300 p-0.5 shrink-0"
+                />
+                <Input
+                  value={o.textColor || ''}
+                  onChange={(e) => update({ ...o, textColor: e.target.value })}
+                  placeholder="Text color"
+                  className="h-7 text-xs min-w-0"
+                />
+              </div>
+              <div className="flex gap-1 items-center flex-1 min-w-0">
+                <input
+                  type="color"
+                  value={o.backgroundColor || '#ffffff'}
+                  onChange={(e) => update({ ...o, backgroundColor: e.target.value })}
+                  title="Background color"
+                  className="h-7 w-7 cursor-pointer border border-gray-300 p-0.5 shrink-0"
+                />
+                <Input
+                  value={o.backgroundColor || ''}
+                  onChange={(e) => update({ ...o, backgroundColor: e.target.value })}
+                  placeholder="BG color"
+                  className="h-7 text-xs min-w-0"
+                />
+              </div>
             </div>
-            <div className="flex gap-1 items-center flex-1 min-w-0">
-              <input
-                type="color"
-                value={o.backgroundColor || '#ffffff'}
-                onChange={(e) => update({ ...o, backgroundColor: e.target.value })}
-                title="Background color"
-                className="h-7 w-7 cursor-pointer border border-gray-300 p-0.5 shrink-0"
-              />
-              <Input
-                value={o.backgroundColor || ''}
-                onChange={(e) => update({ ...o, backgroundColor: e.target.value })}
-                placeholder="BG color"
-                className="h-7 text-xs min-w-0"
-              />
-            </div>
-          </div>
+          )}
 
           {/* Font family — not shown for banner (renderer hardcodes the font) */}
           {blockType !== 'banner' && (
@@ -1412,9 +1414,48 @@ export function ContentBlock({
                   <SelectItem value="info">Info (blue)</SelectItem>
                   <SelectItem value="sale">Sale (yellow)</SelectItem>
                   <SelectItem value="warning">Warning (red)</SelectItem>
+                  <SelectItem value="custom">Custom</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {safeContent?.style === 'custom' && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Custom Colours</Label>
+                <div className="flex gap-2">
+                  <div className="flex gap-1 items-center flex-1 min-w-0">
+                    <input
+                      type="color"
+                      value={safeContent?.textColor || '#1a1a1a'}
+                      onChange={(e) => onUpdate({ ...safeContent, style: 'custom', textColor: e.target.value })}
+                      title="Text colour"
+                      className="h-7 w-7 cursor-pointer border border-gray-300 p-0.5 shrink-0"
+                    />
+                    <Input
+                      value={safeContent?.textColor || ''}
+                      onChange={(e) => onUpdate({ ...safeContent, style: 'custom', textColor: e.target.value })}
+                      placeholder="Text colour"
+                      className="h-7 text-xs min-w-0"
+                    />
+                  </div>
+                  <div className="flex gap-1 items-center flex-1 min-w-0">
+                    <input
+                      type="color"
+                      value={safeContent?.backgroundColor || '#ffffff'}
+                      onChange={(e) => onUpdate({ ...safeContent, style: 'custom', backgroundColor: e.target.value })}
+                      title="Background colour"
+                      className="h-7 w-7 cursor-pointer border border-gray-300 p-0.5 shrink-0"
+                    />
+                    <Input
+                      value={safeContent?.backgroundColor || ''}
+                      onChange={(e) => onUpdate({ ...safeContent, style: 'custom', backgroundColor: e.target.value })}
+                      placeholder="BG colour"
+                      className="h-7 text-xs min-w-0"
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-400">Border colour follows the text colour.</p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs">Link URL (optional)</Label>
@@ -1425,7 +1466,7 @@ export function ContentBlock({
                 <Input value={safeContent?.linkText || ''} onChange={(e) => onUpdate({ ...safeContent, linkText: e.target.value })} placeholder="Learn more" className="mt-1 text-sm" />
               </div>
             </div>
-            {renderTextStyleFields(safeContent, onUpdate)}
+            {renderTextStyleFields(safeContent, onUpdate, 'banner')}
           </div>
         );
       }
