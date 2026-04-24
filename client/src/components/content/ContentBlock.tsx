@@ -751,42 +751,7 @@ export function ContentBlock({
               </div>
               {o.linkStyle === 'button' && (
                 <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Button BG</Label>
-                      <div className="flex gap-1">
-                        <input
-                          type="color"
-                          value={o.linkButtonBg || o.color || '#333333'}
-                          onChange={(e) => onUpdate({ ...o, linkButtonBg: e.target.value })}
-                          className="h-8 w-8 p-0.5 border border-gray-300 cursor-pointer flex-shrink-0"
-                        />
-                        <Input
-                          value={o.linkButtonBg || o.color || '#333333'}
-                          onChange={(e) => onUpdate({ ...o, linkButtonBg: e.target.value })}
-                          className="text-xs h-8 font-mono"
-                          placeholder="#333333"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Button Text</Label>
-                      <div className="flex gap-1">
-                        <input
-                          type="color"
-                          value={o.linkButtonColor || o.backgroundColor || '#ffffff'}
-                          onChange={(e) => onUpdate({ ...o, linkButtonColor: e.target.value })}
-                          className="h-8 w-8 p-0.5 border border-gray-300 cursor-pointer flex-shrink-0"
-                        />
-                        <Input
-                          value={o.linkButtonColor || o.backgroundColor || '#ffffff'}
-                          onChange={(e) => onUpdate({ ...o, linkButtonColor: e.target.value })}
-                          className="text-xs h-8 font-mono"
-                          placeholder="#ffffff"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  {/* Corner radius stays separate — not part of text styling */}
                   <div className="space-y-1">
                     <Label className="text-xs">Corner Radius</Label>
                     <Select value={o.linkButtonRadius || 'sharp'} onValueChange={(v) => onUpdate({ ...o, linkButtonRadius: v })}>
@@ -798,6 +763,35 @@ export function ContentBlock({
                       </SelectContent>
                     </Select>
                   </div>
+                  {/* Full independent text + colour + font styling for the button */}
+                  {renderTextStyleFields(
+                    {
+                      textColor:      o.linkButtonColor,
+                      backgroundColor: o.linkButtonBg,
+                      fontFamily:      o.linkButtonFontFamily,
+                      fontSize:        o.linkButtonFontSize,
+                      fontWeight:      o.linkButtonFontWeight,
+                      fontStyle:       o.linkButtonFontStyle,
+                      textDecoration:  o.linkButtonTextDecoration,
+                      textAlign:       o.linkButtonTextAlign,
+                      textTransform:   o.linkButtonTextTransform,
+                      opacity:         o.linkButtonOpacity,
+                    },
+                    (updated) => onUpdate({
+                      ...o,
+                      linkButtonColor:         updated.textColor,
+                      linkButtonBg:            updated.backgroundColor,
+                      linkButtonFontFamily:    updated.fontFamily,
+                      linkButtonFontSize:      updated.fontSize,
+                      linkButtonFontWeight:    updated.fontWeight,
+                      linkButtonFontStyle:     updated.fontStyle,
+                      linkButtonTextDecoration: updated.textDecoration,
+                      linkButtonTextAlign:     updated.textAlign,
+                      linkButtonTextTransform: updated.textTransform,
+                      linkButtonOpacity:       updated.opacity,
+                    }),
+                    'text'
+                  )}
                 </div>
               )}
             </div>

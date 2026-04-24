@@ -223,11 +223,13 @@ function renderHeading(c: any, bg?: BlockBg): string {
 
 /** Post-process HTML: replace every <a> tag's styles with inline button styles */
 function buttonifyLinks(html: string, opts: {
-  btnBg: string; btnColor: string; radius: string; fontFamily: string; fontSize: string;
+  btnBg: string; btnColor: string; radius: string;
+  fontFamily: string; fontSize: string; fontWeight: string;
+  fontStyle?: string; textTransform?: string | null;
 }): string {
   const radiusMap: Record<string, string> = { sharp: "0px", rounded: "4px", pill: "999px" };
   const r = radiusMap[opts.radius] ?? opts.radius ?? "0px";
-  const btnStyle = [
+  const parts = [
     "display:inline-block",
     "padding:10px 20px",
     `background-color:${opts.btnBg}`,
@@ -236,9 +238,12 @@ function buttonifyLinks(html: string, opts: {
     `border-radius:${r}`,
     `font-family:${opts.fontFamily}`,
     `font-size:${opts.fontSize}`,
-    "font-weight:bold",
+    `font-weight:${opts.fontWeight || "bold"}`,
     "line-height:1.4",
-  ].join(";");
+  ];
+  if (opts.fontStyle === "italic") parts.push("font-style:italic");
+  if (opts.textTransform && opts.textTransform !== "none") parts.push(`text-transform:${opts.textTransform}`);
+  const btnStyle = parts.join(";");
   // Strip any existing style/color attrs on <a> then inject button style
   return html.replace(/<a(\s[^>]*)?>/gi, (_, attrs: string = "") => {
     const clean = attrs
@@ -260,20 +265,30 @@ function renderParagraph(c: any, bg?: BlockBg): string {
   const minH = c.minHeight ? parseInt(c.minHeight) : 0;
 
   // ── Link button styling ───────────────────────────────────────────────────
-  // "reverse" defaults: button bg = text colour, button text = block bg colour
+  // "reverse" defaults: button bg = paragraph text colour, button text = paragraph bg
   const linkStyle: string = c.linkStyle || "underline";
-  const resolvedFamily = (c.fontFamily || "'Plus Jakarta Sans',Arial,sans-serif").replace(/"/g, "'");
-  const resolvedSize   = resolveFontSize(c.fontSize, "15px");
+  const paraFamily = (c.fontFamily || "'Plus Jakarta Sans',Arial,sans-serif").replace(/"/g, "'");
+  const paraSize   = resolveFontSize(c.fontSize, "15px");
 
   function processHtml(raw: string): string {
     if (linkStyle !== "button") return raw;
+    // Colours default to "reverse" of paragraph; can be overridden independently
     const btnBg    = c.linkButtonBg    || c.color           || "#333333";
     const btnColor = c.linkButtonColor || c.backgroundColor || "#ffffff";
+    // Font settings default to paragraph values; overridable independently
+    const btnFamily = (c.linkButtonFontFamily || c.fontFamily || "'Plus Jakarta Sans',Arial,sans-serif").replace(/"/g, "'");
+    const btnSize   = resolveFontSize(c.linkButtonFontSize || c.fontSize, "15px");
+    const btnWeight = c.linkButtonFontWeight || "bold";
+    const btnFontStyle   = c.linkButtonFontStyle   || undefined;
+    const btnTransform   = c.linkButtonTextTransform || null;
     return buttonifyLinks(raw, {
       btnBg, btnColor,
-      radius: c.linkButtonRadius || "sharp",
-      fontFamily: resolvedFamily,
-      fontSize:   resolvedSize,
+      radius:        c.linkButtonRadius || "sharp",
+      fontFamily:    btnFamily,
+      fontSize:      btnSize,
+      fontWeight:    btnWeight,
+      fontStyle:     btnFontStyle,
+      textTransform: btnTransform,
     });
   }
 
