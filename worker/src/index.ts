@@ -15,32 +15,40 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    // Static worker-owned paths
     if (path === "/sitemap.xml" || path === "/articles/sitemap.xml") return handleSitemap(env);
     if (path === "/robots.txt" || path === "/articles/robots.txt") return handleRobots(env);
     if (path === "/articles/styles/wt-pages.css" || path === "/styles/wt-pages.css") return handleCss();
     if (path === "/articles/components/loader.js" || path === "/components/loader.js") return handleComponentLoader();
 
-    // Bare root domain → catalog index page
-    if (path === "/" || path === "") {
-      return handleIndex(env);
+    // Articles index page
+    if (path === "/articles" || path === "/articles/") return handleIndex(env);
+
+    // Articles content — strip /articles prefix to get bare slug
+    if (path.startsWith("/articles/")) {
+      const normalizedPath = path.slice("/articles".length); // → /slug
+      const redirect = await checkRedirects(normalizedPath, env);
+      if (redirect) return Response.redirect(redirect, 301);
+      return handlePage(normalizedPath, env);
     }
 
-    // Strip /articles prefix so welltolddesign.com/articles/my-slug → slug = "my-slug"
-    const normalizedPath = path.startsWith("/articles/")
-      ? path.slice("/articles".length)
-      : path;
-
-    // Root index page → welltolddesign.com/articles/ or welltolddesign.com/articles
-    if (normalizedPath === "/" || normalizedPath === "" || normalizedPath === "/articles") {
-      return handleIndex(env);
-    }
-
-    const redirect = await checkRedirects(normalizedPath, env);
-    if (redirect) return Response.redirect(redirect, 301);
-
-    return handlePage(normalizedPath, env);
+    // Everything else → pass through to Shopify origin (avoids loop back to this worker)
+    return proxyToShopify(request);
   },
 };
+
+async function proxyToShopify(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  url.hostname = "welltold.myshopify.com";
+  const headers = new Headers(request.headers);
+  // Tell Shopify which store to serve
+  headers.set("host", "welltolddesign.com");
+  const init: RequestInit = { method: request.method, headers, redirect: "manual" };
+  if (!["GET", "HEAD"].includes(request.method)) {
+    (init as any).body = request.body;
+  }
+  return fetch(url.toString(), init);
+}
 
 /** Map a row from blog_articles / landing_pages / lead_magnets to the Page shape. */
 function normaliseRow(row: Record<string, any>): Page {
