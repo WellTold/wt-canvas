@@ -38,20 +38,41 @@ export default {
 };
 
 async function proxyToShopify(request: Request): Promise<Response> {
-  // resolveOverride routes to Shopify's servers while keeping the original Host header
-  // (welltolddesign.com) intact — so Shopify identifies the correct store.
-  // redirect: "follow" lets the Worker resolve any Shopify-side redirects internally
-  // rather than returning 301s to the browser (which would re-enter this Worker and loop).
-  const init: RequestInit & { cf?: any } = {
-    method: request.method,
-    headers: request.headers,
-    redirect: "follow",
-    cf: { resolveOverride: "welltold.myshopify.com" },
-  };
-  if (!["GET", "HEAD"].includes(request.method)) {
-    init.body = request.body;
+  // Manually follow up to 3 redirect hops so same-domain redirects from Shopify
+  // don't cause browser-level loops (which crash the Worker when no A record exists).
+  // External redirects (e.g. to www) are returned as-is to the browser.
+  let url = request.url;
+  let method = request.method;
+
+  for (let hop = 0; hop < 4; hop++) {
+    const response = await fetch(url, {
+      method,
+      headers: request.headers,
+      redirect: "manual",
+      cf: { resolveOverride: "welltold.myshopify.com" },
+    } as RequestInit & { cf: any });
+
+    // Non-redirect: return the final response
+    if (response.status < 300 || response.status >= 400) return response;
+
+    const location = response.headers.get("location");
+    if (!location) return response;
+
+    const next = new URL(location, url);
+    // External hostname (e.g. www.welltolddesign.com) → let browser handle it
+    if (next.hostname !== "welltolddesign.com") return response;
+
+    // Same-domain redirect → follow via Shopify
+    url = next.toString();
+    method = "GET"; // POST/PUT become GET after redirect
   }
-  return fetch(request.url, init);
+
+  // Safety fallback after max hops
+  return fetch(url, {
+    method: "GET",
+    headers: request.headers,
+    cf: { resolveOverride: "welltold.myshopify.com" },
+  } as RequestInit & { cf: any });
 }
 
 /** Map a row from blog_articles / landing_pages / lead_magnets to the Page shape. */
