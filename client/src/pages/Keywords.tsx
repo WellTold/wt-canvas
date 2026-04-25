@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Trash2, Pencil, Plus, Upload, Sparkles, Check, X, ExternalLink, Loader2, Zap, LayoutList, Library, ChevronRight, ChevronDown } from "lucide-react";
-import type { Keyword } from "@shared/schema";
+import type { Keyword, ContentItem } from "@shared/schema";
 
 const STATUS_COLORS: Record<string, string> = {
   untargeted: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
@@ -307,6 +307,15 @@ export default function Keywords() {
     },
   });
 
+  const { data: contentItems = [] } = useQuery<ContentItem[]>({
+    queryKey: ["/api/content-items"],
+    staleTime: 30_000,
+  });
+
+  const publishedContentItemIds = new Set(
+    contentItems.filter((ci) => ci.status === "published" || ci.publishedAt != null).map((ci) => String(ci.id))
+  );
+
   const clusters = Array.from(new Set(keywords.map((k) => k.cluster).filter(Boolean))) as string[];
 
   const toggleSort = (col: "volume" | "kd") => {
@@ -419,6 +428,19 @@ export default function Keywords() {
       setShowSuggestPanel(false);
       setSuggestions([]);
       toast({ title: `${data.length} keywords added from AI suggestions` });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const markPublishedMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await checkResponse(await apiRequest("PATCH", `/api/keywords/${id}`, { status: "published" }));
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/keywords"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content-items"] });
+      toast({ title: "Marked as published" });
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
@@ -865,6 +887,7 @@ export default function Keywords() {
                 const doneCount = kws.filter((k) => k.status === "published").length;
                 const inProgressCount = kws.filter((k) => k.status === "in_progress").length;
                 const gapCount = kws.filter((k) => k.status === "untargeted").length;
+                const withArticles = kws.filter((k) => !!k.contentItemId).length;
                 const isCollapsed = collapsedClusters.has(cluster);
                 return (
                   <div key={cluster} className="border border-black overflow-hidden">
@@ -877,6 +900,7 @@ export default function Keywords() {
                         {isCollapsed ? <ChevronRight size={14} className="shrink-0" /> : <ChevronDown size={14} className="shrink-0" />}
                         <span className="text-sm font-bold">{cluster || "Uncategorised"}</span>
                         <span className="text-xs text-gray-500">{kws.length} keyword{kws.length !== 1 ? "s" : ""}</span>
+                        <span className="text-xs text-gray-400 border border-gray-300 px-1.5 py-0.5 rounded-full">{withArticles}/{kws.length} have articles</span>
                       </div>
                       <div className="flex items-center gap-2 text-xs">
                         {doneCount > 0 && <span className="text-green-700 font-medium">{doneCount} published</span>}
@@ -936,6 +960,19 @@ export default function Keywords() {
                                   <span className="truncate">{kw.contentItemTitle || "View article"}</span>
                                 </a>
                               ) : null}
+                              {/* Mark published — shown when linked article is live but keyword not yet marked published */}
+                              {kw.contentItemId && kw.status !== "published" && publishedContentItemIds.has(kw.contentItemId) && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-xs px-2 rounded-none border-green-400 text-green-700 hover:bg-green-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  disabled={markPublishedMutation.isPending}
+                                  onClick={() => markPublishedMutation.mutate(kw.id)}
+                                >
+                                  <Check size={11} className="mr-1 shrink-0" />
+                                  Mark published
+                                </Button>
+                              )}
                             </div>
                           </div>
                         ))}

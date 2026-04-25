@@ -371,12 +371,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`✅ Updated content item ${id} successfully`);
 
-      // Publish lifecycle: if content is marked published, update the linked keyword status
+      // Publish lifecycle: if content is marked published, update all linked keyword statuses
       if (updateData.status === "published") {
         try {
-          const linkedKw = await storage.getKeywordByContentItemId(String(id));
-          if (linkedKw && linkedKw.status !== "published") {
-            await storage.updateKeyword(linkedKw.id, { status: "published" });
+          const linkedKws = await storage.getKeywordsByContentItemId(String(id));
+          for (const kw of linkedKws) {
+            if (kw.status !== "published") {
+              await storage.updateKeyword(kw.id, { status: "published" });
+            }
           }
         } catch {
           // Non-fatal — don't fail the content update if keyword sync fails
@@ -431,11 +433,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Publish lifecycle: sync keyword status when content is published via this route
+      // Publish lifecycle: sync all linked keyword statuses when content is published via this route
       try {
-        const linkedKw = await storage.getKeywordByContentItemId(rawId);
-        if (linkedKw && linkedKw.status !== "published") {
-          await storage.updateKeyword(linkedKw.id, { status: "published" });
+        const linkedKws = await storage.getKeywordsByContentItemId(rawId);
+        for (const kw of linkedKws) {
+          if (kw.status !== "published") {
+            await storage.updateKeyword(kw.id, { status: "published" });
+          }
         }
       } catch {
         // Non-fatal
@@ -1165,6 +1169,19 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       }
 
       const result = await supabaseLegacyPublisher.publish(contentItem);
+
+      // Publish lifecycle: auto-flip all linked keyword statuses to published
+      try {
+        const linkedKws = await storage.getKeywordsByContentItemId(String(contentItem.id));
+        for (const kw of linkedKws) {
+          if (kw.status !== "published") {
+            await storage.updateKeyword(kw.id, { status: "published" });
+          }
+        }
+      } catch {
+        // Non-fatal — don't fail the publish if keyword sync fails
+      }
+
       res.json(result);
     } catch (error) {
       console.error('Supabase publish error:', error);
