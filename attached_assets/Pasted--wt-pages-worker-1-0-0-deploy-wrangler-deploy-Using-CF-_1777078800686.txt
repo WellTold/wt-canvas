@@ -1,0 +1,42 @@
+> wt-pages-worker@1.0.0 deploy
+> wrangler deploy
+
+Using "CF_API_TOKEN" environment variable. This is deprecated. Please use "CLOUDFLARE_API_TOKEN", instead.
+
+ ⛅️ wrangler 4.78.0 (update available 4.85.0)
+─────────────────────────────────────────────
+Total Upload: 754.52 KiB / gzip: 147.09 KiB
+Worker Startup Time: 1 ms
+Your Worker has access to the following bindings:
+Binding              Resource                
+env.SITE_BASE_URL    Environment Variable    
+  "https://welltolddesign.com"
+env.WTC_API_URL      Environment Variable    
+  "https://wt-canvas.replit.app"
+
+Uploaded welltold-articles-proxy (3.04 sec)
+The current authentication token does not have 'All Zones' permissions.
+Falling back to using the zone-based API endpoint to update each route individually.
+Note that there is no access to routes associated with zones that the API token does not have permission for.
+Existing routes for this Worker in such zones will not be deleted.
+
+✘ [ERROR] A request to the Cloudflare API (/zones/f0a227ac15f07a7562dc519e062b2081/workers/routes) failed.
+
+  Authentication error [code: 10000]
+  This could be because the API token being used does not have permission to
+  access the zone "welltolddesign.com" (f0a227ac15f07a7562dc519e062b2081).
+
+
+📎 It looks like you are authenticating Wrangler via a custom API token set in an environment variable.
+Please ensure it has the correct permissions for this operation.
+
+Getting User settings...
+👋 You are logged in with an User API Token. Unable to retrieve email for this user. Are you missing the `User->User Details->Read` permission?
+ℹ️  The API Token is read from the CLOUDFLARE_API_TOKEN environment variable.
+┌────────────────────────────────────┬──────────────────────────────────┐
+│ Account Name                       │ Account ID                       │
+├────────────────────────────────────┼──────────────────────────────────┤
+│ Brian@welltolddesign.com's Account │ 01afaf4c7176663370662bf96b2cc6bb │
+└────────────────────────────────────┴──────────────────────────────────┘
+🔓 To see token permissions visit https://dash.cloudflare.com/profile/api-tokens.
+🪵  Logs were written to "/home/runner/workspace/.config/.wrangler/logs/wrangler-2026-04-25_00-58-32_721.log"

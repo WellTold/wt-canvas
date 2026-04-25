@@ -25,6 +25,12 @@ export default {
       return handleIndex(env);
     }
 
+    // Redirect legacy /pages/* URLs to /articles/*
+    if (path.startsWith("/pages/")) {
+      const newPath = path.replace(/^\/pages\//, "/articles/");
+      return Response.redirect(`${env.SITE_BASE_URL}${newPath}`, 301);
+    }
+
     // Strip /articles prefix so welltolddesign.com/articles/my-slug → slug = "my-slug"
     const normalizedPath = path.startsWith("/articles/")
       ? path.slice("/articles".length)
