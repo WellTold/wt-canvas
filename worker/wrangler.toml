@@ -5,8 +5,7 @@ account_id = "01afaf4c7176663370662bf96b2cc6bb"
 workers_dev = true
 
 routes = [
-  { pattern = "welltolddesign.com/articles/*", zone_name = "welltolddesign.com" },
-  { pattern = "welltolddesign.com", zone_name = "welltolddesign.com", custom_domain = true }
+  { pattern = "welltolddesign.com/articles/*", zone_name = "welltolddesign.com" }
 ]
 
 [vars]
