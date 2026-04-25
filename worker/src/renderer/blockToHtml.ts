@@ -29,6 +29,7 @@ export interface Page {
   status: string;
   meta_description?: string | null;
   content_json?: any;
+  content_markdown?: string | null;
   featured_image?: string | null;
   og_image?: string | null;
   og_title?: string | null;
@@ -40,6 +41,69 @@ export interface Page {
   published_at?: string | null;
   updated_at?: string;
   structured_data_type?: string | null;
+}
+
+/** Convert a markdown string to safe HTML for in-Worker rendering.
+ *  Handles all syntax produced by generateWebPageMarkdown (headings, paragraphs,
+ *  lists, blockquotes, bold/italic, images, links).
+ *  All text content and URL attributes are escaped — no stored-XSS path. */
+function markdownToHtmlSafe(md: string): string {
+  if (!md) return "";
+
+  function esc(s: string): string {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function safeHref(url: string): string {
+    // Only https?:// URLs reach here (filtered by regex); encode quote chars only
+    return url.replace(/"/g, "%22").replace(/'/g, "%27");
+  }
+
+  // 1. Strip any raw HTML tags first (XSS guard — catches any that might slip in)
+  let s = md.replace(/<[^>]*>/g, "");
+
+  // 2. Apply block-level patterns line by line (preserve ordering)
+  s = s
+    .replace(/^### (.*)$/gm, (_m, t) => `<h3>${esc(t)}</h3>`)
+    .replace(/^## (.*)$/gm, (_m, t) => `<h2>${esc(t)}</h2>`)
+    .replace(/^# (.*)$/gm, (_m, t) => `<h1>${esc(t)}</h1>`)
+    .replace(/^> — (.+)$/gm, (_m, t) => `<cite>— ${esc(t)}</cite>`)
+    .replace(/^> (.*)$/gm, (_m, t) => `<blockquote>${esc(t)}</blockquote>`)
+    .replace(/^\- (.+)$/gm, (_m, t) => `<li>${esc(t)}</li>`)
+    .replace(/^\d+\. (.+)$/gm, (_m, t) => `<li>${esc(t)}</li>`);
+
+  // 3. Inline patterns (images before links so ![...](...) is matched first)
+  s = s
+    .replace(/!\[([^\]]*)\]\((https?:\/\/[^\)]+)\)/g, (_m, alt, url) =>
+      `<img src="${safeHref(url)}" alt="${esc(alt)}" loading="lazy" />`)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, (_m, text, url) =>
+      `<a href="${safeHref(url)}" rel="noopener">${esc(text)}</a>`)
+    .replace(/\*\*(.+?)\*\*/g, (_m, t) => `<strong>${esc(t)}</strong>`)
+    .replace(/\*(.+?)\*/g, (_m, t) => `<em>${esc(t)}</em>`);
+
+  // 4. Wrap consecutive <li> lines in <ul>
+  s = s.replace(/((?:<li>(?:.|\n)*?<\/li>\n?)+)/g, "<ul>$1</ul>");
+
+  // 5. Merge adjacent blockquotes (quote continuation)
+  s = s.replace(/<\/blockquote>\n<blockquote>/g, "<br>");
+
+  // 6. Collect remaining lines into <p> paragraphs (blank-line separated)
+  const BLOCK_START = /^<(h[1-6]|ul|blockquote|cite|img)/;
+  const lines = s.split("\n");
+  const out: string[] = [];
+  let buf: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed === "") {
+      if (buf.length) { out.push(`<p>${buf.join(" ")}</p>`); buf = []; }
+    } else if (BLOCK_START.test(trimmed)) {
+      if (buf.length) { out.push(`<p>${buf.join(" ")}</p>`); buf = []; }
+      out.push(line);
+    } else {
+      buf.push(line);
+    }
+  }
+  if (buf.length) out.push(`<p>${buf.join(" ")}</p>`);
+  return out.join("\n");
 }
 
 // Typed payloads returned by ShopifyFetcher (mirrors server/services/shopify.ts output)
@@ -803,6 +867,56 @@ export function renderSiteFooter(settings: SiteSettings): string {
 }
 
 export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher: ShopifyFetcher = null, siteSettings: SiteSettings = {}): Promise<string> {
+  const canonical = page.canonical_url || `${baseUrl}/pages/${page.slug}`;
+  const ogTitle = page.og_title || page.title;
+  const ogImage = page.og_image || page.featured_image || "";
+  let rawSchema = page.structured_data || buildDefaultSchema(page, baseUrl);
+  if (typeof rawSchema === "string") {
+    try { rawSchema = JSON.parse(rawSchema); } catch { /* keep as-is */ }
+  }
+  const schema = rawSchema;
+  const template = page.page_template || "default";
+
+  // When content_markdown is present, prefer it over block rendering.
+  // This is the path consumed by the Cloudflare Worker after "Generate Markdown".
+  if (page.content_markdown && page.content_markdown.trim()) {
+    const body = markdownToHtmlSafe(page.content_markdown);
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escHtml(ogTitle)} | Well Told</title>
+  <meta name="description" content="${escAttr(page.meta_description || "")}" />
+  <link rel="canonical" href="${escAttr(canonical)}" />
+
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="${escAttr(ogTitle)}" />
+  <meta property="og:description" content="${escAttr(page.meta_description || "")}" />
+  <meta property="og:url" content="${escAttr(canonical)}" />
+  ${ogImage ? `<meta property="og:image" content="${escAttr(ogImage)}" />` : ""}
+  <meta property="og:site_name" content="Well Told" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escAttr(ogTitle)}" />
+  <meta name="twitter:description" content="${escAttr(page.meta_description || "")}" />
+  ${ogImage ? `<meta name="twitter:image" content="${escAttr(ogImage)}" />` : ""}
+
+  ${schema ? `<script type="application/ld+json">${safeJsonLd(schema)}</script>` : ""}
+
+  <link rel="stylesheet" href="${escAttr(baseUrl)}/styles/wt-pages.css" />
+  ${page.custom_css ? `<style>${page.custom_css}</style>` : ""}
+</head>
+<body class="wt-page wt-template-${escAttr(template)}">
+  ${renderSiteHeader(siteSettings)}
+  <main class="wt-content">
+    ${body}
+  </main>
+  ${renderSiteFooter(siteSettings)}
+</body>
+</html>`;
+  }
+
   // content_json may be stored as a JSON string in Supabase rather than a parsed object
   let rawContentJson = page.content_json || {};
   if (typeof rawContentJson === "string") {
@@ -861,16 +975,6 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
   const sortedBlocks = blocks.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const body = sortedBlocks.map((block) => renderBlock(block, shopifyData, "web")).join("\n");
   const hasAppBlocks = collectAllBlocks(sortedBlocks).some((b) => b.type === "app_block");
-
-  const canonical = page.canonical_url || `${baseUrl}/pages/${page.slug}`;
-  const ogTitle = page.og_title || page.title;
-  const ogImage = page.og_image || page.featured_image || "";
-  let rawSchema = page.structured_data || buildDefaultSchema(page, baseUrl);
-  if (typeof rawSchema === "string") {
-    try { rawSchema = JSON.parse(rawSchema); } catch { /* keep as-is */ }
-  }
-  const schema = rawSchema;
-  const template = page.page_template || "default";
 
   return `<!DOCTYPE html>
 <html lang="en">

@@ -461,6 +461,88 @@ REQUIREMENTS:
   }
 }
 
+export function generateWebPageMarkdown(blocks: any[], title?: string): string {
+  const lines: string[] = [];
+
+  if (title) {
+    lines.push(`# ${title}`);
+    lines.push('');
+  }
+
+  for (const block of blocks) {
+    const c = block.content || {};
+
+    switch (block.type) {
+      case 'heading':
+        if (c.text) {
+          lines.push(`## ${c.text}`);
+          lines.push('');
+        }
+        break;
+
+      case 'text':
+        if (c.text) {
+          lines.push(c.text);
+          lines.push('');
+        }
+        break;
+
+      case 'list':
+        if (c.items && Array.isArray(c.items) && c.items.length > 0) {
+          for (const listItem of c.items) {
+            lines.push(`- ${listItem}`);
+          }
+          lines.push('');
+        }
+        break;
+
+      case 'quote':
+        if (c.text) {
+          lines.push(`> ${c.text}`);
+          if (c.author) {
+            lines.push(`> — ${c.author}`);
+          }
+          lines.push('');
+        }
+        break;
+
+      case 'cta':
+        if (c.text) {
+          lines.push(c.text);
+          lines.push('');
+        }
+        if (c.buttonText) {
+          const link = c.link && c.link !== '#' ? c.link : '';
+          lines.push(link ? `[${c.buttonText}](${link})` : `**${c.buttonText}**`);
+          lines.push('');
+        }
+        break;
+
+      case 'image':
+        if (c.url) {
+          const alt = c.alt || c.caption || '';
+          lines.push(`![${alt}](${c.url})`);
+          lines.push('');
+        }
+        break;
+
+      default:
+        // For Shopify blocks and other unrecognised types: emit any text content
+        // that is present so the markdown output is not silently incomplete.
+        if (c.text && typeof c.text === 'string' && c.text.trim()) {
+          lines.push(c.text.trim());
+          lines.push('');
+        } else if (c.title && typeof c.title === 'string' && c.title.trim()) {
+          lines.push(c.title.trim());
+          lines.push('');
+        }
+        break;
+    }
+  }
+
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 export async function improveContent(content: string, instructions?: string, type?: string): Promise<string> {
   const context = type ? `${type} ` : "";
   const instructionText = instructions ? ` Apply these specific instructions: ${instructions}.` : "";

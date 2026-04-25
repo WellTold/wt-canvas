@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   ArrowLeft, 
   Edit, 
@@ -21,7 +22,8 @@ import {
   Clock,
   FileText,
   Magnet,
-  Rocket
+  Rocket,
+  FileCode
 } from "lucide-react";
 import type { ContentItem, ContentBlock } from "@shared/schema";
 import { EmailPreviewModal } from "./EmailPreviewModal";
@@ -69,6 +71,8 @@ export default function ContentView() {
 
   const [showPublishedPreview, setShowPublishedPreview] = useState(false);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
+  const [showMarkdownDialog, setShowMarkdownDialog] = useState(false);
+  const [generatedMarkdown, setGeneratedMarkdown] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
 
   interface ExtendedContentItem extends ContentItem {
@@ -143,6 +147,32 @@ export default function ContentView() {
       toast({
         title: "Error",
         description: "Couldn't update the status. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const generateMarkdownMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/pages/${id}/generate-markdown`);
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Failed to generate markdown");
+      }
+      return response.json() as Promise<{ markdown: string; saved: boolean }>;
+    },
+    onSuccess: (data) => {
+      setGeneratedMarkdown(data.markdown);
+      setShowMarkdownDialog(true);
+      toast({
+        title: "Markdown generated",
+        description: "Saved to Supabase and ready for Cloudflare publish.",
+      });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Error",
+        description: err.message,
         variant: "destructive",
       });
     },
@@ -280,6 +310,18 @@ export default function ContentView() {
                 />
               </DialogContent>
             </Dialog>
+          )}
+
+          {/* Generate Markdown — web pages only */}
+          {!isEmailContent(item) && (
+            <Button
+              variant="outline"
+              onClick={() => generateMarkdownMutation.mutate()}
+              disabled={generateMarkdownMutation.isPending}
+            >
+              <FileCode className="h-4 w-4 mr-2" />
+              {generateMarkdownMutation.isPending ? "Generating..." : "Generate Markdown"}
+            </Button>
           )}
 
           <Button onClick={handleEdit} className="bg-black hover:bg-gray-800 text-white">
@@ -478,6 +520,40 @@ export default function ContentView() {
         contentId={id!}
         contentTitle={item.title}
       />
+
+      {/* Markdown preview dialog */}
+      <Dialog open={showMarkdownDialog} onOpenChange={setShowMarkdownDialog}>
+        <DialogContent className="max-w-3xl h-[80vh] flex flex-col gap-0 p-0">
+          <DialogHeader className="px-4 py-3 border-b shrink-0">
+            <DialogTitle className="text-sm font-medium flex items-center gap-2">
+              <FileCode className="h-4 w-4" />
+              Generated Markdown — {item.title}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto p-4">
+            <Textarea
+              value={generatedMarkdown}
+              readOnly
+              className="font-mono text-xs h-full min-h-[400px] resize-none"
+            />
+          </div>
+          <div className="px-4 py-3 border-t shrink-0 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                navigator.clipboard.writeText(generatedMarkdown);
+                toast({ title: "Copied", description: "Markdown copied to clipboard." });
+              }}
+            >
+              Copy
+            </Button>
+            <Button size="sm" onClick={() => setShowMarkdownDialog(false)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

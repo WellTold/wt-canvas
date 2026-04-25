@@ -51,6 +51,7 @@ function normaliseRow(row: Record<string, any>): Page {
     status: row.status ?? "live",
     meta_description: row.meta_description ?? null,
     content_json: row.content_json ?? null,
+    content_markdown: row.content_markdown ?? null,
     featured_image: row.featured_image ?? row.image_url ?? null,
     og_image: row.og_image ?? null,
     og_title: row.og_title ?? null,

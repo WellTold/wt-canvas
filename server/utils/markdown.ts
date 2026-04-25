@@ -1,80 +1,78 @@
 
 // Utility functions for Markdown to HTML conversion
-// Simple converter that handles basic Markdown formatting for Framer export
+
+function escHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function safeHref(url: string): string {
+  return url.replace(/"/g, "%22").replace(/'/g, "%27");
+}
 
 export function markdownToHtml(markdown: string): string {
   if (!markdown) return '';
 
-  let html = markdown
-    // Convert headers
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    
-    // Convert bold text
-    .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
-    
-    // Convert italic text
-    .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-    
-    // Convert blockquotes
-    .replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>')
-    
-    // Convert unordered lists
-    .replace(/^\- (.*$)/gim, '<li>$1</li>')
-    
-    // Convert numbered lists
-    .replace(/^\d+\. (.*$)/gim, '<li>$1</li>')
-    
-    // Convert line breaks to paragraphs
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/\n/g, '<br>')
-    
-    // Wrap in paragraphs
-    .replace(/^(?!<[h1-6]|<blockquote|<li)(.+)$/gim, '<p>$1</p>');
+  // Strip raw HTML tags first (XSS guard)
+  let s = markdown.replace(/<[^>]*>/g, '');
 
-  // Wrap list items in ul tags
-  html = html.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
-  
-  // Clean up extra paragraph tags around headers and other block elements
-  html = html
-    .replace(/<p>(<h[1-6]>.*<\/h[1-6]>)<\/p>/gim, '$1')
-    .replace(/<p>(<blockquote>.*<\/blockquote>)<\/p>/gim, '$1')
-    .replace(/<p>(<ul>.*<\/ul>)<\/p>/gim, '$1');
+  // Block-level patterns with safe escaping on captured groups
+  s = s
+    .replace(/^### (.*)$/gim, (_m, t) => `<h3>${escHtml(t)}</h3>`)
+    .replace(/^## (.*)$/gim, (_m, t) => `<h2>${escHtml(t)}</h2>`)
+    .replace(/^# (.*)$/gim, (_m, t) => `<h1>${escHtml(t)}</h1>`)
+    .replace(/^> — (.+)$/gim, (_m, t) => `<cite>— ${escHtml(t)}</cite>`)
+    .replace(/^> (.*)$/gim, (_m, t) => `<blockquote>${escHtml(t)}</blockquote>`)
+    .replace(/^\- (.*)$/gim, (_m, t) => `<li>${escHtml(t)}</li>`)
+    .replace(/^\d+\. (.*)$/gim, (_m, t) => `<li>${escHtml(t)}</li>`);
 
-  return html.trim();
+  // Inline: images before links (so ![...](...) is matched first)
+  s = s
+    .replace(/!\[([^\]]*)\]\((https?:\/\/[^\)]+)\)/g, (_m, alt, url) =>
+      `<img src="${safeHref(url)}" alt="${escHtml(alt)}" loading="lazy" />`)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, (_m, text, url) =>
+      `<a href="${safeHref(url)}" rel="noopener">${escHtml(text)}</a>`)
+    .replace(/\*\*(.*?)\*\*/gim, (_m, t) => `<strong>${escHtml(t)}</strong>`)
+    .replace(/\*(.*?)\*/gim, (_m, t) => `<em>${escHtml(t)}</em>`);
+
+  // Wrap list items in <ul>
+  s = s.replace(/((?:<li>(?:.|\n)*?<\/li>\n?)+)/g, '<ul>$1</ul>');
+
+  // Paragraph conversion: blank-line separated blocks
+  const BLOCK_START = /^<(h[1-6]|ul|blockquote|cite|img)/;
+  const lines = s.split('\n');
+  const out: string[] = [];
+  let buf: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed === '') {
+      if (buf.length) { out.push(`<p>${buf.join(' ')}</p>`); buf = []; }
+    } else if (BLOCK_START.test(trimmed)) {
+      if (buf.length) { out.push(`<p>${buf.join(' ')}</p>`); buf = []; }
+      out.push(line);
+    } else {
+      buf.push(line);
+    }
+  }
+  if (buf.length) out.push(`<p>${buf.join(' ')}</p>`);
+
+  return out.join('\n').trim();
 }
 
 export function htmlToMarkdown(html: string): string {
   if (!html) return '';
 
   let markdown = html
-    // Convert headers
     .replace(/<h1>(.*?)<\/h1>/gim, '# $1')
     .replace(/<h2>(.*?)<\/h2>/gim, '## $1')
     .replace(/<h3>(.*?)<\/h3>/gim, '### $1')
-    
-    // Convert bold text
     .replace(/<strong>(.*?)<\/strong>/gim, '**$1**')
-    
-    // Convert italic text
     .replace(/<em>(.*?)<\/em>/gim, '*$1*')
-    
-    // Convert blockquotes
     .replace(/<blockquote>(.*?)<\/blockquote>/gim, '> $1')
-    
-    // Convert list items
     .replace(/<ul>/gim, '')
     .replace(/<\/ul>/gim, '')
     .replace(/<li>(.*?)<\/li>/gim, '- $1')
-    
-    // Convert paragraphs
     .replace(/<p>(.*?)<\/p>/gim, '$1\n\n')
-    
-    // Convert line breaks
     .replace(/<br>/gim, '\n')
-    
-    // Remove remaining HTML tags
     .replace(/<[^>]*>/g, '');
 
   return markdown.trim();

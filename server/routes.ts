@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { seedUsers } from "./services/auth";
 import { insertContentItemSchema, insertContentBlockSchema, blockPresets, siteSettings, integrations, insertIntegrationSchema, emailStyles, insertEmailStyleSchema, insertKeywordSchema } from "@shared/schema";
 import { z } from "zod";
-import { improveContent, refineContent, generateTitle, generateMetaDescription, generateSection, suggestKeywords, generateCompleteArticle } from "./services/claude";
+import { improveContent, refineContent, generateTitle, generateMetaDescription, generateSection, suggestKeywords, generateCompleteArticle, generateWebPageMarkdown } from "./services/claude";
 import { fetchProductList, isShopifyConfigured } from "./services/shopify";
 import { supabaseLegacyPublisher } from "./services/supabase-legacy";
 import { markdownToHtml } from "./utils/markdown";
@@ -1137,6 +1137,33 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         return res.status(404).json({ message: "Content item not found" });
       }
 
+      // Ensure content_markdown is present before publishing so the Cloudflare Worker
+      // can consume it. Fetch content_json directly from Supabase (bypassing the
+      // storage abstraction which returns content_markdown as a string when set).
+      const webpageTableMap: Record<string, string> = {
+        blog_article: "blog_articles",
+        landing_page: "landing_pages",
+        lead_magnet: "lead_magnets",
+        blog: "blog_articles",
+        landing: "landing_pages",
+      };
+      const publishTableName = webpageTableMap[contentItem.contentType || contentItem.type];
+      if (publishTableName) {
+        const { data: publishRow } = await supabaseClient
+          .from(publishTableName)
+          .select("content_json, content_markdown, title")
+          .eq("id", contentId)
+          .single();
+        if (publishRow && !publishRow.content_markdown && Array.isArray(publishRow.content_json) && publishRow.content_json.length > 0) {
+          const autoMarkdown = generateWebPageMarkdown(publishRow.content_json, publishRow.title || contentItem.title);
+          await supabaseClient
+            .from(publishTableName)
+            .update({ content_markdown: autoMarkdown, updated_at: new Date().toISOString() })
+            .eq("id", contentId);
+          console.log(`✅ Auto-generated content_markdown for ${contentId} before publish`);
+        }
+      }
+
       const result = await supabaseLegacyPublisher.publish(contentItem);
       res.json(result);
     } catch (error) {
@@ -1637,10 +1664,36 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
       const item = await storage.getContentItem(id as any);
       if (!item) return res.status(404).json({ message: "Content item not found" });
 
-      const { renderPageHtml } = await import("./renderer/blockToHtml");
-      // Use the request origin for preview so the CSS loads from the local dev server
       const reqOrigin = `${req.protocol}://${req.get("host")}`;
       const baseUrl = reqOrigin;
+
+      // When the item's content is a markdown string (content_markdown was set via
+      // Generate Markdown), render the markdown as HTML directly so the preview
+      // matches what the Cloudflare Worker will serve.
+      // Strip raw HTML tags first to guard against stored-XSS before passing
+      // to the simple regex-based converter which does not have its own sanitizer.
+      if (typeof item.content === "string" && item.content.trim()) {
+        const safeMd = item.content.replace(/<[^>]*>/g, "");
+        const bodyHtml = markdownToHtml(safeMd);
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${item.title.replace(/</g, "&lt;")}</title>
+  ${item.metaDescription ? `<meta name="description" content="${item.metaDescription.replace(/"/g, "&quot;")}" />` : ""}
+  <link rel="stylesheet" href="${baseUrl}/styles/wt-pages.css" />
+</head>
+<body class="wt-page">
+  <main class="wt-content">
+    ${bodyHtml}
+  </main>
+</body>
+</html>`;
+        return res.set("Content-Type", "text/html").send(html);
+      }
+
+      const { renderPageHtml } = await import("./renderer/blockToHtml");
       // Only construct fetcher when env vars are present — avoids noisy fetch failures for unconfigured installs
       const shopifyFetcher = (process.env.SHOPIFY_STOREFRONT_TOKEN && process.env.SHOPIFY_STORE_DOMAIN)
         ? await import("./services/shopify").then((m) => ({ fetchProduct: m.fetchProduct, fetchCollection: m.fetchCollection }))
@@ -1680,6 +1733,59 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
       res.json({ html });
     } catch (error) {
       res.status(500).json({ message: "Failed to convert markdown: " + (error as Error).message });
+    }
+  });
+
+  // Generate Markdown from block JSON and save to Supabase content_markdown field
+  app.post("/api/pages/:id/generate-markdown", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Fetch the item header for title and content type
+      const item = await storage.getContentItem(id as any);
+      if (!item) return res.status(404).json({ message: "Content item not found" });
+
+      const subtypeMap: Record<string, string> = {
+        blog_article: "blog_articles",
+        landing_page: "landing_pages",
+        lead_magnet: "lead_magnets",
+        blog: "blog_articles",
+        landing: "landing_pages",
+      };
+      const tableName = subtypeMap[item.contentType || item.type];
+      if (!tableName) {
+        return res.status(400).json({ message: "Content type does not support markdown generation" });
+      }
+
+      // Always fetch content_json directly from Supabase to avoid the storage abstraction
+      // returning content_markdown as a string (which would make block list appear empty)
+      const { data: row, error: fetchErr } = await supabaseClient
+        .from(tableName)
+        .select("content_json, title")
+        .eq("id", id)
+        .single();
+      if (fetchErr || !row) {
+        return res.status(404).json({ message: "Page not found in Supabase" });
+      }
+
+      const blocks: any[] = Array.isArray(row.content_json) ? row.content_json : [];
+      const title = row.title || item.title;
+      const markdown = generateWebPageMarkdown(blocks, title);
+
+      // Persist content_markdown while preserving content_json
+      const { error: saveErr } = await supabaseClient
+        .from(tableName)
+        .update({ content_markdown: markdown, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (saveErr) {
+        console.error("Failed to save content_markdown:", saveErr);
+        return res.status(500).json({ message: "Markdown generated but could not be saved: " + saveErr.message });
+      }
+
+      res.json({ markdown, saved: true });
+    } catch (error) {
+      console.error("Generate markdown error:", error);
+      res.status(500).json({ message: "Failed to generate markdown: " + (error as Error).message });
     }
   });
 
