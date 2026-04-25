@@ -38,16 +38,19 @@ export default {
 };
 
 async function proxyToShopify(request: Request): Promise<Response> {
-  const url = new URL(request.url);
-  url.hostname = "welltold.myshopify.com";
-  const headers = new Headers(request.headers);
-  // Tell Shopify which store to serve
-  headers.set("host", "welltolddesign.com");
-  const init: RequestInit = { method: request.method, headers, redirect: "manual" };
+  // resolveOverride routes to Shopify's servers while keeping the original Host header
+  // (welltolddesign.com) intact — so Shopify identifies the correct store.
+  // Changing the URL hostname would cause Cloudflare to strip the Host override.
+  const init: RequestInit & { cf?: any } = {
+    method: request.method,
+    headers: request.headers,
+    redirect: "manual",
+    cf: { resolveOverride: "welltold.myshopify.com" },
+  };
   if (!["GET", "HEAD"].includes(request.method)) {
-    (init as any).body = request.body;
+    init.body = request.body;
   }
-  return fetch(url.toString(), init);
+  return fetch(request.url, init);
 }
 
 /** Map a row from blog_articles / landing_pages / lead_magnets to the Page shape. */
