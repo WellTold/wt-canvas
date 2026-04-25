@@ -407,7 +407,7 @@ export function ContentTable({ type, onEdit }: ContentTableProps) {
                       </Button>
                       {item.slug && !item.type?.includes('email') && !(item as any).contentType?.includes('email') && (
                         <a
-                          href={`https://welltolddesign.com/articles/${item.slug}`}
+                          href={`https://welltolddesign.com/a/articles/${item.slug}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >

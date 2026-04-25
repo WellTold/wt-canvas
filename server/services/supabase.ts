@@ -100,7 +100,7 @@ export class SupabasePublisher {
         success: true,
         id: data.id,
         message: 'Landing page published successfully',
-        url: `/articles/${content.slug}`
+        url: `/a/articles/${content.slug}`
       };
     } catch (error) {
       console.error('Supabase publish error:', error);

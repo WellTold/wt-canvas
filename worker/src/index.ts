@@ -16,17 +16,17 @@ export default {
     const path = url.pathname;
 
     // Static worker-owned paths
-    if (path === "/sitemap.xml" || path === "/articles/sitemap.xml") return handleSitemap(env);
-    if (path === "/robots.txt" || path === "/articles/robots.txt") return handleRobots(env);
-    if (path === "/articles/styles/wt-pages.css" || path === "/styles/wt-pages.css") return handleCss();
-    if (path === "/articles/components/loader.js" || path === "/components/loader.js") return handleComponentLoader();
+    if (path === "/sitemap.xml" || path === "/a/articles/sitemap.xml") return handleSitemap(env);
+    if (path === "/robots.txt" || path === "/a/articles/robots.txt") return handleRobots(env);
+    if (path === "/a/articles/styles/wt-pages.css" || path === "/styles/wt-pages.css") return handleCss();
+    if (path === "/a/articles/components/loader.js" || path === "/components/loader.js") return handleComponentLoader();
 
     // Articles index page
-    if (path === "/articles" || path === "/articles/") return handleIndex(env);
+    if (path === "/a/articles" || path === "/a/articles/") return handleIndex(env);
 
-    // Articles content — strip /articles prefix to get bare slug
-    if (path.startsWith("/articles/")) {
-      const normalizedPath = path.slice("/articles".length); // → /slug
+    // Articles content — strip /a/articles prefix to get bare slug
+    if (path.startsWith("/a/articles/")) {
+      const normalizedPath = path.slice("/a/articles".length); // → /slug
       const redirect = await checkRedirects(normalizedPath, env);
       if (redirect) return Response.redirect(redirect, 301);
       return handlePage(normalizedPath, env);
@@ -163,7 +163,7 @@ function renderIndexHtml(articles: any[], base: string, siteSettings: SiteSettin
     const img = a.featured_image || a.image_url || "";
     const tags = Array.isArray(a.tags) ? a.tags : [];
     return `
-    <a href="${esc(base)}/${esc(a.slug)}" class="wt-idx-featured-card" data-tags="${esc(tagsAttr(a.tags))}">
+    <a href="${esc(base)}/a/articles/${esc(a.slug)}" class="wt-idx-featured-card" data-tags="${esc(tagsAttr(a.tags))}">
       ${img ? `<div class="wt-idx-featured-img-wrap"><img src="${esc(img)}" alt="${esc(a.title)}" loading="lazy" /></div>` : `<div class="wt-idx-featured-img-wrap wt-idx-featured-img-placeholder"></div>`}
       <div class="wt-idx-featured-body">
         <div class="wt-idx-meta">
@@ -181,7 +181,7 @@ function renderIndexHtml(articles: any[], base: string, siteSettings: SiteSettin
     const img = a.featured_image || a.image_url || "";
     const tags = Array.isArray(a.tags) ? a.tags : [];
     return `
-    <a href="${esc(base)}/${esc(a.slug)}" class="wt-idx-list-card" data-tags="${esc(tagsAttr(a.tags))}">
+    <a href="${esc(base)}/a/articles/${esc(a.slug)}" class="wt-idx-list-card" data-tags="${esc(tagsAttr(a.tags))}">
       ${img ? `<div class="wt-idx-list-img"><img src="${esc(img)}" alt="${esc(a.title)}" loading="lazy" /></div>` : `<div class="wt-idx-list-img wt-idx-list-img-placeholder"></div>`}
       <div class="wt-idx-list-body">
         <div class="wt-idx-meta">
@@ -202,7 +202,7 @@ function renderIndexHtml(articles: any[], base: string, siteSettings: SiteSettin
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Articles &amp; Pages — Well Told</title>
   <meta name="description" content="Browse all articles, guides and pages from Well Told." />
-  <link rel="stylesheet" href="${esc(base)}/styles/wt-pages.css" />
+  <link rel="stylesheet" href="${esc(base)}/a/articles/styles/wt-pages.css" />
   <style>
     /* Index page overrides */
     .wt-idx-content { max-width: 1100px; margin: 0 auto; padding: 3rem 2rem 6rem; }
@@ -400,7 +400,7 @@ async function handleSitemap(env: Env): Promise<Response> {
     .map(
       (p) => `
   <url>
-    <loc>${base}/${p.slug}</loc>
+    <loc>${base}/a/articles/${p.slug}</loc>
     <lastmod>${p.updated_at?.split("T")[0] || ""}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -521,7 +521,7 @@ async function checkRedirects(path: string, env: Env): Promise<string | null> {
     supabase.from("lead_magnets").select("slug").contains("redirect_from", [slug]).maybeSingle(),
   ]);
   const data = blog.data ?? landing.data ?? lead.data ?? null;
-  if (data) return `${env.SITE_BASE_URL}/${data.slug}`;
+  if (data) return `${env.SITE_BASE_URL}/a/articles/${data.slug}`;
 
   return null;
 }

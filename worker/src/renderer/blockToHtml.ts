@@ -904,7 +904,7 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
 
   ${schema ? `<script type="application/ld+json">${safeJsonLd(schema)}</script>` : ""}
 
-  <link rel="stylesheet" href="${escAttr(baseUrl)}/styles/wt-pages.css" />
+  <link rel="stylesheet" href="${escAttr(baseUrl)}/a/articles/styles/wt-pages.css" />
   ${page.custom_css ? `<style>${page.custom_css}</style>` : ""}
 </head>
 <body class="wt-page wt-template-${escAttr(template)}">
@@ -999,7 +999,7 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
 
   ${schema ? `<script type="application/ld+json">${safeJsonLd(schema)}</script>` : ""}
 
-  <link rel="stylesheet" href="${escAttr(baseUrl)}/styles/wt-pages.css" />
+  <link rel="stylesheet" href="${escAttr(baseUrl)}/a/articles/styles/wt-pages.css" />
   ${hasAppBlocks ? `<script src="${escAttr(baseUrl)}/components/loader.js" defer></script>` : ""}
   ${page.custom_css ? `<style>${page.custom_css}</style>` : ""}
 </head>
@@ -1024,7 +1024,7 @@ export function render404(siteSettings: SiteSettings = {}, baseUrl = "https://we
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Page Not Found — Well Told</title>
   <meta name="robots" content="noindex" />
-  <link rel="stylesheet" href="${escAttr(baseUrl)}/styles/wt-pages.css" />
+  <link rel="stylesheet" href="${escAttr(baseUrl)}/a/articles/styles/wt-pages.css" />
 </head>
 <body class="wt-page" style="margin:0;padding:0;font-family:'Cera Pro',-apple-system,BlinkMacSystemFont,sans-serif;">
   ${header}

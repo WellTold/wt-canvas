@@ -298,7 +298,7 @@ export default function ContentView() {
                     Published preview — {item.title}
                     {item.slug && (
                       <span className="ml-auto text-xs font-normal text-muted-foreground">
-                        welltolddesign.com/articles/{item.slug}
+                        welltolddesign.com/a/articles/{item.slug}
                       </span>
                     )}
                   </DialogTitle>
