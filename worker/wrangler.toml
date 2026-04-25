@@ -5,12 +5,12 @@ account_id = "01afaf4c7176663370662bf96b2cc6bb"
 workers_dev = true
 
 routes = [
-  { pattern = "welltold.design/pages/*", zone_name = "welltold.design" },
-  { pattern = "welltold.design", zone_name = "welltold.design", custom_domain = true }
+  { pattern = "welltolddesign.com/articles/*", zone_name = "welltolddesign.com" },
+  { pattern = "welltolddesign.com", zone_name = "welltolddesign.com", custom_domain = true }
 ]
 
 [vars]
-SITE_BASE_URL = "https://welltold.design/pages"
+SITE_BASE_URL = "https://welltolddesign.com"
 WTC_API_URL = "https://wt-canvas.replit.app"
 
 # Secrets are set via wrangler secret put:

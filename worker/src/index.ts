@@ -15,23 +15,23 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    if (path === "/sitemap.xml" || path === "/pages/sitemap.xml") return handleSitemap(env);
-    if (path === "/robots.txt" || path === "/pages/robots.txt") return handleRobots(env);
-    if (path === "/pages/styles/wt-pages.css" || path === "/styles/wt-pages.css") return handleCss();
-    if (path === "/pages/components/loader.js" || path === "/components/loader.js") return handleComponentLoader();
+    if (path === "/sitemap.xml" || path === "/articles/sitemap.xml") return handleSitemap(env);
+    if (path === "/robots.txt" || path === "/articles/robots.txt") return handleRobots(env);
+    if (path === "/articles/styles/wt-pages.css" || path === "/styles/wt-pages.css") return handleCss();
+    if (path === "/articles/components/loader.js" || path === "/components/loader.js") return handleComponentLoader();
 
     // Bare root domain → catalog index page
     if (path === "/" || path === "") {
       return handleIndex(env);
     }
 
-    // Strip /pages prefix so welltold.design/pages/my-slug → slug = "my-slug"
-    const normalizedPath = path.startsWith("/pages/")
-      ? path.slice("/pages".length)
+    // Strip /articles prefix so welltolddesign.com/articles/my-slug → slug = "my-slug"
+    const normalizedPath = path.startsWith("/articles/")
+      ? path.slice("/articles".length)
       : path;
 
-    // Root index page → welltold.design/pages/ or welltold.design/pages
-    if (normalizedPath === "/" || normalizedPath === "" || normalizedPath === "/pages") {
+    // Root index page → welltolddesign.com/articles/ or welltolddesign.com/articles
+    if (normalizedPath === "/" || normalizedPath === "" || normalizedPath === "/articles") {
       return handleIndex(env);
     }
 
