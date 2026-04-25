@@ -15,16 +15,28 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // Static worker-owned paths
+    // ── Shopify App Proxy requests ────────────────────────────────────────────
+    // Shopify strips the /a/articles prefix before forwarding, and passes
+    // path_prefix=/a/articles as a query param instead. The bare slug arrives
+    // as the pathname. Redirects must NOT be returned (Shopify treats 3xx as
+    // errors); serve the canonical page directly.
+    if (url.searchParams.get("path_prefix") === "/a/articles") {
+      if (path === "/" || path === "") return handleIndex(env);
+      if (path === "/sitemap.xml") return handleSitemap(env);
+      if (path === "/robots.txt") return handleRobots(env);
+      if (path === "/styles/wt-pages.css") return handleCss();
+      if (path === "/components/loader.js") return handleComponentLoader();
+      return handlePage(path, env); // path is already /slug
+    }
+
+    // ── Direct worker access (workers.dev or legacy welltold.design) ──────────
     if (path === "/sitemap.xml" || path === "/a/articles/sitemap.xml") return handleSitemap(env);
     if (path === "/robots.txt" || path === "/a/articles/robots.txt") return handleRobots(env);
     if (path === "/a/articles/styles/wt-pages.css" || path === "/styles/wt-pages.css") return handleCss();
     if (path === "/a/articles/components/loader.js" || path === "/components/loader.js") return handleComponentLoader();
 
-    // Articles index page
     if (path === "/a/articles" || path === "/a/articles/") return handleIndex(env);
 
-    // Articles content — strip /a/articles prefix to get bare slug
     if (path.startsWith("/a/articles/")) {
       const normalizedPath = path.slice("/a/articles".length); // → /slug
       const redirect = await checkRedirects(normalizedPath, env);
@@ -32,7 +44,7 @@ export default {
       return handlePage(normalizedPath, env);
     }
 
-    // Everything else → pass through to Shopify origin (avoids loop back to this worker)
+    // Everything else → pass through to Shopify origin
     return proxyToShopify(request);
   },
 };
