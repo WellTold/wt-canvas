@@ -32,13 +32,25 @@ async function resolveImageSuggestions(params: {
   const searchTerms = [description, keyword, title].filter(Boolean).join(" ").trim();
   if (!searchTerms) return [];
 
+  const shopifyQuery = [keyword, title].filter(Boolean).join(" ").trim() || description || "";
+
+  // Run Cloudinary and Shopify fetches concurrently to minimise latency
+  const [cloudinaryResult, shopifyResult] = await Promise.allSettled([
+    (async () => {
+      const { searchCloudinaryAssets } = await import("./services/cloudinary");
+      return searchCloudinaryAssets(searchTerms, 'image', 10);
+    })(),
+    (async () => {
+      if (!shopifyQuery) return [];
+      const result = await fetchProductList(5, shopifyQuery);
+      return result.items.filter(p => p.imageUrl);
+    })(),
+  ]);
+
   const suggestions: Array<{ url: string; displayName: string; publicId: string; source: string; folder: string | null }> = [];
 
-  // Cloudinary search
-  try {
-    const { searchCloudinaryAssets } = await import("./services/cloudinary");
-    const assets = await searchCloudinaryAssets(searchTerms, 'image', 10);
-    assets.slice(0, 3).forEach(asset => {
+  if (cloudinaryResult.status === 'fulfilled') {
+    cloudinaryResult.value.slice(0, 3).forEach(asset => {
       suggestions.push({
         url: asset.secure_url,
         displayName: asset.display_name,
@@ -47,31 +59,22 @@ async function resolveImageSuggestions(params: {
         folder: asset.folder || null,
       });
     });
-  } catch (e) {
-    console.warn('Cloudinary image suggest failed:', (e as Error).message);
+  } else {
+    console.warn('Cloudinary image suggest failed:', cloudinaryResult.reason?.message);
   }
 
-  // Shopify product image lookup
-  try {
-    const shopifyQuery = [keyword, title].filter(Boolean).join(" ").trim() || description || "";
-    if (shopifyQuery) {
-      const result = await fetchProductList(5, shopifyQuery);
-      result.items
-        .filter(p => p.imageUrl)
-        .slice(0, 2)
-        .forEach(p => {
-          suggestions.push({
-            url: p.imageUrl!,
-            displayName: p.title,
-            publicId: p.handle,
-            source: 'shopify',
-            folder: null,
-          });
-        });
-    }
-  } catch (e) {
-    // Shopify not configured or unavailable — silently skip
+  if (shopifyResult.status === 'fulfilled') {
+    (shopifyResult.value as any[]).slice(0, 2).forEach(p => {
+      suggestions.push({
+        url: p.imageUrl,
+        displayName: p.title,
+        publicId: p.handle,
+        source: 'shopify',
+        folder: null,
+      });
+    });
   }
+  // Shopify silently skipped if not configured
 
   return suggestions;
 }
