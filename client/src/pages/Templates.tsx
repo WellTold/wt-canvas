@@ -213,11 +213,17 @@ export default function Templates() {
         </div>
         
         {/* Action Button Row */}
-        <div>
+        <div className="flex gap-2">
           <Link href="/template-builder">
+            <Button variant="outline" className="border-black">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Legacy Template
+            </Button>
+          </Link>
+          <Link href="/ai-template-builder">
             <Button className="bg-black hover:bg-gray-800 text-white">
               <Plus className="h-4 w-4 mr-2" />
-              Create Template
+              Create AI Template
             </Button>
           </Link>
         </div>

@@ -267,9 +267,9 @@ export default function TemplateBuilder() {
     <div className="wt-page">
       <div className="wt-page-header">
         <div>
-          <h1 className="wt-page-title">Template Builder</h1>
+          <h1 className="wt-page-title">Legacy Template Builder</h1>
           <p className="wt-page-description">
-            Create structured content templates with AI generation instructions.
+            Create structured content templates with individual block-level AI generation instructions.
           </p>
         </div>
         <div className="flex gap-2">

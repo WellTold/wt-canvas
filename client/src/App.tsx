@@ -19,6 +19,7 @@ import CloudinaryAssets from "@/pages/CloudinaryAssets";
 import CloudinaryTest from "@/pages/CloudinaryTest";
 import Templates from "@/pages/Templates";
 import TemplateBuilder from "@/pages/TemplateBuilder";
+import AITemplateBuilder from "@/pages/AITemplateBuilder";
 import TemplateDetail from "@/pages/TemplateDetail";
 import ContentView from "@/components/content/ContentView";
 import { ContentEditor } from "@/components/content/ContentEditor";
@@ -88,6 +89,7 @@ function Router() {
           <Route path="/templates/:id" component={TemplateDetail} />
           <Route path="/email-templates/:id" component={TemplateDetail} />
           <Route path="/template-builder" component={TemplateBuilder} />
+          <Route path="/ai-template-builder" component={AITemplateBuilder} />
           {/* Content detail/editor */}
           <Route path="/content/:id" component={ContentView} />
           <Route path="/content-editor" component={() => <ContentEditor />} />
