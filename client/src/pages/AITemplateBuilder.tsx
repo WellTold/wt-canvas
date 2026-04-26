@@ -26,7 +26,7 @@ const CONTENT_TYPES = [
 ];
 
 function generateId(): string {
-  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 export default function AITemplateBuilder() {
@@ -84,7 +84,6 @@ export default function AITemplateBuilder() {
         system_prompt:        systemPrompt.trim() || null,
         user_prompt_addition: null,
         blocks,
-        structure:            null,
       };
 
       const res = await apiRequest("POST", "/api/templates", payload);
