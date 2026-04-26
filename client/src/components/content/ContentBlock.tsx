@@ -814,8 +814,12 @@ export function ContentBlock({
       case 'image':
         return (
           <div className="space-y-3">
-            {/* Suggested image (shown when there's a suggestion but no confirmed URL) */}
-            {imageSuggestion && !(safeContent as any)?.url && (
+            {/* Suggested image (shown when there's a suggestion but no confirmed valid URL) */}
+            {(() => {
+              const existingUrl = (safeContent as any)?.url || "";
+              const hasValidUrl = existingUrl.startsWith('http://') || existingUrl.startsWith('https://');
+              return imageSuggestion && !hasValidUrl;
+            })() && (
               <div className="border border-black bg-[#f0ebe7] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                 <div className="relative">
                   <img

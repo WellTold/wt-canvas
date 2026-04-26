@@ -728,11 +728,12 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
             : [];
           blockContent = { items: items };
         } else if (section.type === "image") {
-          // This is a placeholder. In a real scenario, you'd parse markdown image syntax like ![alt](url)
-          // and extract URL, alt text. For now, we'll assume the AI might return structured data for images.
+          // Only use the URL if it looks like a real image URL; otherwise leave blank
+          const rawUrl = section.content?.url || "";
+          const isValidUrl = rawUrl.startsWith('http://') || rawUrl.startsWith('https://');
           blockContent = {
-            url: section.content?.url || markdownContent, // Fallback to markdownContent if url is not directly provided
-            alt: section.content?.alt || "Generated Image",
+            url: isValidUrl ? rawUrl : "",
+            alt: section.content?.alt || markdownContent || "Image",
             caption: section.content?.caption || ""
           };
         } else if (section.type === "quote") {
@@ -761,49 +762,25 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       setLocalBlocks(blocks);
       setHasUnsavedChanges(true);
 
+      // Read server-provided image suggestions attached to image blocks
+      // Use index-based match: blocks[] is built from result.sections[] in the same order
+      const serverSuggestions: Record<string, ImageSuggestion> = {};
+      result.sections.forEach((section: any, sectionIdx: number) => {
+        if (section.type === 'image' && Array.isArray(section.suggestedImages) && section.suggestedImages.length > 0) {
+          const clientBlock = blocks[sectionIdx];
+          if (clientBlock) {
+            serverSuggestions[clientBlock.id] = section.suggestedImages[0] as ImageSuggestion;
+          }
+        }
+      });
+      if (Object.keys(serverSuggestions).length > 0) {
+        setImageSuggestions(prev => ({ ...prev, ...serverSuggestions }));
+      }
+
       toast({
         title: "Content Generated",
         description: `Generated ${blocks.length} content sections successfully. ${contentItemId ? 'Save your changes to keep them.' : 'Save as draft to create the article.'}`,
       });
-
-      // Auto-suggest images for any image blocks in the generated content
-      const imageBlocks = blocks.filter((b: any) => b.type === 'image' && !b.content?.url);
-      if (imageBlocks.length > 0) {
-        const allText = blocks
-          .filter((b: any) => b.type !== 'image')
-          .map((b: any) => b.content?.text || (Array.isArray(b.content?.items) ? b.content.items.join(' ') : ''))
-          .join(' ')
-          .slice(0, 400);
-
-        const suggestPromises = imageBlocks.map(async (imgBlock: any) => {
-          const description = imgBlock.content?.alt || imgBlock.content?.caption || allText || title;
-          try {
-            const res = await apiRequest("POST", "/api/images/suggest", {
-              description,
-              title,
-              keyword: primaryKeyword || "",
-            });
-            if (!res.ok) return null;
-            const data = await res.json();
-            if (data.suggestions && data.suggestions.length > 0) {
-              return { blockId: imgBlock.id, suggestion: data.suggestions[0] as ImageSuggestion };
-            }
-          } catch {
-            return null;
-          }
-          return null;
-        });
-
-        Promise.all(suggestPromises).then((results) => {
-          const newSuggestions: Record<string, ImageSuggestion> = {};
-          results.forEach((r) => {
-            if (r) newSuggestions[r.blockId] = r.suggestion;
-          });
-          if (Object.keys(newSuggestions).length > 0) {
-            setImageSuggestions(prev => ({ ...prev, ...newSuggestions }));
-          }
-        });
-      }
     },
     onError: (error) => {
       console.error('Article generation failed:', error);

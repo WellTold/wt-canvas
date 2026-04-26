@@ -18,6 +18,64 @@ const supabaseClient = createClient(
   process.env.SUPABASE_ANON_KEY!
 );
 
+function isValidImageUrl(url: string | undefined | null): boolean {
+  if (!url) return false;
+  return url.startsWith('http://') || url.startsWith('https://');
+}
+
+async function resolveImageSuggestions(params: {
+  description?: string;
+  title?: string;
+  keyword?: string;
+}): Promise<Array<{ url: string; displayName: string; publicId: string; source: string; folder: string | null }>> {
+  const { description, title, keyword } = params;
+  const searchTerms = [description, keyword, title].filter(Boolean).join(" ").trim();
+  if (!searchTerms) return [];
+
+  const suggestions: Array<{ url: string; displayName: string; publicId: string; source: string; folder: string | null }> = [];
+
+  // Cloudinary search
+  try {
+    const { searchCloudinaryAssets } = await import("./services/cloudinary");
+    const assets = await searchCloudinaryAssets(searchTerms, 'image', 10);
+    assets.slice(0, 3).forEach(asset => {
+      suggestions.push({
+        url: asset.secure_url,
+        displayName: asset.display_name,
+        publicId: asset.public_id,
+        source: 'cloudinary',
+        folder: asset.folder || null,
+      });
+    });
+  } catch (e) {
+    console.warn('Cloudinary image suggest failed:', (e as Error).message);
+  }
+
+  // Shopify product image lookup
+  try {
+    const shopifyQuery = [keyword, title].filter(Boolean).join(" ").trim() || description || "";
+    if (shopifyQuery) {
+      const result = await fetchProductList(5, shopifyQuery);
+      result.items
+        .filter(p => p.imageUrl)
+        .slice(0, 2)
+        .forEach(p => {
+          suggestions.push({
+            url: p.imageUrl!,
+            displayName: p.title,
+            publicId: p.handle,
+            source: 'shopify',
+            folder: null,
+          });
+        });
+    }
+  } catch (e) {
+    // Shopify not configured or unavailable — silently skip
+  }
+
+  return suggestions;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Seed initial users in Supabase Auth
   await seedUsers();
@@ -831,6 +889,31 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         additionalInstructions,
       });
 
+      // Server-side auto-resolution: attach image suggestions to image blocks
+      const imageBlockIndices = result.sections
+        .map((b: any, i: number) => ({ block: b, index: i }))
+        .filter(({ block }: any) => block.type === 'image' && !isValidImageUrl(block.content?.url));
+
+      if (imageBlockIndices.length > 0) {
+        const suggestionJobs = imageBlockIndices.map(async ({ block, index }: any) => {
+          const description = block.content?.alt || block.content?.caption || "";
+          const suggestions = await resolveImageSuggestions({
+            description: description || undefined,
+            title,
+            keyword: primaryKeyword || undefined,
+          });
+          return { index, suggestions };
+        });
+
+        const resolved = await Promise.allSettled(suggestionJobs);
+        resolved.forEach((outcome) => {
+          if (outcome.status === 'fulfilled' && outcome.value.suggestions.length > 0) {
+            const { index, suggestions } = outcome.value;
+            result.sections[index] = { ...result.sections[index], suggestedImages: suggestions };
+          }
+        });
+      }
+
       res.json(result);
     } catch (error) {
       console.error('Complete article generation error:', error);
@@ -1588,16 +1671,7 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
       if (!description?.trim() && !keyword?.trim() && !title?.trim()) {
         return res.json({ suggestions: [] });
       }
-      const { searchCloudinaryAssets } = await import("./services/cloudinary");
-      const searchTerms = [description, keyword, title].filter(Boolean).join(" ").trim();
-      const assets = await searchCloudinaryAssets(searchTerms, 'image', 10);
-      const suggestions = assets.slice(0, 3).map(asset => ({
-        url: asset.secure_url,
-        displayName: asset.display_name,
-        publicId: asset.public_id,
-        source: 'cloudinary',
-        folder: asset.folder || null,
-      }));
+      const suggestions = await resolveImageSuggestions({ description, title, keyword });
       res.json({ suggestions });
     } catch (error) {
       console.error('Image suggest error:', error);
