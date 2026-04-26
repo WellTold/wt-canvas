@@ -1582,6 +1582,29 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
     }
   });
 
+  app.post("/api/images/suggest", requireAuth, async (req, res) => {
+    try {
+      const { description, title, keyword } = req.body;
+      if (!description?.trim() && !keyword?.trim() && !title?.trim()) {
+        return res.json({ suggestions: [] });
+      }
+      const { searchCloudinaryAssets } = await import("./services/cloudinary");
+      const searchTerms = [description, keyword, title].filter(Boolean).join(" ").trim();
+      const assets = await searchCloudinaryAssets(searchTerms, 'image', 10);
+      const suggestions = assets.slice(0, 3).map(asset => ({
+        url: asset.secure_url,
+        displayName: asset.display_name,
+        publicId: asset.public_id,
+        source: 'cloudinary',
+        folder: asset.folder || null,
+      }));
+      res.json({ suggestions });
+    } catch (error) {
+      console.error('Image suggest error:', error);
+      res.json({ suggestions: [] });
+    }
+  });
+
   app.get("/api/cloudinary/search", requireAuth, async (req, res) => {
     try {
       const { cloudinary } = await import("./services/cloudinary");

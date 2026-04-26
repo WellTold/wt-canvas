@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ContentBlock, type BlockState } from "./ContentBlock";
+import { ContentBlock, type BlockState, type ImageSuggestion } from "./ContentBlock";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -84,6 +84,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const [presetBlock, setPresetBlock] = useState<any>(null);
   const [presetName, setPresetName] = useState("");
   const [blockStates, setBlockStates] = useState<Record<string, BlockState>>({});
+  const [imageSuggestions, setImageSuggestions] = useState<Record<string, ImageSuggestion>>({});
   const [activeMood, setActiveMood] = useState("conversational");
   const [contentDescription, setContentDescription] = useState("");
 
@@ -764,6 +765,45 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
         title: "Content Generated",
         description: `Generated ${blocks.length} content sections successfully. ${contentItemId ? 'Save your changes to keep them.' : 'Save as draft to create the article.'}`,
       });
+
+      // Auto-suggest images for any image blocks in the generated content
+      const imageBlocks = blocks.filter((b: any) => b.type === 'image' && !b.content?.url);
+      if (imageBlocks.length > 0) {
+        const allText = blocks
+          .filter((b: any) => b.type !== 'image')
+          .map((b: any) => b.content?.text || (Array.isArray(b.content?.items) ? b.content.items.join(' ') : ''))
+          .join(' ')
+          .slice(0, 400);
+
+        const suggestPromises = imageBlocks.map(async (imgBlock: any) => {
+          const description = imgBlock.content?.alt || imgBlock.content?.caption || allText || title;
+          try {
+            const res = await apiRequest("POST", "/api/images/suggest", {
+              description,
+              title,
+              keyword: primaryKeyword || "",
+            });
+            if (!res.ok) return null;
+            const data = await res.json();
+            if (data.suggestions && data.suggestions.length > 0) {
+              return { blockId: imgBlock.id, suggestion: data.suggestions[0] as ImageSuggestion };
+            }
+          } catch {
+            return null;
+          }
+          return null;
+        });
+
+        Promise.all(suggestPromises).then((results) => {
+          const newSuggestions: Record<string, ImageSuggestion> = {};
+          results.forEach((r) => {
+            if (r) newSuggestions[r.blockId] = r.suggestion;
+          });
+          if (Object.keys(newSuggestions).length > 0) {
+            setImageSuggestions(prev => ({ ...prev, ...newSuggestions }));
+          }
+        });
+      }
     },
     onError: (error) => {
       console.error('Article generation failed:', error);
@@ -1957,6 +1997,14 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                                 }
                                 return acc;
                               }, {} as Record<string, string>)}
+                              imageSuggestion={block.type === 'image' ? imageSuggestions[block.id] : undefined}
+                              onAcceptSuggestion={(blockId, url, displayName) => {
+                                setImageSuggestions(prev => {
+                                  const next = { ...prev };
+                                  delete next[blockId];
+                                  return next;
+                                });
+                              }}
                             />
                           </div>
                         </div>

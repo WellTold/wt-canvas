@@ -173,6 +173,14 @@ function AppBlockEditor({ safeContent, onUpdate }: { safeContent: any; onUpdate:
 
 export type BlockState = "ai_generated" | "needs_input" | "manual" | null;
 
+export interface ImageSuggestion {
+  url: string;
+  displayName: string;
+  source: string;
+  publicId?: string;
+  folder?: string | null;
+}
+
 interface ContentBlockProps {
   block: any;
   onChange?: (blockId: string, content: any) => void;
@@ -187,6 +195,8 @@ interface ContentBlockProps {
   siblingContext?: Record<string, string>;
   contentDescription?: string;
   templateType?: string;
+  imageSuggestion?: ImageSuggestion;
+  onAcceptSuggestion?: (blockId: string, url: string, displayName: string) => void;
 }
 
 export function ContentBlock({
@@ -202,7 +212,9 @@ export function ContentBlock({
   activeMood,
   siblingContext,
   contentDescription,
-  templateType
+  templateType,
+  imageSuggestion,
+  onAcceptSuggestion,
 }: ContentBlockProps): React.ReactElement {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -802,7 +814,45 @@ export function ContentBlock({
       case 'image':
         return (
           <div className="space-y-3">
-            {/* Image preview */}
+            {/* Suggested image (shown when there's a suggestion but no confirmed URL) */}
+            {imageSuggestion && !(safeContent as any)?.url && (
+              <div className="border border-black bg-[#f0ebe7] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                <div className="relative">
+                  <img
+                    src={imageSuggestion.url}
+                    alt={imageSuggestion.displayName}
+                    className="w-full h-40 object-cover opacity-80"
+                  />
+                  <span className="absolute top-2 left-2 text-[10px] bg-black text-white px-2 py-0.5 font-mono uppercase tracking-wide">
+                    Suggested
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2 px-3 py-2">
+                  <p className="text-xs text-muted-foreground truncate flex-1">{imageSuggestion.displayName}</p>
+                  <div className="flex gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs border-black"
+                      onClick={() => onImageSelect?.(block.id)}
+                    >
+                      Replace
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs bg-black text-white hover:bg-gray-800"
+                      onClick={() => {
+                        onAcceptSuggestion?.(block.id, imageSuggestion.url, imageSuggestion.displayName);
+                        onUpdate({ ...(safeContent as any), url: imageSuggestion.url, alt: imageSuggestion.displayName });
+                      }}
+                    >
+                      Use this image
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* Confirmed image preview */}
             {(safeContent as any)?.url ? (
               <div className="relative">
                 <img
