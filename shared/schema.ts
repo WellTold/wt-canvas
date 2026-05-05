@@ -60,6 +60,7 @@ export const contentItems = pgTable("content_items", {
   klaviyoTemplateId: text("klaviyo_template_id"),
   klaviyoCampaignId: text("klaviyo_campaign_id"),
   keywordId: integer("keyword_id"), // FK → keywords.id for local email content items
+  markdownContent: text("markdown_content"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   authorId: text("author_id").notNull(),

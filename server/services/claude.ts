@@ -461,6 +461,102 @@ REQUIREMENTS:
   }
 }
 
+export interface GenerateWebPageMarkdownParams {
+  title: string;
+  type: 'blog' | 'landing_page' | 'lead_magnet' | string;
+  primaryKeyword?: string;
+  supportingKeywords?: string;
+  articleAngle?: string | null;
+  mood?: string;
+  additionalInstructions?: string;
+  brandContext?: {
+    voice_document?: string;
+    always_rules?: string[];
+    avoid_rules?: string[];
+    words_we_use?: string[];
+    words_we_avoid?: string[];
+  };
+}
+
+export async function generateWebPageMarkdownContent(params: GenerateWebPageMarkdownParams): Promise<string> {
+  const {
+    title,
+    type,
+    primaryKeyword,
+    supportingKeywords,
+    articleAngle,
+    mood = 'conversational',
+    additionalInstructions,
+    brandContext,
+  } = params;
+
+  const moodInstruction = MOOD_INSTRUCTIONS[mood] || MOOD_INSTRUCTIONS['conversational'];
+
+  const typeLabel = type === 'blog' || type === 'blog_article'
+    ? 'blog article'
+    : type === 'landing_page' || type === 'landing'
+    ? 'landing page'
+    : type === 'lead_magnet'
+    ? 'lead magnet'
+    : 'web page';
+
+  const alwaysRules = brandContext?.always_rules?.length
+    ? brandContext.always_rules.map((r, i) => `${i + 1}. ${r}`).join('\n')
+    : 'Write with honesty and clarity.';
+  const avoidRules = brandContext?.avoid_rules?.length
+    ? brandContext.avoid_rules.map((r, i) => `${i + 1}. ${r}`).join('\n')
+    : 'Avoid hollow marketing language.';
+  const wordsWeUse = brandContext?.words_we_use?.length
+    ? brandContext.words_we_use.join(', ')
+    : '';
+  const wordsWeAvoid = brandContext?.words_we_avoid?.length
+    ? brandContext.words_we_avoid.join(', ')
+    : '';
+  const voiceDocument = brandContext?.voice_document || '';
+
+  const systemPrompt = `You are a senior content writer for Well Told, a thoughtful gift and lifestyle brand known for beautifully curated, honest storytelling. You write ${typeLabel} content for their website.
+
+${voiceDocument ? `Brand Voice:\n${voiceDocument}\n` : ''}
+Always rules:
+${alwaysRules}
+
+Avoid rules:
+${avoidRules}
+${wordsWeUse ? `\nWords we use: ${wordsWeUse}` : ''}
+${wordsWeAvoid ? `\nWords we avoid: ${wordsWeAvoid}` : ''}
+
+Tone for this piece: ${moodInstruction}
+
+Output requirements:
+- Return a single, complete, well-structured Markdown document
+- Use # for the H1 title, ## for section headers, ### for sub-sections
+- Use standard Markdown: **bold**, *italic*, bullet lists, numbered lists, blockquotes (>)
+- Do NOT include JSON, code fences, or any non-Markdown formatting
+- Do NOT add subscription CTAs, follow-our-blog links, or placeholder links
+- Write substantive, complete content — not a skeleton or outline`;
+
+  const angleNote = articleAngle ? `\nArticle angle: ${articleAngle}` : '';
+  const supportingNote = supportingKeywords ? `\nSupporting keywords to weave in naturally: ${supportingKeywords}` : '';
+  const additionalNote = additionalInstructions ? `\nAdditional instructions: ${additionalInstructions}` : '';
+
+  const userPrompt = `Write a complete ${typeLabel} in Markdown format.
+
+Title: ${title}
+${primaryKeyword ? `Primary keyword: ${primaryKeyword}` : ''}${supportingNote}${angleNote}${additionalNote}
+
+Write the full document now, starting with the H1 title:`;
+
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: MAX_TOKENS_ARTICLE,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }],
+  });
+
+  const text = response.content[0].type === 'text' ? response.content[0].text : '';
+  return cleanAIContent(text);
+}
+
 export function generateWebPageMarkdown(blocks: any[], title?: string): string {
   const lines: string[] = [];
 

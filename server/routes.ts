@@ -5,7 +5,8 @@ import { storage } from "./storage";
 import { seedUsers } from "./services/auth";
 import { insertContentItemSchema, insertContentBlockSchema, blockPresets, siteSettings, integrations, insertIntegrationSchema, emailStyles, insertEmailStyleSchema, insertKeywordSchema } from "@shared/schema";
 import { z } from "zod";
-import { improveContent, refineContent, generateTitle, generateMetaDescription, generateSection, suggestKeywords, generateCompleteArticle, generateWebPageMarkdown } from "./services/claude";
+import { improveContent, refineContent, generateTitle, generateMetaDescription, generateSection, suggestKeywords, generateCompleteArticle, generateWebPageMarkdown, generateWebPageMarkdownContent } from "./services/claude";
+import { marked } from "marked";
 import { fetchProductList, isShopifyConfigured } from "./services/shopify";
 import { supabaseLegacyPublisher } from "./services/supabase-legacy";
 import { markdownToHtml } from "./utils/markdown";
@@ -924,6 +925,59 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
     }
   });
 
+  // ── Web page markdown generation (single Claude call) ───────────────────────
+  app.post("/api/ai/generate-webpage-markdown", requireAuth, async (req, res) => {
+    try {
+      const WEB_CONTENT_TYPES: readonly string[] = ['blog', 'blog_article', 'landing_page', 'landing', 'lead_magnet', 'webpage', 'web_page'];
+      const schema = z.object({
+        title: z.string().min(1),
+        type: z.string().refine(
+          (t) => !t.startsWith('email'),
+          { message: "This endpoint is for web content types only (not email)" }
+        ),
+        primaryKeyword: z.string().optional(),
+        supportingKeywords: z.string().optional(),
+        articleAngle: z.string().nullable().optional(),
+        mood: z.string().optional(),
+        additionalInstructions: z.string().optional(),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request: " + parsed.error.message });
+      }
+      // Double-check: reject email types explicitly
+      const { title, type, primaryKeyword, supportingKeywords, articleAngle, mood, additionalInstructions } = parsed.data;
+      if (type.startsWith('email')) {
+        return res.status(400).json({ message: "Web page markdown generation is not available for email content types" });
+      }
+
+      const brandContextRaw = await storage.getBrandContext();
+      const brandContext = brandContextRaw ? {
+        voice_document: brandContextRaw.voiceDocument || undefined,
+        always_rules: brandContextRaw.alwaysRules || undefined,
+        avoid_rules: brandContextRaw.avoidRules || undefined,
+        words_we_use: brandContextRaw.wordsWeUse || undefined,
+        words_we_avoid: brandContextRaw.wordsWeAvoid || undefined,
+      } : undefined;
+
+      const markdown = await generateWebPageMarkdownContent({
+        title,
+        type,
+        primaryKeyword,
+        supportingKeywords,
+        articleAngle,
+        mood,
+        additionalInstructions,
+        brandContext,
+      });
+
+      res.json({ markdown });
+    } catch (error) {
+      console.error('Web page markdown generation error:', error);
+      res.status(500).json({ message: "Failed to generate markdown: " + (error as Error).message });
+    }
+  });
+
   // ── Shopify Storefront proxy (editor preview only) ──────────────────────────
   app.get("/api/shopify/product/:id", requireAuth, async (req, res) => {
     try {
@@ -1244,13 +1298,28 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           .select("content_json, content_markdown, title")
           .eq("id", contentId)
           .single();
-        if (publishRow && !publishRow.content_markdown && Array.isArray(publishRow.content_json) && publishRow.content_json.length > 0) {
-          const autoMarkdown = generateWebPageMarkdown(publishRow.content_json, publishRow.title || contentItem.title);
-          await supabaseClient
-            .from(publishTableName)
-            .update({ content_markdown: autoMarkdown, updated_at: new Date().toISOString() })
-            .eq("id", contentId);
-          console.log(`✅ Auto-generated content_markdown for ${contentId} before publish`);
+        if (publishRow) {
+          if (publishRow.content_markdown) {
+            // Has markdown — convert to HTML and store as html block for the Cloudflare Worker
+            const renderedHtml = await marked(publishRow.content_markdown);
+            await supabaseClient
+              .from(publishTableName)
+              .update({
+                content_json: [{ type: 'html', html: renderedHtml }],
+                content_html: renderedHtml,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", contentId);
+            console.log(`✅ Converted markdown to HTML block for ${contentId} before publish`);
+          } else if (!publishRow.content_markdown && Array.isArray(publishRow.content_json) && publishRow.content_json.length > 0) {
+            // Legacy block-only page — generate markdown from blocks for backward compat
+            const autoMarkdown = generateWebPageMarkdown(publishRow.content_json, publishRow.title || contentItem.title);
+            await supabaseClient
+              .from(publishTableName)
+              .update({ content_markdown: autoMarkdown, updated_at: new Date().toISOString() })
+              .eq("id", contentId);
+            console.log(`✅ Auto-generated content_markdown for ${contentId} before publish`);
+          }
         }
       }
 

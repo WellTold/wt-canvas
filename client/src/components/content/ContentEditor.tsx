@@ -54,6 +54,9 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const [scheduledDate, setScheduledDate] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState("default");
   const [localBlocks, setLocalBlocks] = useState<any[]>([]);
+  const [markdownContent, setMarkdownContent] = useState("");
+  const [markdownPreviewHtml, setMarkdownPreviewHtml] = useState("");
+  const [isMarkdownMode, setIsMarkdownMode] = useState(false);
   const [isAssetSelectorOpen, setIsAssetSelectorOpen] = useState(false);
   const [imageBlockId, setImageBlockId] = useState<string | null>(null);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
@@ -375,7 +378,31 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       setRedirectFrom(Array.isArray(currentContentItem.redirectFrom) ? currentContentItem.redirectFrom.join(", ") : (currentContentItem.redirectFrom || ""));
       setStructuredDataType(currentContentItem.structuredDataType || "None");
 
-      // Parse content blocks
+      // For web page types: determine markdown mode vs legacy block mode
+      const subtype = currentContentItem.contentType || currentContentItem.type;
+      const isWebType = !subtype?.startsWith?.("email") && subtype !== "email";
+      if (isWebType) {
+        const storedMarkdown = currentContentItem.markdownContent || (typeof currentContentItem.content === 'string' ? currentContentItem.content : "");
+        const hasExistingBlocks = Array.isArray(currentContentItem.content) && currentContentItem.content.length > 0;
+
+        // Markdown mode: item has stored markdown OR it has no blocks (new page)
+        // Legacy block mode: item has existing block JSON but no markdown
+        const shouldUseMarkdownMode = !!storedMarkdown || !hasExistingBlocks;
+        setIsMarkdownMode(shouldUseMarkdownMode);
+
+        if (shouldUseMarkdownMode) {
+          setMarkdownContent(storedMarkdown);
+          if (storedMarkdown) {
+            import("marked").then(({ marked }) => {
+              Promise.resolve(marked(storedMarkdown)).then(html => setMarkdownPreviewHtml(html as string));
+            });
+          }
+          return; // Don't parse blocks for markdown mode
+        }
+        // Fall through to block parsing for legacy block pages
+      }
+
+      // Parse content blocks (email types and legacy block-based web pages)
       if (currentContentItem.content && Array.isArray(currentContentItem.content)) {
         const blocks = currentContentItem.content.map((block: any, index: number) => ({
           ...block,
@@ -632,6 +659,39 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
         title: "Meta Description Generated",
         description: "Here's an AI-generated meta description for your article",
       });
+    },
+  });
+
+  const generateWebPageMarkdownMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Please log in to use AI features");
+      if (!title.trim()) throw new Error("Enter a title first");
+      const response = await apiRequest("POST", "/api/ai/generate-webpage-markdown", {
+        title: title.trim(),
+        type: effectiveContentType,
+        primaryKeyword: primaryKeyword || undefined,
+        supportingKeywords: supportingKeywords || undefined,
+        articleAngle: articleAngle || undefined,
+        mood: activeMood || "conversational",
+      });
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Generation failed: ${response.status} ${errText}`);
+      }
+      const result = await response.json();
+      if (!result.markdown) throw new Error("No markdown returned from AI");
+      return result.markdown as string;
+    },
+    onSuccess: async (md) => {
+      setMarkdownContent(md);
+      setHasUnsavedChanges(true);
+      const { marked } = await import("marked");
+      const html = await marked(md);
+      setMarkdownPreviewHtml(html as string);
+      toast({ title: "Content Generated", description: "Review and edit the markdown, then save." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Generation Failed", description: error.message || "Could not generate content", variant: "destructive" });
     },
   });
 
@@ -1010,10 +1070,10 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '')
         .replace(/--+/g, '-');
-      const updateData = {
+
+      const updateData: Record<string, any> = {
         title: title.trim(),
         slug: slug.trim() || autoSlug,
-        content: cleanContent,
         metaDescription: metaDescription.trim(),
         primaryKeyword: primaryKeyword.trim(),
         supportingKeywords: supportingKeywords.trim(),
@@ -1027,8 +1087,17 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
         status: status,
         scheduledDate: status === "scheduled" ? scheduledDate : null,
         type: effectiveContentType,
-        templateId: selectedTemplate
+        templateId: selectedTemplate,
       };
+
+      if (isMarkdownMode) {
+        // Markdown-backed web page: send markdown, clear block content
+        updateData.markdownContent = markdownContent;
+        updateData.content = null;
+      } else {
+        // Email or legacy block-based web page: send blocks, preserve existing behavior
+        updateData.content = cleanContent;
+      }
 
       console.log('🔍 Update data being sent (cleaned):', JSON.stringify(updateData, null, 2));
 
@@ -1723,21 +1792,79 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                   <Wand2 className="h-3.5 w-3.5 mr-1" />
                   {generateTitle.isPending ? "Generating…" : "Generate Title"}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGenerateFullArticle}
-                  disabled={generateFullArticle.isPending}
-                >
-                  <Wand2 className="h-3.5 w-3.5 mr-1" />
-                  {generateFullArticle.isPending ? "Generating…" : "Generate Complete Article"}
-                </Button>
+                {!isEmailContent && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => generateWebPageMarkdownMutation.mutate()}
+                    disabled={generateWebPageMarkdownMutation.isPending}
+                  >
+                    <Wand2 className="h-3.5 w-3.5 mr-1" />
+                    {generateWebPageMarkdownMutation.isPending ? "Generating…" : "Generate Page"}
+                  </Button>
+                )}
+                {isEmailContent && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateFullArticle}
+                    disabled={generateFullArticle.isPending}
+                  >
+                    <Wand2 className="h-3.5 w-3.5 mr-1" />
+                    {generateFullArticle.isPending ? "Generating…" : "Generate Complete Article"}
+                  </Button>
+                )}
               </div>
             </div>
           )}
         </div>
 
-          {/* Block Editor — single unified editing surface */}
+        {/* Web Page Markdown Editor — shown for markdown-backed pages (new flow) */}
+        {isMarkdownMode && (
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex gap-4" style={{ minHeight: "500px" }}>
+                {/* Markdown textarea */}
+                <div className="flex-1 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Markdown</h3>
+                    <span className="text-xs text-muted-foreground">{markdownContent.length} chars</span>
+                  </div>
+                  <textarea
+                    className="flex-1 w-full border border-black rounded-none p-3 text-sm font-mono resize-none focus:outline-none focus:ring-1 focus:ring-black"
+                    style={{ minHeight: "460px" }}
+                    value={markdownContent}
+                    onChange={async (e) => {
+                      const md = e.target.value;
+                      setMarkdownContent(md);
+                      setHasUnsavedChanges(true);
+                      if (md) {
+                        const { marked } = await import("marked");
+                        const html = await marked(md);
+                        setMarkdownPreviewHtml(html as string);
+                      } else {
+                        setMarkdownPreviewHtml("");
+                      }
+                    }}
+                    placeholder="Start writing in Markdown, or click 'Generate Page' in AI Tools to generate content…"
+                  />
+                </div>
+                {/* Live rendered preview */}
+                <div className="flex-1 flex flex-col gap-2 border-l border-black/10 pl-4">
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Preview</h3>
+                  <div
+                    className="flex-1 overflow-auto prose prose-sm max-w-none text-sm p-2"
+                    style={{ minHeight: "460px" }}
+                    dangerouslySetInnerHTML={{ __html: markdownPreviewHtml || '<p class="text-muted-foreground italic">Preview will appear here as you type…</p>' }}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Block Editor — email types and legacy block-based web pages */}
+        {!isMarkdownMode && (
           <Card>
             <CardContent className="pt-4">
               <div className="space-y-4">
@@ -1997,6 +2124,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
               </div>
             </CardContent>
           </Card>
+        )}
         </div>
 
       {/* Cloudinary Asset Selector — Featured Image */}

@@ -87,6 +87,7 @@ function supabaseLegacyRowToContentItem(item: any, contentType: string): Content
     publishedAt: item.published_at ? new Date(item.published_at) : (item.publish_date ? new Date(item.publish_date) : null),
     framerCmsId: null,
     templateId: item.structured_data?._wt_template_id || null,
+    markdownContent: item.content_markdown || null,
     createdAt: new Date(item.created_at),
     updatedAt: new Date(item.updated_at),
     authorId: 'system',
@@ -144,6 +145,7 @@ function supabasePageRowToContentItem(item: any): ContentItem {
     publishedAt: item.published_at ? new Date(item.published_at) : (item.publish_date ? new Date(item.publish_date) : null),
     framerCmsId: null,
     templateId: item.structured_data?._wt_template_id || null,
+    markdownContent: item.content_markdown || null,
     createdAt: new Date(item.created_at),
     updatedAt: new Date(item.updated_at),
     authorId: 'system',
@@ -180,6 +182,7 @@ function localRowToContentItem(row: typeof localContentItemsTable.$inferSelect):
     klaviyoTemplateId: row.klaviyoTemplateId || null,
     klaviyoCampaignId: row.klaviyoCampaignId || null,
     keywordId: row.keywordId || null,
+    markdownContent: row.markdownContent || null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     authorId: row.authorId,
@@ -531,8 +534,11 @@ export class DatabaseStorage implements IStorage {
       redirect_from: item.redirectFrom || null,
     };
 
-    if (typeof item.content === 'string') {
-      tableData.content_markdown = item.content;
+    const incomingMarkdown = (item as any).markdownContent || (typeof item.content === 'string' ? item.content : null);
+
+    if (incomingMarkdown) {
+      // Markdown-backed web page (new flow)
+      tableData.content_markdown = incomingMarkdown;
       tableData.content_html = item.contentHTML || null;
       tableData.content_json = [];
     } else if (Array.isArray(item.content)) {
@@ -643,7 +649,16 @@ export class DatabaseStorage implements IStorage {
       updateData.structured_data = { ...existingSd, _wt_template_id: (data as any).templateId };
     }
 
-    if (data.content !== undefined) {
+    const markdownProvided = Object.prototype.hasOwnProperty.call(data, 'markdownContent');
+    if (markdownProvided) {
+      // Markdown-backed web page: persist markdown and clear block fields
+      updateData.content_markdown = (data as any).markdownContent ?? null;
+      updateData.content_json = [];
+      updateData.content_html = null;
+    }
+
+    // Only process block content when markdownContent was NOT explicitly provided
+    if (!markdownProvided && data.content !== undefined) {
       const COMPLEX_BLOCK_TYPES = new Set([
         'product_feature', 'product_row', 'promo_code', 'review',
         'gif_image', 'countdown_timer', 'progress_loyalty',
