@@ -928,7 +928,6 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
   // ── Web page markdown generation (single Claude call) ───────────────────────
   app.post("/api/ai/generate-webpage-markdown", requireAuth, async (req, res) => {
     try {
-      const WEB_CONTENT_TYPES: readonly string[] = ['blog', 'blog_article', 'landing_page', 'landing', 'lead_magnet', 'webpage', 'web_page'];
       const schema = z.object({
         title: z.string().min(1),
         type: z.string().refine(
@@ -940,13 +939,14 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         articleAngle: z.string().nullable().optional(),
         mood: z.string().optional(),
         additionalInstructions: z.string().optional(),
+        keywordType: z.string().optional(),
+        format: z.enum(['A', 'B', 'C']).optional(),
       });
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ message: "Invalid request: " + parsed.error.message });
       }
-      // Double-check: reject email types explicitly
-      const { title, type, primaryKeyword, supportingKeywords, articleAngle, mood, additionalInstructions } = parsed.data;
+      const { title, type, primaryKeyword, supportingKeywords, articleAngle, mood, additionalInstructions, keywordType, format } = parsed.data;
       if (type.startsWith('email')) {
         return res.status(400).json({ message: "Web page markdown generation is not available for email content types" });
       }
@@ -960,6 +960,21 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         words_we_avoid: brandContextRaw.wordsWeAvoid || undefined,
       } : undefined;
 
+      // Try to fetch relevant Shopify products for product context
+      let productContext: string | undefined;
+      if (primaryKeyword) {
+        try {
+          const shopifyResult = await fetchProductList(8, primaryKeyword);
+          if (shopifyResult.items.length > 0) {
+            productContext = shopifyResult.items
+              .map(p => `- ${p.title} (/products/${p.handle})`)
+              .join('\n');
+          }
+        } catch {
+          // Shopify not configured or unavailable — AI uses product universe from brand voice
+        }
+      }
+
       const markdown = await generateWebPageMarkdownContent({
         title,
         type,
@@ -968,6 +983,9 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         articleAngle,
         mood,
         additionalInstructions,
+        keywordType,
+        format,
+        productContext,
         brandContext,
       });
 
@@ -2782,18 +2800,33 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         words_we_avoid: brandContextRaw.wordsWeAvoid || undefined,
       } : undefined;
 
-      // 6. Generate full markdown — primary keyword + all cluster supporting keywords
+      // 6. Try to fetch relevant Shopify products for product context
+      let productContext: string | undefined;
+      try {
+        const shopifyResult = await fetchProductList(8, kw.keyword);
+        if (shopifyResult.items.length > 0) {
+          productContext = shopifyResult.items
+            .map(p => `- ${p.title} (/products/${p.handle})`)
+            .join('\n');
+        }
+      } catch {
+        // Shopify not configured or unavailable — AI uses product universe from brand voice
+      }
+
+      // 7a. Generate full markdown — primary keyword + all cluster supporting keywords
       const markdown = await generateWebPageMarkdownContent({
         title,
         type: contentType,
         primaryKeyword: kw.keyword,
         supportingKeywords: supportingKeywordsStr,
         articleAngle: kw.articleAngle || undefined,
+        keywordType: kw.type || undefined,
         mood: "conversational",
+        productContext,
         brandContext,
       });
 
-      // 7. Build slug from title
+      // 7b. Build slug from title
       const baseSlug = title
         .toLowerCase()
         .replace(/[^a-z0-9\s-]/g, "")

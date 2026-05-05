@@ -38,6 +38,11 @@ function cleanAIContent(content: string): string {
   cleaned = cleaned.replace(/\[[^\]]*\]\(#\)/g, "");
   cleaned = cleaned.replace(/\(#\)\*\*/g, "");
   cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+  // Strip year from H1 title line — titles should be evergreen
+  cleaned = cleaned.replace(/^(#\s+[^\n]*?)\s*\b20\d{2}\b\s*([^\n]*)/m, (_, before, after) => {
+    console.warn(`[AI] Stripped year reference from generated title`);
+    return after.trim() ? `${before} ${after.trim()}` : before;
+  });
   return cleaned.trim();
 }
 
@@ -83,14 +88,85 @@ const CONTENT_TEMPLATES = {
 };
 
 const ARTICLE_ANGLE_DEFINITIONS: Record<string, string> = {
-  "Gift Guide — Standard": "Curated roundup, warm but straightforward",
-  "Gift Guide — Passion-Led": "Enthusiast tone, respect the interest, gifts that honor the lifestyle",
-  "Story-Led — Mark the Moment": "Intimate, quiet, product as vessel for a memory or place",
-  "Personal — The Gift That Actually Means Something": "Emotional, for someone hard to buy for",
-  "Contrarian — Why These Gifts Are Always Boring": "Call out the tired category, then solve it",
-  "Reframe — Gifts for the Parents, Not the Baby": "Shift the recipient framing entirely",
-  "Informational — Build Authority": "Answer the question fully, bridge naturally to product",
+  "Gift Guide — Standard": "Curated roundup, warm but focused. Straightforward gift recommendations with story context.",
+  "Gift Guide — Passion-Led": "Enthusiast tone. Respect the identity — gifts that honor the lifestyle, not just the hobby.",
+  "Story-Led — Mark the Moment": "Intimate, quiet. The product is a vessel for a specific memory or place. Lead with the moment.",
+  "Personal — The Gift That Actually Means Something": "For someone hard to buy for. Emotional permission. Lead with the feeling of giving a gift that actually lands.",
+  "Contrarian — Why These Gifts Are Always Boring": "Open by calling out the tired category honestly. Empathize with the frustration. Then solve it with Well Told.",
+  "Reframe — Gifts for the Parents Not the Baby": "Shift who the recipient really is. The product serves the adult, not the child.",
+  "Informational — Build Authority": "Answer the question fully and honestly. Bridge naturally to Well Told at the end. Never force it.",
 };
+
+const WELL_TOLD_BRAND_VOICE_FALLBACK = `Well Told Design makes story-driven everyday objects — glassware, drinkware, throws, and accessories featuring maps, constellations, and topographic themes. Every product is designed around a place, a moment, or a memory that matters.
+
+BRAND POSITIONING
+The gift that actually means something. In a world of generic options, Well Told makes objects that mark where you're from, where you've been, and what you care about. We are not a novelty brand. We are not a personalization vendor. We make things that earn a permanent place in someone's life.
+
+CORE BELIEF
+People don't need more stuff. They need objects that tell their story. A map of the city where someone grew up. A constellation of the night a child was born. A glass etched with the trail they hiked every summer. These aren't gifts — they're evidence that someone paid attention.
+
+TONE PRINCIPLES
+1. Warm but not gushing — Write like a thoughtful friend who gives great gifts, not a brand trying to seem human. Avoid exclamation points. Avoid superlatives like "amazing", "incredible", "perfect." Let the idea carry the weight.
+2. Specific over generic — "A map of the neighborhood she grew up in" beats "a personalized gift." "The night sky over Chicago on your wedding night" beats "a custom star map." Always reach for the specific image.
+3. Story before product — Introduce the moment or the feeling before the object. The product is the answer to an emotional question, not the opening line.
+4. Confident, not salesy — Never use urgency tactics. Never say "order now" or "limited time." Well Told earns the sale by being genuinely useful and trustworthy. One clear CTA at the end is enough.
+5. Second person for gift guides — Address the gift-giver directly as "you." They are choosing for someone else — keep them in that mindset.
+6. No listicle filler — Do not pad articles with items that don't connect to Well Told's world. Quality over quantity always.
+
+VOCABULARY TO USE
+place, mark, story, moment, memory, earn, belong, permanent, specific, personal, meaningful, craft, origin, hometown, constellation, trail, summit, neighborhood, founding, chapter, connection
+
+VOCABULARY TO AVOID
+amazing, incredible, perfect, best-ever, unique (overused), stunning, game-changer, must-have, treat yourself, affordable luxury, high-quality
+
+PRODUCT UNIVERSE (reference when making recommendations)
+Well Told products fall into these categories:
+- Map glassware: wine glasses, rocks glasses, pint glasses, champagne flutes, coffee mugs, tumblers — engraved with city/neighborhood maps
+- Constellation glassware: same vessel types — engraved with star maps for specific dates and locations
+- Topographic drinkware: mugs and glasses with terrain map engraving
+- Night sky products: custom night sky maps on glass, ornaments, blankets
+- Throws and blankets: map, constellation, and topographic textile designs
+- Accessories: stainless steel straws, decanters, gift sets
+
+When writing gift guides, draw recommendations from this universe. Do not recommend products outside this world unless explicitly writing a broad editorial guide.`;
+
+const FORMAT_A_INSTRUCTIONS = `FORMAT: Well Told Gift Guide
+Write a focused gift guide of 8-12 items. Every recommendation must come from the Well Told product universe defined above. Give each item 2-4 sentences of story context — why this specific object works for this specific person or moment. Do not use bullet points for product descriptions; write in prose. End with a single CTA paragraph linking to the collection. Do not pad with generic lifestyle products outside Well Told's world.`;
+
+const FORMAT_B_INSTRUCTIONS = `FORMAT: Brand Editorial Guide
+Write this as an opinionated essay, not a product list. The goal is to help the reader think differently about gifting in this context. Reference Well Told products 2-3 times as concrete examples, but do not make this a roundup. Write 600-900 words. End with a single understated CTA paragraph.`;
+
+const FORMAT_C_INSTRUCTIONS = `FORMAT: Professional Landing Page
+Write for a professional buyer (realtor, HR director, financial advisor, etc.) who needs a gift that reflects well on them. Lead with their challenge, not our products. Speak peer-to-peer. Include practical context about how Well Told products can be personalized for this professional context. End with both a shop CTA and a volume inquiry CTA.`;
+
+const PERSONA_DEFINITIONS: Record<string, string> = {
+  "Personal Gifter": "Individual buying for someone they love. They want emotional permission and confidence they've found the right thing.",
+  "Professional Gifter": "Service professional (realtor, advisor, planner) buying for a client. They need the gift to reflect well on them.",
+  "Institutional Buyer": "HR director, hospital, school buying in volume. They need process clarity, reliability, and scale confidence.",
+  "Brand / Editorial": "Discovery-phase reader. Not yet buying. Give generously — earn trust, not just a click.",
+};
+
+function detectFormat(type: string, articleAngle?: string | null, keywordType?: string): 'A' | 'B' | 'C' {
+  if (articleAngle) {
+    const angle = articleAngle.toLowerCase();
+    if (angle.includes('contrarian') || angle.includes('reframe')) return 'A';
+  }
+  if (type === 'landing_page' || type === 'landing') return 'C';
+  if (keywordType === 'informational') return 'B';
+  return 'A';
+}
+
+function detectPersona(type: string, keywordType?: string, primaryKeyword?: string): string {
+  const kw = (primaryKeyword || '').toLowerCase();
+  if (type === 'landing_page' || type === 'landing') {
+    if (kw.includes('corporate') || kw.includes('hospital') || kw.includes('employee') || kw.includes('school') || kw.includes('company') || kw.includes('volume') || kw.includes('bulk')) {
+      return 'Institutional Buyer';
+    }
+    return 'Professional Gifter';
+  }
+  if (keywordType === 'informational') return 'Brand / Editorial';
+  return 'Personal Gifter';
+}
 
 export interface GenerateArticleParams {
   title: string;
@@ -469,6 +545,9 @@ export interface GenerateWebPageMarkdownParams {
   articleAngle?: string | null;
   mood?: string;
   additionalInstructions?: string;
+  keywordType?: string;
+  format?: 'A' | 'B' | 'C';
+  productContext?: string;
   brandContext?: {
     voice_document?: string;
     always_rules?: string[];
@@ -485,64 +564,109 @@ export async function generateWebPageMarkdownContent(params: GenerateWebPageMark
     primaryKeyword,
     supportingKeywords,
     articleAngle,
-    mood = 'conversational',
     additionalInstructions,
     brandContext,
+    keywordType,
+    format: formatOverride,
+    productContext,
   } = params;
 
-  const moodInstruction = MOOD_INSTRUCTIONS[mood] || MOOD_INSTRUCTIONS['conversational'];
+  // [1] Brand voice — prefer stored voice doc, fall back to hardcoded constant
+  const brandVoice = brandContext?.voice_document || WELL_TOLD_BRAND_VOICE_FALLBACK;
 
-  const typeLabel = type === 'blog' || type === 'blog_article'
-    ? 'blog article'
-    : type === 'landing_page' || type === 'landing'
-    ? 'landing page'
-    : type === 'lead_magnet'
-    ? 'lead magnet'
-    : 'web page';
+  // [2] Auto-detect format (A/B/C) unless overridden
+  const format = formatOverride || detectFormat(type, articleAngle, keywordType);
+  const formatInstruction =
+    format === 'C' ? FORMAT_C_INSTRUCTIONS :
+    format === 'B' ? FORMAT_B_INSTRUCTIONS :
+    FORMAT_A_INSTRUCTIONS;
 
-  const alwaysRules = brandContext?.always_rules?.length
-    ? brandContext.always_rules.map((r, i) => `${i + 1}. ${r}`).join('\n')
-    : 'Write with honesty and clarity.';
-  const avoidRules = brandContext?.avoid_rules?.length
-    ? brandContext.avoid_rules.map((r, i) => `${i + 1}. ${r}`).join('\n')
-    : 'Avoid hollow marketing language.';
-  const wordsWeUse = brandContext?.words_we_use?.length
-    ? brandContext.words_we_use.join(', ')
-    : '';
-  const wordsWeAvoid = brandContext?.words_we_avoid?.length
-    ? brandContext.words_we_avoid.join(', ')
-    : '';
-  const voiceDocument = brandContext?.voice_document || '';
+  // [3] Auto-detect persona
+  const persona = detectPersona(type, keywordType, primaryKeyword);
+  const personaDescription = PERSONA_DEFINITIONS[persona] || PERSONA_DEFINITIONS['Personal Gifter'];
 
-  const systemPrompt = `You are a senior content writer for Well Told, a thoughtful gift and lifestyle brand known for beautifully curated, honest storytelling. You write ${typeLabel} content for their website.
+  // [4] Resolve article angle definition
+  const angleKey = articleAngle
+    ? Object.keys(ARTICLE_ANGLE_DEFINITIONS).find(k =>
+        articleAngle.toLowerCase().includes(k.split('—')[0].trim().toLowerCase())
+      )
+    : null;
+  const angleDefinition = angleKey ? ARTICLE_ANGLE_DEFINITIONS[angleKey] : null;
 
-${voiceDocument ? `Brand Voice:\n${voiceDocument}\n` : ''}
-Always rules:
-${alwaysRules}
+  // Assemble 8-block system prompt
+  const blocks: string[] = [
+    // Block 1: Brand Voice
+    `[1. BRAND VOICE BLOCK]\n${brandVoice}`,
 
-Avoid rules:
-${avoidRules}
-${wordsWeUse ? `\nWords we use: ${wordsWeUse}` : ''}
-${wordsWeAvoid ? `\nWords we avoid: ${wordsWeAvoid}` : ''}
+    // Block 2: Keyword Context
+    [
+      '[2. KEYWORD CONTEXT BLOCK]',
+      primaryKeyword
+        ? `Primary keyword (optimize H1, meta title, meta description, and opening paragraph for this exact term): ${primaryKeyword}`
+        : '',
+      supportingKeywords
+        ? `Supporting keywords (weave naturally throughout body — do not force, do not repeat more than twice each):\n${supportingKeywords}`
+        : '',
+      keywordType ? `Keyword intent: ${keywordType}` : '',
+      articleAngle
+        ? `Article angle / tone direction: ${articleAngle}${angleDefinition ? `\n  → ${angleDefinition}` : ''}`
+        : '',
+      '',
+      'Angle definitions for reference:',
+      Object.entries(ARTICLE_ANGLE_DEFINITIONS).map(([k, v]) => `- ${k}: ${v}`).join('\n'),
+    ].filter(Boolean).join('\n'),
 
-Tone for this piece: ${moodInstruction}
+    // Block 3: Format
+    `[3. FORMAT BLOCK]\n${formatInstruction}`,
 
-Output requirements:
-- Return a single, complete, well-structured Markdown document
-- Use # for the H1 title, ## for section headers, ### for sub-sections
+    // Block 4: Persona
+    [
+      '[4. PERSONA BLOCK]',
+      `Target reader persona: ${persona}`,
+      personaDescription,
+      '',
+      'Persona reference:',
+      Object.entries(PERSONA_DEFINITIONS).map(([k, v]) => `- ${k}: ${v}`).join('\n'),
+    ].join('\n'),
+
+    // Block 5: Product Context
+    productContext
+      ? `[5. PRODUCT CONTEXT BLOCK]\nRelevant Well Told products for this article:\n${productContext}`
+      : `[5. PRODUCT CONTEXT BLOCK]\nDraw all product recommendations from the Well Told product universe described in Block 1 above. Do not invent product names — refer to product categories (e.g. "map rocks glass", "constellation wine glass", "topographic mug").`,
+
+    // Block 6: Content Rules
+    `[6. CONTENT RULES BLOCK]
+- Do not recommend products outside the Well Told universe (no yoga mats, candles, cable organizers, compression socks, or generic lifestyle items)
+- Do not include a year in the title or article — titles should be evergreen
+- Do not use exclamation points
+- Do not use the words: amazing, incredible, perfect, stunning, game-changer, must-have, high-quality, affordable luxury
+- Do not write bullet-point product descriptions — use prose
+- Do end with exactly one CTA — not multiple competing calls to action
+- Do write in second person ("you", "your") for gift guides
+- Do include internal links to relevant Well Told collection pages where natural`,
+
+    // Block 7: SEO Rules
+    `[7. SEO RULES BLOCK]
+- Include the primary keyword in: H1 and within the first 100 words of body copy
+- Include each supporting keyword at least once naturally in the body
+- Do not stuff keywords — if it doesn't read naturally, cut it
+- H1 should match or closely paraphrase the article title
+- Use ## for H2 section headers — each should naturally include a supporting keyword where possible
+- Return a single complete Markdown document starting with the # H1 title
 - Use standard Markdown: **bold**, *italic*, bullet lists, numbered lists, blockquotes (>)
 - Do NOT include JSON, code fences, or any non-Markdown formatting
-- Do NOT add subscription CTAs, follow-our-blog links, or placeholder links
-- Write substantive, complete content — not a skeleton or outline`;
+- Do NOT add subscription CTAs, follow-our-blog links, or placeholder links`,
 
-  const angleNote = articleAngle ? `\nArticle angle: ${articleAngle}` : '';
-  const supportingNote = supportingKeywords ? `\nSupporting keywords to weave in naturally: ${supportingKeywords}` : '';
-  const additionalNote = additionalInstructions ? `\nAdditional instructions: ${additionalInstructions}` : '';
+    // Additional instructions if provided
+    additionalInstructions ? `[ADDITIONAL INSTRUCTIONS]\n${additionalInstructions}` : '',
+  ].filter(Boolean);
 
-  const userPrompt = `Write a complete ${typeLabel} in Markdown format.
+  const systemPrompt = blocks.join('\n\n---\n\n');
+
+  const userPrompt = `[8. WRITING PROMPT]
+Now write the article. Follow all instructions above exactly.
 
 Title: ${title}
-${primaryKeyword ? `Primary keyword: ${primaryKeyword}` : ''}${supportingNote}${angleNote}${additionalNote}
 
 Write the full document now, starting with the H1 title:`;
 

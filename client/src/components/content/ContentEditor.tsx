@@ -49,6 +49,8 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const [primaryKeyword, setPrimaryKeyword] = useState("");
   const [supportingKeywords, setSupportingKeywords] = useState("");
   const [articleAngle, setArticleAngle] = useState<string | null>(null);
+  const [keywordType, setKeywordType] = useState<string>("");
+  const [contentFormat, setContentFormat] = useState<'auto' | 'A' | 'B' | 'C'>('auto');
   const [featuredImage, setFeaturedImage] = useState("");
   const [status, setStatus] = useState("draft");
   const [scheduledDate, setScheduledDate] = useState("");
@@ -329,6 +331,9 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       }
       if (kw?.articleAngle) {
         setArticleAngle(kw.articleAngle);
+      }
+      if (kw?.type) {
+        setKeywordType(kw.type);
       }
     }).catch(() => {});
   }, [urlKeywordId]);
@@ -673,6 +678,8 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
         supportingKeywords: supportingKeywords || undefined,
         articleAngle: articleAngle || undefined,
         mood: activeMood || "conversational",
+        keywordType: keywordType || undefined,
+        format: contentFormat !== 'auto' ? contentFormat : undefined,
       });
       if (!response.ok) {
         const errText = await response.text();
@@ -1793,15 +1800,28 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                   {generateTitle.isPending ? "Generating…" : "Generate Title"}
                 </Button>
                 {!isEmailContent && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => generateWebPageMarkdownMutation.mutate()}
-                    disabled={generateWebPageMarkdownMutation.isPending}
-                  >
-                    <Wand2 className="h-3.5 w-3.5 mr-1" />
-                    {generateWebPageMarkdownMutation.isPending ? "Generating…" : "Generate Page"}
-                  </Button>
+                  <>
+                    <Select value={contentFormat} onValueChange={(v) => setContentFormat(v as 'auto' | 'A' | 'B' | 'C')}>
+                      <SelectTrigger className="h-8 text-xs rounded-none border-black w-36">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">Auto format</SelectItem>
+                        <SelectItem value="A">Gift Guide (A)</SelectItem>
+                        <SelectItem value="B">Editorial (B)</SelectItem>
+                        <SelectItem value="C">Professional (C)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generateWebPageMarkdownMutation.mutate()}
+                      disabled={generateWebPageMarkdownMutation.isPending}
+                    >
+                      <Wand2 className="h-3.5 w-3.5 mr-1" />
+                      {generateWebPageMarkdownMutation.isPending ? "Generating…" : "Generate Page"}
+                    </Button>
+                  </>
                 )}
                 {isEmailContent && (
                   <Button
