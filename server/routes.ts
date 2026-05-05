@@ -2736,6 +2736,89 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
     }
   });
 
+  // ── AI Quick-Create ──────────────────────────────────────────────────────────
+  // 2-click flow: picks best untargeted keyword, generates title + full markdown,
+  // creates a content item, links keyword → returns { id, title, keyword }.
+  app.post("/api/pages/ai-quick-create", requireAuth, async (req, res) => {
+    try {
+      // 1. Pick best untargeted keyword: primary priority first, then by volume desc
+      const untargeted = await storage.getKeywords({ status: "untargeted" });
+      if (untargeted.length === 0) {
+        return res.status(404).json({ message: "No untargeted keywords found in your library. Add some keywords first." });
+      }
+      const sorted = [...untargeted].sort((a, b) => {
+        const aPrimary = a.priority === "primary" ? 0 : 1;
+        const bPrimary = b.priority === "primary" ? 0 : 1;
+        if (aPrimary !== bPrimary) return aPrimary - bPrimary;
+        return (b.volume ?? 0) - (a.volume ?? 0);
+      });
+      const kw = sorted[0];
+
+      // 2. Determine content type
+      const contentType = kw.contentTypeTarget || "blog_article";
+
+      // 3. Generate a title
+      let title: string;
+      try {
+        title = await generateTitle(kw.keyword, contentType, kw.keyword);
+      } catch {
+        title = `${kw.keyword.charAt(0).toUpperCase() + kw.keyword.slice(1)}: A Complete Guide`;
+      }
+
+      // 4. Load brand context
+      const brandContextRaw = await storage.getBrandContext();
+      const brandContext = brandContextRaw ? {
+        voice_document: brandContextRaw.voiceDocument || undefined,
+        always_rules: brandContextRaw.alwaysRules || undefined,
+        avoid_rules: brandContextRaw.avoidRules || undefined,
+        words_we_use: brandContextRaw.wordsWeUse || undefined,
+        words_we_avoid: brandContextRaw.wordsWeAvoid || undefined,
+      } : undefined;
+
+      // 5. Generate full markdown
+      const markdown = await generateWebPageMarkdownContent({
+        title,
+        type: contentType,
+        primaryKeyword: kw.keyword,
+        articleAngle: kw.articleAngle || undefined,
+        mood: "conversational",
+        brandContext,
+      });
+
+      // 6. Build slug from title
+      const baseSlug = title
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, "")
+        .trim()
+        .replace(/\s+/g, "-")
+        .slice(0, 80);
+      const finalSlug = await storage.generateUniqueSlug(baseSlug, contentType);
+
+      // 7. Create the content item
+      const newItem = await storage.createContentItem({
+        title,
+        slug: finalSlug,
+        type: contentType,
+        status: "draft",
+        approvalStatus: "pending",
+        primaryKeyword: kw.keyword,
+        markdownContent: markdown,
+        authorId: req.userId!,
+      } as any);
+
+      // 8. Link keyword to content item and mark in_progress
+      await storage.updateKeyword(kw.id, {
+        status: "in_progress",
+        contentItemId: String(newItem.id),
+      });
+
+      res.json({ id: newItem.id, title, keyword: kw.keyword, type: contentType });
+    } catch (error) {
+      console.error("AI quick-create error:", error);
+      res.status(500).json({ message: "Failed to create page: " + (error as Error).message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -88,6 +88,7 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
   const [isRecommending, setIsRecommending] = useState(false);
   const [prelaunchTemplate, setPrelaunchTemplate] = useState<Template | null>(null);
   const [prelaunchKeywordId, setPrelaunchKeywordId] = useState<number | null>(null);
+  const [isQuickCreating, setIsQuickCreating] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const { data: allTemplates = [], isLoading: templatesLoading } = useQuery<Template[]>({
@@ -134,6 +135,7 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
       setRecommendation(null);
       setPrelaunchTemplate(null);
       setPrelaunchKeywordId(null);
+      setIsQuickCreating(false);
     }
   }, [open]);
 
@@ -152,8 +154,24 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
   };
 
   const handleAiPickForMe = async () => {
-    setMode("keyword");
-    await handleGetRecommendation({});
+    setIsQuickCreating(true);
+    try {
+      const response = await apiRequest("POST", "/api/pages/ai-quick-create", {});
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ message: "Unknown error" }));
+        throw new Error(err.message || "Failed to create page");
+      }
+      const { id, title, keyword } = await response.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/content"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/keywords"] });
+      toast({ title: "Page created!", description: `"${title}" is ready to review.` });
+      onClose();
+      setLocation(`/pages/builder/${id}`);
+    } catch (err: any) {
+      toast({ title: "Could not create page", description: err.message, variant: "destructive" });
+    } finally {
+      setIsQuickCreating(false);
+    }
   };
 
   const handleSelectKeyword = (kw: Keyword) => {
@@ -221,13 +239,22 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
         <p className="text-sm text-gray-500 mb-4">Choose how you want to start creating this page.</p>
         <div className="grid grid-cols-1 gap-3">
           <button
-            className="flex items-start gap-3 p-4 border-2 border-black bg-white hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all text-left"
+            className="flex items-start gap-3 p-4 border-2 border-black bg-white hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all text-left disabled:opacity-60 disabled:cursor-not-allowed"
             onClick={handleAiPickForMe}
+            disabled={isQuickCreating}
           >
-            <Sparkles className="h-5 w-5 mt-0.5 shrink-0" />
+            {isQuickCreating
+              ? <Loader2 className="h-5 w-5 mt-0.5 shrink-0 animate-spin" />
+              : <Sparkles className="h-5 w-5 mt-0.5 shrink-0" />
+            }
             <div>
               <div className="font-bold text-sm">AI Pick for Me</div>
-              <p className="text-xs text-gray-500 mt-0.5">Let AI choose the next untargeted keyword from your library and suggest a template.</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {isQuickCreating
+                  ? "AI is writing your page… this takes about 20 seconds."
+                  : "AI picks the next best keyword, writes the full page, and drops you straight into the editor."
+                }
+              </p>
             </div>
           </button>
 
