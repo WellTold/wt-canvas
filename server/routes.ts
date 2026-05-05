@@ -2741,23 +2741,30 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
   // creates a content item, links keyword → returns { id, title, keyword }.
   app.post("/api/pages/ai-quick-create", requireAuth, async (req, res) => {
     try {
-      // 1. Pick best untargeted keyword: primary priority first, then by volume desc
+      // 1. Pick best untargeted PRIMARY keyword: primary priority first, then by volume desc
       const untargeted = await storage.getKeywords({ status: "untargeted" });
       if (untargeted.length === 0) {
         return res.status(404).json({ message: "No untargeted keywords found in your library. Add some keywords first." });
       }
-      const sorted = [...untargeted].sort((a, b) => {
-        const aPrimary = a.priority === "primary" ? 0 : 1;
-        const bPrimary = b.priority === "primary" ? 0 : 1;
-        if (aPrimary !== bPrimary) return aPrimary - bPrimary;
-        return (b.volume ?? 0) - (a.volume ?? 0);
-      });
+      const primaryCandidates = untargeted.filter(k => k.priority === "primary");
+      const pool = primaryCandidates.length > 0 ? primaryCandidates : untargeted;
+      const sorted = [...pool].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0));
       const kw = sorted[0];
 
-      // 2. Determine content type
+      // 2. Pull all untargeted supporting keywords from the same cluster (if cluster exists)
+      const clusterSupportingKeywords = kw.cluster
+        ? untargeted.filter(
+            k => k.cluster === kw.cluster && k.id !== kw.id && k.priority === "supporting"
+          )
+        : [];
+      const supportingKeywordsStr = clusterSupportingKeywords.length > 0
+        ? clusterSupportingKeywords.map(k => k.keyword).join(", ")
+        : undefined;
+
+      // 3. Determine content type
       const contentType = kw.contentTypeTarget || "blog_article";
 
-      // 3. Generate a title
+      // 4. Generate a title
       let title: string;
       try {
         title = await generateTitle(kw.keyword, contentType, kw.keyword);
@@ -2765,7 +2772,7 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         title = `${kw.keyword.charAt(0).toUpperCase() + kw.keyword.slice(1)}: A Complete Guide`;
       }
 
-      // 4. Load brand context
+      // 5. Load brand context
       const brandContextRaw = await storage.getBrandContext();
       const brandContext = brandContextRaw ? {
         voice_document: brandContextRaw.voiceDocument || undefined,
@@ -2775,17 +2782,18 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         words_we_avoid: brandContextRaw.wordsWeAvoid || undefined,
       } : undefined;
 
-      // 5. Generate full markdown
+      // 6. Generate full markdown — primary keyword + all cluster supporting keywords
       const markdown = await generateWebPageMarkdownContent({
         title,
         type: contentType,
         primaryKeyword: kw.keyword,
+        supportingKeywords: supportingKeywordsStr,
         articleAngle: kw.articleAngle || undefined,
         mood: "conversational",
         brandContext,
       });
 
-      // 6. Build slug from title
+      // 7. Build slug from title
       const baseSlug = title
         .toLowerCase()
         .replace(/[^a-z0-9\s-]/g, "")
@@ -2794,7 +2802,7 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         .slice(0, 80);
       const finalSlug = await storage.generateUniqueSlug(baseSlug, contentType);
 
-      // 7. Create the content item
+      // 8. Create the content item — store primary + supporting keyword strings
       const newItem = await storage.createContentItem({
         title,
         slug: finalSlug,
@@ -2802,17 +2810,33 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         status: "draft",
         approvalStatus: "pending",
         primaryKeyword: kw.keyword,
+        supportingKeywords: supportingKeywordsStr || null,
         markdownContent: markdown,
         authorId: req.userId!,
       } as any);
 
-      // 8. Link keyword to content item and mark in_progress
-      await storage.updateKeyword(kw.id, {
-        status: "in_progress",
-        contentItemId: String(newItem.id),
-      });
+      const contentItemId = String(newItem.id);
 
-      res.json({ id: newItem.id, title, keyword: kw.keyword, type: contentType });
+      // 9. Mark primary keyword in_progress and link it
+      await storage.updateKeyword(kw.id, { status: "in_progress", contentItemId });
+
+      // 10. Mark every cluster supporting keyword in_progress and link them all to the same article
+      if (clusterSupportingKeywords.length > 0) {
+        await Promise.all(
+          clusterSupportingKeywords.map(sk =>
+            storage.updateKeyword(sk.id, { status: "in_progress", contentItemId })
+          )
+        );
+      }
+
+      res.json({
+        id: newItem.id,
+        title,
+        keyword: kw.keyword,
+        type: contentType,
+        cluster: kw.cluster || null,
+        supportingKeywordsCount: clusterSupportingKeywords.length,
+      });
     } catch (error) {
       console.error("AI quick-create error:", error);
       res.status(500).json({ message: "Failed to create page: " + (error as Error).message });
