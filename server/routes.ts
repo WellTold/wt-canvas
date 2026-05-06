@@ -2438,8 +2438,26 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ message: "Invalid keyword id" });
     try {
-      const partial = strictKeywordSchema.partial().parse(req.body);
-      const kw = await storage.updateKeyword(id, partial);
+      // Use a permissive update schema — strict enums only matter on create,
+      // not on update (existing rows may predate the current enum list).
+      const patchSchema = z.object({
+        keyword: z.string().trim().min(1).optional(),
+        type: z.string().optional(),
+        volume: z.number().int().nonnegative().nullish(),
+        kd: z.number().int().min(0).max(100).nullish(),
+        cluster: z.string().nullish(),
+        articleAngle: z.string().nullish(),
+        priority: z.string().optional(),
+        contentTypeTarget: z.string().nullish(),
+        status: z.enum(["untargeted", "in_progress", "published"]).optional(),
+        contentItemId: z.string().nullish(),
+      });
+      const partial = patchSchema.parse(req.body);
+      // Auto-clear contentItemId when resetting to untargeted
+      if (partial.status === "untargeted" && !("contentItemId" in req.body)) {
+        (partial as any).contentItemId = null;
+      }
+      const kw = await storage.updateKeyword(id, partial as any);
       res.json(kw);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.message });

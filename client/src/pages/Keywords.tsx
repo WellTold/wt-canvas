@@ -1355,6 +1355,18 @@ export default function Keywords() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                        {kw.status === "in_progress" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-xs text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                            title="Reset to untargeted and unlink article"
+                            onClick={() => updateMutation.mutate({ id: kw.id, row: { ...keywordToRowState(kw), status: "untargeted" } })}
+                            disabled={updateMutation.isPending}
+                          >
+                            Reset
+                          </Button>
+                        )}
                         <Button
                           size="icon"
                           variant="ghost"
