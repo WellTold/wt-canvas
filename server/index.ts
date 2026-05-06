@@ -76,4 +76,8 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
   });
+
+  // Allow up to 3 minutes for long-running AI generation requests
+  server.requestTimeout = 180000;
+  server.headersTimeout = 185000;
 })();

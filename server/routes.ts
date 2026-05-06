@@ -2990,8 +2990,19 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         title = `${kw.keyword.charAt(0).toUpperCase() + kw.keyword.slice(1)}: A Complete Guide`;
       }
 
-      // 5. Load brand context
-      const brandContextRaw = await storage.getBrandContext();
+      // 5. Load brand context + Shopify products in parallel (both needed before markdown)
+      const siteBaseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
+      type ShopifyProductItem = { title: string; handle: string; price: string; imageUrl: string | null };
+      const faqSearchTerm = kw.keyword || title;
+
+      const [brandContextRaw, shopifyResult] = await Promise.all([
+        storage.getBrandContext().catch(() => null),
+        fetchProductList(8, faqSearchTerm).catch((e) => {
+          console.error('[ai-quick-create] Shopify fetch failed:', e?.message);
+          return { items: [] as ShopifyProductItem[] };
+        }),
+      ]);
+
       const brandContext = brandContextRaw ? {
         voice_document: brandContextRaw.voiceDocument || undefined,
         always_rules: brandContextRaw.alwaysRules || undefined,
@@ -3000,41 +3011,36 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         words_we_avoid: brandContextRaw.wordsWeAvoid || undefined,
       } : undefined;
 
-      // 6. Run Shopify, FAQ, and CTA fetching in parallel for product context
-      const siteBaseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
-      type ShopifyProductItem = { title: string; handle: string; price: string; imageUrl: string | null };
-      const faqSearchTerm = kw.keyword || title;
-
-      const [shopifyResult, faqItems, ctaData] = await Promise.all([
-        fetchProductList(8, faqSearchTerm).catch(() => ({ items: [] as ShopifyProductItem[] })),
-        generateFAQ(faqSearchTerm).catch(() => []),
-        generateCTAs(faqSearchTerm, siteBaseUrl).catch(() => null),
-      ]);
-      console.log(`[ai-quick-create] FAQ: ${faqItems.length} items, CTA: ${!!ctaData}, Products: ${shopifyResult.items.length}`);
-
-      // Build product context string for AI prompt
-      let productContext: string | undefined;
       const shopifyProducts = (shopifyResult.items as ShopifyProductItem[]).filter(p => p.imageUrl);
       const allProducts = shopifyProducts.length > 0 ? shopifyProducts : (shopifyResult.items as ShopifyProductItem[]);
-      if (allProducts.length > 0) {
-        productContext = allProducts
-          .map(p => `- [${p.title}](${siteBaseUrl}/products/${p.handle})`)
-          .join('\n');
-      }
+      const productContext = allProducts.length > 0
+        ? allProducts.map(p => `- [${p.title}](${siteBaseUrl}/products/${p.handle})`).join('\n')
+        : undefined;
 
-      // 7a. Generate full markdown
-      const markdown = await generateWebPageMarkdownContent({
-        title,
-        type: contentType,
-        primaryKeyword: kw.keyword,
-        supportingKeywords: supportingKeywordsStr,
-        articleAngle: kw.articleAngle || undefined,
-        keywordType: kw.type || undefined,
-        mood: "conversational",
-        productContext,
-        siteBaseUrl,
-        brandContext,
-      });
+      // 6. Run markdown generation + FAQ + CTAs all in parallel — FAQ/CTAs no longer block markdown
+      const [markdown, faqItems, ctaData] = await Promise.all([
+        generateWebPageMarkdownContent({
+          title,
+          type: contentType,
+          primaryKeyword: kw.keyword,
+          supportingKeywords: supportingKeywordsStr,
+          articleAngle: kw.articleAngle || undefined,
+          keywordType: kw.type || undefined,
+          mood: "conversational",
+          productContext,
+          siteBaseUrl,
+          brandContext,
+        }),
+        generateFAQ(faqSearchTerm).catch((e) => {
+          console.error('[ai-quick-create] FAQ generation failed:', e?.message);
+          return [];
+        }),
+        generateCTAs(faqSearchTerm, siteBaseUrl).catch((e) => {
+          console.error('[ai-quick-create] CTA generation failed:', e?.message);
+          return null;
+        }),
+      ]);
+      console.log(`[ai-quick-create] FAQ: ${faqItems.length} items, CTA: ${!!ctaData}, Products: ${shopifyResult.items.length}`);
 
       // 7b. Build structured data (Article JSON-LD + private _wt_ render keys)
       const now = new Date().toISOString();
