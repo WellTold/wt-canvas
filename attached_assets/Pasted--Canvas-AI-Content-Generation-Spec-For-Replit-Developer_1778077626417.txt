@@ -1,0 +1,315 @@
+# Canvas — AI Content Generation Spec
+**For:** Replit Developer + Project Reference  
+**Priority:** Required before any article generation is considered production-ready  
+**Builds on:** canvas-keyword-dev-instructions.md (keyword schema changes)
+
+---
+
+## The Problem This Solves
+
+The current article generation produces generic SEO content that doesn't represent Well Told's brand. Specific failures observed:
+
+- AI recommends products Well Told doesn't sell (yoga mats, cable organizers, compression socks) because it has no knowledge of the actual product catalog
+- Article Angle is stored in the keyword database but never passed to the writing prompt — so tone direction is ignored
+- No distinction between a linked product roundup and a brand editorial guide — the AI defaults to a generic listicle format
+- Brand voice is absent — articles read like content farm output, not Well Told
+- Titles include stale year references (e.g. "2024") when the current year is different
+
+All of these are prompt architecture problems, not content problems. The fixes below address the system inputs so output quality improves across every article automatically.
+
+---
+
+## Part 1 — Well Told Brand Voice
+
+This block should be injected into every AI content generation prompt as a constants block. It should not be editable per-article — it is the brand foundation.
+
+```
+WELL TOLD BRAND VOICE
+=====================
+
+Well Told Design makes story-driven everyday objects — glassware, drinkware, 
+throws, and accessories featuring maps, constellations, and topographic themes. 
+Every product is designed around a place, a moment, or a memory that matters.
+
+BRAND POSITIONING
+The gift that actually means something. In a world of generic options, Well Told 
+makes objects that mark where you're from, where you've been, and what you 
+care about. We are not a novelty brand. We are not a personalization vendor. 
+We make things that earn a permanent place in someone's life.
+
+CORE BELIEF
+People don't need more stuff. They need objects that tell their story. A map of 
+the city where someone grew up. A constellation of the night a child was born. 
+A glass etched with the trail they hiked every summer. These aren't gifts — 
+they're evidence that someone paid attention.
+
+TONE PRINCIPLES
+
+1. Warm but not gushing
+   Write like a thoughtful friend who gives great gifts, not a brand trying 
+   to seem human. Avoid exclamation points. Avoid superlatives like "amazing", 
+   "incredible", "perfect." Let the idea carry the weight.
+
+2. Specific over generic
+   "A map of the neighborhood she grew up in" beats "a personalized gift." 
+   "The night sky over Chicago on your wedding night" beats "a custom star map." 
+   Always reach for the specific image.
+
+3. Story before product
+   Introduce the moment or the feeling before the object. The product is the 
+   answer to an emotional question, not the opening line.
+
+4. Confident, not salesy
+   Never use urgency tactics. Never say "order now" or "limited time." 
+   Well Told earns the sale by being genuinely useful and trustworthy. 
+   One clear CTA at the end is enough.
+
+5. Second person for gift guides
+   Address the gift-giver directly as "you." They are choosing for someone 
+   else — keep them in that mindset. "The person in your life who..." 
+   not "people who..."
+
+6. No listicle filler
+   Do not pad articles with items that don't connect to Well Told's world. 
+   If a recommendation can't be made specific and story-driven, cut it. 
+   Quality over quantity always.
+
+VOCABULARY TO USE
+place, mark, story, moment, memory, earn, belong, permanent, specific, 
+personal, meaningful, craft, origin, hometown, constellation, trail, summit, 
+neighborhood, founding, chapter, connection
+
+VOCABULARY TO AVOID
+amazing, incredible, perfect, best-ever, unique (overused), stunning, 
+game-changer, must-have, treat yourself, affordable luxury, high-quality
+
+PRODUCT UNIVERSE (reference when making recommendations)
+Well Told products fall into these categories:
+- Map glassware: wine glasses, rocks glasses, pint glasses, champagne flutes, 
+  coffee mugs, tumblers — engraved with city/neighborhood maps
+- Constellation glassware: same vessel types — engraved with star maps 
+  for specific dates and locations
+- Topographic drinkware: mugs and glasses with terrain map engraving
+- Night sky products: custom night sky maps on glass, ornaments, blankets
+- Throws and blankets: map, constellation, and topographic textile designs
+- Accessories: stainless steel straws, decanters, gift sets
+
+When writing gift guides, draw recommendations from this universe. Do not 
+recommend products outside this world unless explicitly instructed to write 
+a broad editorial guide (see Format B below).
+```
+
+---
+
+## Part 2 — Article Format Selector
+
+Before generating any article, Canvas must determine which format applies. This should be auto-determined from the keyword's `content_target` and `article_angle` fields, with a manual override available in the UI.
+
+### Format A — Well Told Gift Guide (linked product roundup)
+
+**When to use:** Keywords with gift or commercial intent where Well Told products are the direct answer. Examples: "gifts for hikers", "anniversary gifts", "personalized gifts for mom", "real estate closing gifts."
+
+**Rules:**
+- 8–12 products maximum — never 50, never a padded list
+- Every product recommended must be a Well Told product or a Well Told-adjacent category
+- Each product gets 2–4 sentences of story context — not just a name and a bullet
+- No generic lifestyle products (yoga mats, candles, cable organizers) unless explicitly in a broad editorial format
+- Include internal links to relevant Well Told collection pages or product pages
+- End with one clear CTA block linking to the most relevant collection
+
+**Prompt instruction to append:**
+```
+FORMAT: Well Told Gift Guide
+Write a focused gift guide of 8-12 items. Every recommendation must come 
+from the Well Told product universe defined above. Give each item 2-4 
+sentences of story context — why this specific object works for this 
+specific person or moment. Do not use bullet points for product descriptions; 
+write in prose. End with a single CTA paragraph linking to the collection.
+Do not pad with generic lifestyle products outside Well Told's world.
+```
+
+### Format B — Brand Editorial Guide (opinionated essay)
+
+**When to use:** Broad gift intent keywords, informational keywords, or top-of-funnel discovery content where the goal is brand authority, not immediate conversion. Examples: "what to give someone who has everything", "how to pick a meaningful gift", "what is a topographic map."
+
+**Rules:**
+- No product list — write as an essay or guide
+- Well Told products appear as 2–3 illustrative examples woven into the narrative, not as a catalog
+- Longer form — 600–1,000 words
+- Ends with a soft brand CTA ("explore our collection") not a hard product push
+- This format builds domain authority and brand affinity
+
+**Prompt instruction to append:**
+```
+FORMAT: Brand Editorial Guide
+Write this as an opinionated essay, not a product list. The goal is to 
+help the reader think differently about gifting in this context. 
+Reference Well Told products 2-3 times as concrete examples, but do not 
+make this a roundup. Write 600-900 words. End with a single understated 
+CTA paragraph.
+```
+
+### Format C — Professional / Institutional Landing Page
+
+**When to use:** B2B gift intent keywords. Examples: "realtor closing gifts", "hospital employee appreciation gifts", "corporate client gifts."
+
+**Rules:**
+- Lead with the professional's problem, not the product
+- Speak peer-to-peer — acknowledge their expertise and their client relationship
+- Practical information first: what types of products work, why story-driven objects stand out, how customization works
+- Include a volume/inquiry CTA (not just "shop now")
+- Tone is polished and trustworthy, not warm-editorial
+
+**Prompt instruction to append:**
+```
+FORMAT: Professional Landing Page
+Write for a professional buyer (realtor, HR director, financial advisor, etc.) 
+who needs a gift that reflects well on them. Lead with their challenge, 
+not our products. Speak peer-to-peer. Include practical context about 
+how Well Told products can be personalized for this professional context. 
+End with both a shop CTA and a volume inquiry CTA.
+```
+
+---
+
+## Part 3 — Full Prompt Assembly Order
+
+When generating any piece of content, the prompt should be assembled in this exact order. Each block is clearly labeled so future changes can be made modularly.
+
+```
+[1. BRAND VOICE BLOCK]
+{inject full Well Told Brand Voice from Part 1 above}
+
+[2. KEYWORD CONTEXT BLOCK]
+Primary keyword (optimize H1, meta title, meta description, and opening 
+paragraph for this exact term): {primary_keyword}
+
+Supporting keywords (weave naturally throughout body — do not force, 
+do not repeat more than twice each):
+{list of supporting keywords from same cluster}
+
+Keyword intent: {Type field — gift / commercial / informational}
+Article angle / tone direction: {Article Angle field}
+
+Angle definitions:
+- Gift Guide — Standard: Curated roundup, warm but focused
+- Gift Guide — Passion-Led: Enthusiast tone, respect the identity, 
+  gifts that honor the lifestyle not just the hobby
+- Story-Led — Mark the Moment: Intimate, quiet. The product is a vessel 
+  for a specific memory or place. Lead with the moment.
+- Personal — The Gift That Actually Means Something: For someone hard 
+  to buy for. Emotional permission. Lead with the feeling of giving 
+  a gift that actually lands.
+- Contrarian — Why These Gifts Are Always Boring: Open by calling out 
+  the tired category honestly. Empathize with the frustration. 
+  Then solve it with Well Told.
+- Reframe — Gifts for the Parents Not the Baby: Shift who the recipient 
+  really is. The product serves the adult, not the child.
+- Informational — Build Authority: Answer the question fully and honestly. 
+  Bridge naturally to Well Told at the end. Never force it.
+
+[3. FORMAT BLOCK]
+{inject the appropriate Format A, B, or C instruction from Part 2}
+
+[4. PERSONA BLOCK]
+Target reader persona: {Persona field}
+
+Personal Gifter: Individual buying for someone they love. They want 
+emotional permission and confidence they've found the right thing.
+
+Professional Gifter: Service professional (realtor, advisor, planner) 
+buying for a client. They need the gift to reflect well on them.
+
+Institutional Buyer: HR director, hospital, school buying in volume. 
+They need process clarity, reliability, and scale confidence.
+
+Brand / Editorial: Discovery-phase reader. Not yet buying. 
+Give generously — earn trust, not just a click.
+
+[5. PRODUCT CONTEXT BLOCK]
+{inject top relevant Well Told products for this keyword cluster — 
+pulled from Shopify API or a static product reference table}
+
+Example structure:
+Relevant Well Told products for this article:
+- Home Town Map Rocks Glass — custom city map engraved on rocks glass
+- Custom Night Sky Wine Glass — constellation for any date and location
+- Topographic Trail Coffee Mug — terrain map of any trail or mountain
+- Constellation Throw Blanket — star map woven into a throw
+[etc — pull dynamically from Shopify or product reference]
+
+[6. CONTENT RULES BLOCK]
+- Do not recommend products outside the Well Told universe (no yoga mats, 
+  candles, cable organizers, compression socks, or generic lifestyle items)
+- Do not include a year in the title or article (titles date immediately)
+- Do not use exclamation points
+- Do not use the words: amazing, incredible, perfect, stunning, game-changer, 
+  must-have, high-quality, affordable luxury
+- Do not write bullet-point product descriptions — use prose
+- Do not exceed the product count limit for the selected format
+- Do include internal links to relevant Well Told collection pages
+- Do write in second person ("you", "your") for gift guides
+- Do end with exactly one CTA — not multiple competing calls to action
+
+[7. SEO RULES BLOCK]
+- Include the primary keyword in: H1, meta title, meta description, 
+  and within the first 100 words of body copy
+- Include each supporting keyword at least once naturally in the body
+- Do not stuff keywords — if it doesn't read naturally, cut it
+- Meta title: 50–60 characters including primary keyword and brand name
+- Meta description: 140–160 characters, include primary keyword, 
+  write as a genuine value proposition not a keyword dump
+- H1: Should match or closely paraphrase the meta title
+- Use H2s to break up sections — each H2 should naturally include 
+  a supporting keyword where possible
+
+[8. WRITING PROMPT]
+Now write the article. Follow all instructions above exactly.
+```
+
+---
+
+## Part 4 — Implementation Notes for Developer
+
+### Product context block (Block 5)
+This is the most important missing piece. Options in order of preference:
+
+**Option A (best):** Connect to Shopify API — when an article is being generated, pull the top 12 products from the most relevant collection based on the keyword cluster. Pass product title, short description, and URL to the prompt.
+
+**Option B (interim):** Create a static `product_reference` table in Supabase with Well Told's core products, their categories, and their URLs. Query this table by cluster when building the prompt. This can be hand-populated in an afternoon and used until Shopify API integration is ready.
+
+**Option C (minimum viable):** Add a product context text field to the article creation flow — the user pastes in the relevant products before generating. Not ideal but prevents generic recommendations immediately.
+
+### Year in titles
+Add a post-processing check after generation: if the output title contains a 4-digit year (regex: `\b20\d{2}\b`), strip it and flag for review. Titles should be evergreen.
+
+### Format auto-detection logic
+```
+if article_angle contains 'Contrarian' or 'Reframe':
+    format = Format A (Gift Guide — tight, opinionated)
+elif content_target == 'Landing Page':
+    format = Format C (Professional/Institutional)
+elif keyword_type == 'informational':
+    format = Format B (Editorial)
+else:
+    format = Format A (Gift Guide)
+```
+Allow manual override in the UI before generation.
+
+### Where brand voice lives
+Store the brand voice block in a `brand_context` table in Supabase (this table was already planned in the Canvas architecture). It should be a single editable text field so Brian can update the voice without a code deploy. Pull it fresh on every generation call — do not cache it in the prompt template.
+
+---
+
+## Summary of Changes
+
+| # | Change | Effort | Where |
+|---|---|---|---|
+| 1 | Add brand voice block to all generation prompts | S | AI generation endpoint |
+| 2 | Add Article Angle to prompt assembly (already in DB, not yet in prompt) | XS | AI generation endpoint |
+| 3 | Add format selector (A/B/C) with auto-detection + manual override | M | Article creation UI + prompt assembly |
+| 4 | Add persona block to prompt | XS | AI generation endpoint |
+| 5 | Add product context block — interim static table | S | Supabase + prompt assembly |
+| 6 | Add Shopify product API connection for dynamic product context | L | Shopify integration |
+| 7 | Post-processing: strip year from generated titles | XS | Post-generation handler |
+| 8 | Store brand voice in brand_context Supabase table | XS | Supabase + generation endpoint |
