@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -110,6 +110,17 @@ export default function Integrations() {
   const [integrationName, setIntegrationName] = useState("");
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [shopifyMode, setShopifyMode] = useState<"token" | "oauth">("token");
+
+  // When opening an existing Shopify integration, detect which mode was used
+  useEffect(() => {
+    if (drawer.def?.type === "shopify" && drawer.integration) {
+      const creds = (drawer.integration.credentials as Record<string, string>) ?? {};
+      setShopifyMode(creds.clientId && creds.clientSecret && !creds.clientSecret.startsWith("shpss_") ? "oauth" : "token");
+    } else {
+      setShopifyMode("token");
+    }
+  }, [drawer.open]);
 
   const { data: integrationsList = [], isLoading } = useQuery<Integration[]>({
     queryKey: ["/api/integrations"],
@@ -373,29 +384,97 @@ export default function Integrations() {
                   />
                 </div>
 
-                {drawer.def.type === "shopify" && (
-                  <div className="text-xs text-muted-foreground bg-muted/50 border rounded p-3 space-y-1">
-                    <p className="font-medium text-foreground">Where to find your token:</p>
-                    <p>Shopify admin → Settings → Apps → Develop apps → your app → API credentials → <strong>Storefront API access token</strong></p>
-                    <p>If the token isn't visible, click <strong>Rotate</strong> to generate a new one.</p>
-                  </div>
-                )}
+                {drawer.def.type === "shopify" ? (
+                  <>
+                    {/* Mode toggle */}
+                    <div className="flex border border-black overflow-hidden text-sm font-medium">
+                      <button
+                        type="button"
+                        onClick={() => { setShopifyMode("token"); setTestResult(null); }}
+                        className={`flex-1 py-1.5 transition-colors ${shopifyMode === "token" ? "bg-black text-white" : "bg-white text-black hover:bg-gray-50"}`}
+                      >
+                        Storefront Token
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShopifyMode("oauth"); setTestResult(null); }}
+                        className={`flex-1 py-1.5 border-l border-black transition-colors ${shopifyMode === "oauth" ? "bg-black text-white" : "bg-white text-black hover:bg-gray-50"}`}
+                      >
+                        Client ID + Secret
+                      </button>
+                    </div>
 
-                {drawer.def.credentialFields.map((field) => (
-                  <div key={field.key} className="space-y-1.5">
-                    <Label htmlFor={`cred-${field.key}`}>{field.label}</Label>
-                    <Input
-                      id={`cred-${field.key}`}
-                      type={field.type ?? "text"}
-                      value={credentials[field.key] ?? ""}
-                      onChange={(e) => {
-                        setCredentials((prev) => ({ ...prev, [field.key]: e.target.value }));
-                        setTestResult(null);
-                      }}
-                      placeholder={field.placeholder}
-                    />
-                  </div>
-                ))}
+                    {/* Store domain — always shown */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="cred-storeDomain">Store Domain</Label>
+                      <Input
+                        id="cred-storeDomain"
+                        value={credentials["storeDomain"] ?? ""}
+                        onChange={(e) => { setCredentials((prev) => ({ ...prev, storeDomain: e.target.value })); setTestResult(null); }}
+                        placeholder="your-store.myshopify.com"
+                      />
+                    </div>
+
+                    {shopifyMode === "token" ? (
+                      <>
+                        <div className="text-xs text-muted-foreground bg-muted/50 border rounded p-3 space-y-1">
+                          <p>Find it in Shopify admin → Settings → Apps → Develop apps → your app → <strong>API credentials</strong> → Storefront API access token. If it's hidden, click <strong>Rotate</strong>.</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="cred-storefrontToken">Storefront API Token</Label>
+                          <Input
+                            id="cred-storefrontToken"
+                            type="password"
+                            value={credentials["storefrontToken"] ?? ""}
+                            onChange={(e) => { setCredentials((prev) => ({ ...prev, storefrontToken: e.target.value, clientId: "", clientSecret: "" })); setTestResult(null); }}
+                            placeholder="shpss_••••••••"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-xs text-muted-foreground bg-muted/50 border rounded p-3 space-y-1">
+                          <p>Find these in Shopify admin → Settings → Apps → Develop apps → your app → <strong>API credentials</strong>.</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="cred-clientId">Client ID</Label>
+                          <Input
+                            id="cred-clientId"
+                            value={credentials["clientId"] ?? ""}
+                            onChange={(e) => { setCredentials((prev) => ({ ...prev, clientId: e.target.value, storefrontToken: "" })); setTestResult(null); }}
+                            placeholder="d4090ea1..."
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="cred-clientSecret">Client Secret</Label>
+                          <Input
+                            id="cred-clientSecret"
+                            type="password"
+                            value={credentials["clientSecret"] ?? ""}
+                            onChange={(e) => { setCredentials((prev) => ({ ...prev, clientSecret: e.target.value, storefrontToken: "" })); setTestResult(null); }}
+                            placeholder="••••••••"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  drawer.def.credentialFields.map((field) => (
+                    <div key={field.key} className="space-y-1.5">
+                      <Label htmlFor={`cred-${field.key}`}>{field.label}</Label>
+                      <Input
+                        id={`cred-${field.key}`}
+                        type={field.type ?? "text"}
+                        value={credentials[field.key] ?? ""}
+                        onChange={(e) => {
+                          setCredentials((prev) => ({ ...prev, [field.key]: e.target.value }));
+                          setTestResult(null);
+                        }}
+                        placeholder={field.placeholder}
+                      />
+                    </div>
+                  ))
+                )}
 
                 <div className="flex gap-2 pt-2">
                   <Button
