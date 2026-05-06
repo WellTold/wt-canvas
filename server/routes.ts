@@ -2889,21 +2889,27 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         words_we_avoid: brandContextRaw.wordsWeAvoid || undefined,
       } : undefined;
 
-      // 6. Try to fetch relevant Shopify products for product context
+      // 6. Run Shopify, FAQ, and CTA fetching in parallel for product context
       const siteBaseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
+      type ShopifyProductItem = { title: string; handle: string; price: string; imageUrl: string | null };
+
+      const [shopifyResult, faqItems, ctaData] = await Promise.all([
+        fetchProductList(8, kw.keyword).catch(() => ({ items: [] as ShopifyProductItem[] })),
+        generateFAQ(kw.keyword).catch(() => []),
+        generateCTAs(kw.keyword, siteBaseUrl).catch(() => null),
+      ]);
+
+      // Build product context string for AI prompt
       let productContext: string | undefined;
-      try {
-        const shopifyResult = await fetchProductList(8, kw.keyword);
-        if (shopifyResult.items.length > 0) {
-          productContext = shopifyResult.items
-            .map(p => `- [${p.title}](${siteBaseUrl}/products/${p.handle})`)
-            .join('\n');
-        }
-      } catch {
-        // Shopify not configured or unavailable — AI uses product universe from brand voice
+      const shopifyProducts = (shopifyResult.items as ShopifyProductItem[]).filter(p => p.imageUrl);
+      const allProducts = shopifyProducts.length > 0 ? shopifyProducts : (shopifyResult.items as ShopifyProductItem[]);
+      if (allProducts.length > 0) {
+        productContext = allProducts
+          .map(p => `- [${p.title}](${siteBaseUrl}/products/${p.handle})`)
+          .join('\n');
       }
 
-      // 7a. Generate full markdown — primary keyword + all cluster supporting keywords
+      // 7a. Generate full markdown
       const markdown = await generateWebPageMarkdownContent({
         title,
         type: contentType,
@@ -2917,7 +2923,39 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         brandContext,
       });
 
-      // 7b. Build slug from title
+      // 7b. Build structured data (Article JSON-LD + private _wt_ render keys)
+      const now = new Date().toISOString();
+      const structuredData: Record<string, any> = {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": title,
+        "datePublished": now,
+        "dateModified": now,
+        "publisher": {
+          "@type": "Organization",
+          "name": "Well Told Design",
+          "url": siteBaseUrl,
+        },
+        ...(kw.keyword ? { "keywords": kw.keyword + (supportingKeywordsStr ? ", " + supportingKeywordsStr : "") } : {}),
+      };
+
+      if (faqItems.length > 0) {
+        structuredData["_wt_faq"] = faqItems;
+      }
+      if (shopifyProducts.length > 0) {
+        structuredData["_wt_products"] = shopifyProducts.slice(0, 4).map(p => ({
+          title: p.title,
+          handle: p.handle,
+          imageUrl: p.imageUrl,
+          price: p.price,
+          url: `${siteBaseUrl}/products/${p.handle}`,
+        }));
+      }
+      if (ctaData) {
+        structuredData["_wt_cta"] = ctaData;
+      }
+
+      // 7c. Build slug from title
       const baseSlug = title
         .toLowerCase()
         .replace(/[^a-z0-9\s-]/g, "")
@@ -2926,7 +2964,7 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         .slice(0, 80);
       const finalSlug = await storage.generateUniqueSlug(baseSlug, contentType);
 
-      // 8. Create the content item — store primary + supporting keyword strings
+      // 8. Create the content item — store markdown, structured data (FAQ/products/CTAs), and keywords
       const newItem = await storage.createContentItem({
         title,
         slug: finalSlug,
@@ -2936,6 +2974,7 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         primaryKeyword: kw.keyword,
         supportingKeywords: supportingKeywordsStr || null,
         markdownContent: markdown,
+        structuredData: Object.keys(structuredData).length > 0 ? structuredData : null,
         authorId: req.userId!,
       } as any);
 
