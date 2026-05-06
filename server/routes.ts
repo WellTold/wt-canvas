@@ -2621,7 +2621,24 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
   }
 
   async function runBatchGeneration(job: BatchJob, authorId: string) {
-    const shopifyAvailable = await isShopifyConfigured().catch(() => false);
+    const siteBaseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
+
+    // Load brand context once for all items in this batch
+    let brandContext: any = undefined;
+    try {
+      const brandContextRaw = await storage.getBrandContext();
+      if (brandContextRaw) {
+        brandContext = {
+          voice_document: brandContextRaw.voiceDocument || undefined,
+          always_rules: brandContextRaw.alwaysRules || undefined,
+          avoid_rules: brandContextRaw.avoidRules || undefined,
+          words_we_use: brandContextRaw.wordsWeUse || undefined,
+          words_we_avoid: brandContextRaw.wordsWeAvoid || undefined,
+        };
+      }
+    } catch {
+      // brand context not available — proceed without it
+    }
 
     for (const item of job.items) {
       item.status = "processing";
@@ -2629,58 +2646,82 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         const kw = await storage.getKeyword(item.keywordId);
         if (!kw) throw new Error("Keyword not found");
 
-        // Mark keyword in_progress immediately when processing starts
         await storage.updateKeyword(kw.id, { status: "in_progress" }).catch(() => null);
 
         const targetType = kw.contentTypeTarget || "blog_article";
 
-        // Cluster-scoped internal links (pages already created in the same cluster)
-        const internalLinks = await getClusterInternalLinks(kw.cluster ?? null);
-
-        // Shopify product context: search by keyword + cluster for relevance
-        let shopifyProducts: Array<{ title: string; handle: string; price: string; description: string }> = [];
-        if (shopifyAvailable) {
-          try {
-            const searchQuery = kw.cluster ? `${kw.keyword} ${kw.cluster}` : kw.keyword;
-            const result = await fetchProductList(5, searchQuery);
-            shopifyProducts = result.items.map((p) => ({
-              title: p.title,
-              handle: p.handle,
-              price: `${p.currencyCode} ${p.price}`,
-              description: "",
-            }));
-          } catch {
-            shopifyProducts = [];
-          }
-        }
-
+        // Generate title first (needed for markdown prompt)
         const title = await generateTitle(kw.keyword, targetType, kw.keyword).catch(
           () => `${kw.keyword.charAt(0).toUpperCase() + kw.keyword.slice(1)}: A Complete Guide`
         );
 
-        const { sections } = await generateCompleteArticle({
+        // Run Shopify fetch, FAQ, CTA, and internal links all in parallel
+        type BatchShopifyItem = { title: string; handle: string; price: string; imageUrl: string | null };
+        const searchQuery = kw.cluster ? `${kw.keyword} ${kw.cluster}` : kw.keyword;
+        const [shopifyResult, faqItems, ctaData, internalLinks] = await Promise.all([
+          fetchProductList(8, searchQuery).catch(() => ({ items: [] as BatchShopifyItem[] })),
+          generateFAQ(kw.keyword).catch(() => []),
+          generateCTAs(kw.keyword, siteBaseUrl).catch(() => null),
+          getClusterInternalLinks(kw.cluster ?? null),
+        ]);
+
+        // Products with images preferred for cards; all products used for AI context
+        const productsWithImages = (shopifyResult.items as BatchShopifyItem[]).filter(p => p.imageUrl);
+        const productsForContext = productsWithImages.length > 0 ? productsWithImages : (shopifyResult.items as BatchShopifyItem[]);
+        let productContext: string | undefined;
+        if (productsForContext.length > 0) {
+          productContext = productsForContext.map(p => `- [${p.title}](${siteBaseUrl}/products/${p.handle})`).join('\n');
+        }
+
+        // Generate full markdown content
+        const markdown = await generateWebPageMarkdownContent({
           title,
           type: targetType,
           primaryKeyword: kw.keyword,
           articleAngle: kw.articleAngle ?? undefined,
-          internalLinks,
-          shopifyProducts,
+          keywordType: kw.type || undefined,
+          mood: "conversational",
+          productContext,
+          siteBaseUrl,
+          brandContext,
         });
+
+        // Build structured data (Article JSON-LD + private _wt_ render keys)
+        const now = new Date().toISOString();
+        const structuredData: Record<string, any> = {
+          "@context": "https://schema.org",
+          "@type": "Article",
+          "headline": title,
+          "datePublished": now,
+          "dateModified": now,
+          "publisher": { "@type": "Organization", "name": "Well Told Design", "url": siteBaseUrl },
+          "keywords": kw.keyword,
+        };
+        if (faqItems.length > 0) structuredData["_wt_faq"] = faqItems;
+        if (productsWithImages.length > 0) {
+          structuredData["_wt_products"] = productsWithImages.slice(0, 4).map(p => ({
+            title: p.title,
+            handle: p.handle,
+            imageUrl: p.imageUrl,
+            price: p.price,
+            url: `${siteBaseUrl}/products/${p.handle}`,
+          }));
+        }
+        if (ctaData) structuredData["_wt_cta"] = ctaData;
 
         const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-        // Create the content item — keywordId links it back to the source keyword
         const created = await storage.createContentItem({
           title,
           slug,
           type: targetType,
           status: "draft",
           approvalStatus: "pending",
-          content: sections as unknown,
           primaryKeyword: kw.keyword,
-          keywordId: kw.id,
+          markdownContent: markdown,
+          structuredData,
           authorId,
-        });
+        } as any);
 
         const contentId = String(created.id);
         await storage.updateKeyword(kw.id, {
