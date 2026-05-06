@@ -43,8 +43,7 @@ const INTEGRATION_DEFS: IntegrationDef[] = [
     Icon: SiShopify,
     credentialFields: [
       { key: "storeDomain", label: "Store Domain", placeholder: "your-store.myshopify.com" },
-      { key: "clientId", label: "Client ID", placeholder: "shp_abc..." },
-      { key: "clientSecret", label: "Client Secret", placeholder: "••••••••", type: "password" },
+      { key: "storefrontToken", label: "Storefront API Token", placeholder: "shpss_••••••••", type: "password" },
     ],
   },
   {
@@ -178,10 +177,10 @@ export default function Integrations() {
     setTestResult(null);
 
     if (drawer.def.type === "shopify") {
+      const hasToken = credentials.storeDomain && credentials.storefrontToken;
       const hasClientCreds = credentials.storeDomain && credentials.clientId && credentials.clientSecret;
-      const hasLegacyToken = credentials.storeDomain && credentials.storefrontToken;
-      if (!hasClientCreds && !hasLegacyToken) {
-        setTestResult({ success: false, message: "Please fill in store domain, client ID, and client secret first." });
+      if (!hasToken && !hasClientCreds) {
+        setTestResult({ success: false, message: "Please fill in store domain and Storefront API token first." });
         setIsTesting(false);
         return;
       }
@@ -373,6 +372,14 @@ export default function Integrations() {
                     placeholder={drawer.def.label}
                   />
                 </div>
+
+                {drawer.def.type === "shopify" && (
+                  <div className="text-xs text-muted-foreground bg-muted/50 border rounded p-3 space-y-1">
+                    <p className="font-medium text-foreground">Where to find your token:</p>
+                    <p>Shopify admin → Settings → Apps → Develop apps → your app → API credentials → <strong>Storefront API access token</strong></p>
+                    <p>If the token isn't visible, click <strong>Rotate</strong> to generate a new one.</p>
+                  </div>
+                )}
 
                 {drawer.def.credentialFields.map((field) => (
                   <div key={field.key} className="space-y-1.5">
