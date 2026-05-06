@@ -537,6 +537,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.deleteContentItem(id);
       console.log(`Successfully deleted content item ${id}`);
+
+      // Reset any keywords that were linked solely to this content item
+      try {
+        const linkedKeywords = await storage.getKeywordsByContentItemId(String(id));
+        for (const kw of linkedKeywords) {
+          await storage.updateKeyword(kw.id, { status: "untargeted", contentItemId: null });
+        }
+        if (linkedKeywords.length > 0) {
+          console.log(`Reset ${linkedKeywords.length} keyword(s) to untargeted after deleting content item ${id}`);
+        }
+      } catch (err) {
+        // Non-fatal — log but don't block the delete response
+        console.warn("Failed to reset linked keywords after delete:", err);
+      }
+
       res.json({ message: "Content item deleted successfully" });
     } catch (error) {
       console.error("Delete content item error:", error);
