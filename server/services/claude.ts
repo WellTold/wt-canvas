@@ -968,6 +968,54 @@ Respond with ONLY a valid JSON array — no preamble, no code fences. Each eleme
   }
 }
 
+export interface GeneratedCTAs {
+  inline: { body: string; buttonText: string; url: string };
+  bottom: { headline: string; body: string; primaryButtonText: string; primaryUrl: string; secondaryText: string; secondaryUrl: string };
+}
+
+export async function generateCTAs(primaryKeyword: string, siteBaseUrl: string): Promise<GeneratedCTAs | null> {
+  try {
+    const response = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: MAX_TOKENS_SHORT,
+      system: `You are a copywriter for Well Told Design — a Boston-based gift brand known for story-driven objects: glassware, drinkware, and textiles engraved with maps, constellations, and topographic designs. Write in the Well Told brand voice: warm, specific, story-driven — never salesy. Lead with a specific image or place, not a product feature. Never use "shop now", "click here", "amazing", "perfect", exclamation points, or urgency language. Respond ONLY with valid JSON — no preamble, no code fences.`,
+      messages: [{
+        role: "user",
+        content: `Article topic: "${primaryKeyword}"
+
+Write two CTAs for this article:
+
+CTA 1 (inline, mid-article): One sentence (max 20 words, lead with a specific image or memory) + one button label (max 8 words). Pick a relevant collection URL from: /collections/gifts-for-hikers, /collections/anniversary-gifts, /collections/gifts-for-mom, /collections/wine-glasses, /collections/city-maps, /collections/all.
+
+CTA 2 (bottom section): One headline (max 8 words) + one supporting sentence (max 25 words) + one primary button label (max 6 words) + one secondary link label (max 6 words).
+
+Return JSON in this exact shape (fill in all fields):
+{
+  "inline": {
+    "body": "...",
+    "buttonText": "...",
+    "url": "${siteBaseUrl}/collections/all"
+  },
+  "bottom": {
+    "headline": "...",
+    "body": "...",
+    "primaryButtonText": "...",
+    "primaryUrl": "${siteBaseUrl}/collections/all",
+    "secondaryText": "View All Collections",
+    "secondaryUrl": "${siteBaseUrl}/a/articles"
+  }
+}`,
+      }],
+    });
+    const raw = response.content[0].type === "text" ? response.content[0].text : "";
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    return JSON.parse(jsonMatch[0]) as GeneratedCTAs;
+  } catch {
+    return null;
+  }
+}
+
 export async function generateSection(topic: string, sectionType: string, context?: string): Promise<string> {
   const contextText = context ? ` Additional context: ${context}.` : "";
   const response = await anthropic.messages.create({

@@ -437,6 +437,89 @@ body {
 }
 .wt-faq__answer div { margin: 0; }
 
+/* ── Inline CTA (Type A — mid-article) ─────────────────────────────────── */
+.wt-cta-inline {
+  margin: 2.5rem 0;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--wt-color-border);
+  background: var(--wt-color-surface);
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+.wt-cta-inline__body {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  flex: 1 1 200px;
+  color: var(--wt-color-text);
+}
+.wt-cta-inline__btn {
+  display: inline-block;
+  padding: 0.6rem 1.1rem;
+  background: var(--wt-color-text);
+  color: var(--wt-color-bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: box-shadow 0.15s;
+}
+.wt-cta-inline__btn:hover { box-shadow: 3px 3px 0 var(--wt-color-border); }
+
+/* ── Bottom CTA (Type B — end of article) ───────────────────────────────── */
+.wt-cta-bottom {
+  margin: 3rem 0 2rem;
+  padding: 2.5rem 2rem;
+  border: 2px solid var(--wt-color-border);
+  background: var(--wt-color-surface);
+  text-align: center;
+}
+.wt-cta-bottom__headline {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.wt-cta-bottom__body {
+  font-size: 1rem;
+  color: var(--wt-color-muted);
+  margin: 0 0 1.5rem;
+  line-height: 1.6;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.wt-cta-bottom__btn {
+  display: inline-block;
+  padding: 0.85rem 2rem;
+  background: var(--wt-color-text);
+  color: var(--wt-color-bg);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-decoration: none;
+  margin-right: 1rem;
+  margin-bottom: 0.5rem;
+  transition: box-shadow 0.15s;
+}
+.wt-cta-bottom__btn:hover { box-shadow: 4px 4px 0 var(--wt-color-border); }
+.wt-cta-bottom__link {
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--wt-color-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  margin-bottom: 0.5rem;
+}
+
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   :root { --wt-gutter: 1.25rem; }

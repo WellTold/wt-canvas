@@ -883,6 +883,7 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
     const sd = schema && typeof schema === 'object' ? (schema as Record<string, any>) : {};
     const wtFaq: Array<{ question: string; answer: string }> = Array.isArray(sd._wt_faq) ? sd._wt_faq : [];
     const wtProducts: Array<{ title: string; handle: string; imageUrl: string | null; price: string; url: string }> = Array.isArray(sd._wt_products) ? sd._wt_products : [];
+    const wtCta: { inline?: { body: string; buttonText: string; url: string }; bottom?: { headline: string; body: string; primaryButtonText: string; primaryUrl: string; secondaryText: string; secondaryUrl: string } } | null = sd._wt_cta || null;
 
     // Build clean Article JSON-LD (strip private _wt_ keys)
     const articleSchema: Record<string, any> = {};
@@ -932,6 +933,22 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
   <p><strong>Well Told Design</strong> is a Boston-based gift brand specialising in story-driven objects — glassware, drinkware, and textiles engraved with maps, constellations, and topographic designs. Every piece is personalised to a specific place, date, or memory.</p>
 </div>`;
 
+    // Inline CTA (Type A) — injected after the 2nd H2 in the article body
+    const inlineCtaHtml = wtCta?.inline ? `
+<div class="wt-cta-inline">
+  <p class="wt-cta-inline__body">${escHtml(wtCta.inline.body)}</p>
+  <a href="${escAttr(wtCta.inline.url)}" class="wt-cta-inline__btn" rel="noopener">${escHtml(wtCta.inline.buttonText)}</a>
+</div>` : '';
+
+    // Bottom CTA (Type B) — injected between article body and product grid
+    const bottomCtaHtml = wtCta?.bottom ? `
+<section class="wt-cta-bottom">
+  <h2 class="wt-cta-bottom__headline">${escHtml(wtCta.bottom.headline)}</h2>
+  <p class="wt-cta-bottom__body">${escHtml(wtCta.bottom.body)}</p>
+  <a href="${escAttr(wtCta.bottom.primaryUrl)}" class="wt-cta-bottom__btn" rel="noopener">${escHtml(wtCta.bottom.primaryButtonText)}</a>
+  <a href="${escAttr(wtCta.bottom.secondaryUrl)}" class="wt-cta-bottom__link" rel="noopener">${escHtml(wtCta.bottom.secondaryText)}</a>
+</section>` : '';
+
     // Featured products grid
     const productsHtml = wtProducts.length > 0 ? `
 <section class="wt-products-grid" aria-label="Featured Products">
@@ -964,13 +981,28 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
 
     // Insert brand context paragraph after the first H1 tag in rendered body
     let body = markdownToHtmlSafe(page.content_markdown);
-    body = body.replace(/<h1>/, `<h1>`); // no-op marker — insert brand context after h1
     const h1Match = body.match(/<h1>[^<]*<\/h1>/);
     if (h1Match) {
       const h1End = body.indexOf(h1Match[0]) + h1Match[0].length;
       body = body.slice(0, h1End) + '\n' + brandContextHtml + body.slice(h1End);
     } else {
       body = brandContextHtml + '\n' + body;
+    }
+
+    // Inject inline CTA after the 2nd <h2> in the article body (mid-article placement)
+    if (inlineCtaHtml) {
+      const h2Regex = /<\/h2>/g;
+      let matchCount = 0;
+      let lastIndex = -1;
+      let m: RegExpExecArray | null;
+      while ((m = h2Regex.exec(body)) !== null) {
+        matchCount++;
+        if (matchCount === 2) { lastIndex = m.index + m[0].length; break; }
+        lastIndex = m.index + m[0].length;
+      }
+      if (lastIndex !== -1) {
+        body = body.slice(0, lastIndex) + '\n' + inlineCtaHtml + body.slice(lastIndex);
+      }
     }
 
     const allSchemas = [
@@ -1010,6 +1042,7 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
   ${renderSiteHeader(siteSettings)}
   <main class="wt-content">
     ${body}
+    ${bottomCtaHtml}
     ${productsHtml}
     ${faqHtml}
   </main>

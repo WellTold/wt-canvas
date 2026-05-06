@@ -383,6 +383,10 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       setPageTemplate(currentContentItem.pageTemplate || "default");
       setRedirectFrom(Array.isArray(currentContentItem.redirectFrom) ? currentContentItem.redirectFrom.join(", ") : (currentContentItem.redirectFrom || ""));
       setStructuredDataType(currentContentItem.structuredDataType || "None");
+      // Restore existing structured data (FAQ, products, CTAs) so saves don't overwrite it
+      if (currentContentItem.structuredData && typeof currentContentItem.structuredData === 'object' && !Array.isArray(currentContentItem.structuredData)) {
+        setGeneratedStructuredData(currentContentItem.structuredData as object);
+      }
 
       // For web page types: determine markdown mode vs legacy block mode
       const subtype = currentContentItem.contentType || currentContentItem.type;

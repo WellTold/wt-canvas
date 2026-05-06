@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { seedUsers } from "./services/auth";
 import { insertContentItemSchema, insertContentBlockSchema, blockPresets, siteSettings, integrations, insertIntegrationSchema, emailStyles, insertEmailStyleSchema, insertKeywordSchema } from "@shared/schema";
 import { z } from "zod";
-import { improveContent, refineContent, generateTitle, generateMetaDescription, generateSection, suggestKeywords, generateCompleteArticle, generateWebPageMarkdown, generateWebPageMarkdownContent, generateFAQ } from "./services/claude";
+import { improveContent, refineContent, generateTitle, generateMetaDescription, generateSection, suggestKeywords, generateCompleteArticle, generateWebPageMarkdown, generateWebPageMarkdownContent, generateFAQ, generateCTAs } from "./services/claude";
 import { marked } from "marked";
 import { fetchProductList, isShopifyConfigured } from "./services/shopify";
 import { supabaseLegacyPublisher } from "./services/supabase-legacy";
@@ -985,13 +985,16 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       let shopifyProducts: ShopifyProductItem[] = [];
       let productContext: string | undefined;
 
-      const [shopifyResult, faqItems] = await Promise.all([
+      const [shopifyResult, faqItems, ctaData] = await Promise.all([
         primaryKeyword
           ? fetchProductList(8, primaryKeyword).catch(() => ({ items: [] as ShopifyProductItem[] }))
           : Promise.resolve({ items: [] as ShopifyProductItem[] }),
         primaryKeyword
           ? generateFAQ(primaryKeyword).catch(() => [])
           : Promise.resolve([]),
+        primaryKeyword
+          ? generateCTAs(primaryKeyword, siteBaseUrl).catch(() => null)
+          : Promise.resolve(null),
       ]);
 
       shopifyProducts = (shopifyResult.items as ShopifyProductItem[]).filter(p => p.imageUrl);
@@ -1062,6 +1065,11 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           price: p.price,
           url: `${siteBaseUrl}/products/${p.handle}`,
         }));
+      }
+
+      // Embed CTA copy for worker injection
+      if (ctaData) {
+        structuredData["_wt_cta"] = ctaData;
       }
 
       res.json({ markdown, structuredData });
@@ -1386,33 +1394,33 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       };
       const publishTableName = webpageTableMap[contentItem.contentType || contentItem.type];
       if (publishTableName) {
-        const { data: publishRow } = await supabaseClient
-          .from(publishTableName)
-          .select("content_json, content_markdown, title")
-          .eq("id", contentId)
-          .single();
-        if (publishRow) {
-          if (publishRow.content_markdown) {
-            // Has markdown — convert to HTML and store as html block for the Cloudflare Worker
-            const renderedHtml = await marked(publishRow.content_markdown);
-            await supabaseClient
-              .from(publishTableName)
-              .update({
-                content_json: [{ type: 'html', html: renderedHtml }],
-                content_html: renderedHtml,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", contentId);
-            console.log(`✅ Converted markdown to HTML block for ${contentId} before publish`);
-          } else if (!publishRow.content_markdown && Array.isArray(publishRow.content_json) && publishRow.content_json.length > 0) {
-            // Legacy block-only page — generate markdown from blocks for backward compat
-            const autoMarkdown = generateWebPageMarkdown(publishRow.content_json, publishRow.title || contentItem.title);
-            await supabaseClient
-              .from(publishTableName)
-              .update({ content_markdown: autoMarkdown, updated_at: new Date().toISOString() })
-              .eq("id", contentId);
-            console.log(`✅ Auto-generated content_markdown for ${contentId} before publish`);
+        // Build a sync payload: always push the latest content_markdown + structured_data
+        // from Canvas to Supabase so the Cloudflare Worker renders the most current version.
+        const syncData: Record<string, any> = { updated_at: new Date().toISOString() };
+
+        if (contentItem.markdownContent) {
+          syncData.content_markdown = contentItem.markdownContent;
+        }
+        if (contentItem.structuredData) {
+          syncData.structured_data = contentItem.structuredData;
+        }
+
+        // For legacy block-only pages: auto-generate markdown if none exists anywhere
+        if (!contentItem.markdownContent) {
+          const { data: publishRow } = await supabaseClient
+            .from(publishTableName)
+            .select("content_json, content_markdown")
+            .eq("id", contentId)
+            .single();
+          if (publishRow && !publishRow.content_markdown && Array.isArray(publishRow.content_json) && publishRow.content_json.length > 0) {
+            syncData.content_markdown = generateWebPageMarkdown(publishRow.content_json, contentItem.title);
+            console.log(`✅ Auto-generated content_markdown for legacy block page ${contentId}`);
           }
+        }
+
+        if (Object.keys(syncData).length > 1) {
+          await supabaseClient.from(publishTableName).update(syncData).eq("id", contentId);
+          console.log(`✅ Synced content to Supabase for ${contentId} before publish`);
         }
       }
 
@@ -1946,32 +1954,6 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
       const reqOrigin = `${req.protocol}://${req.get("host")}`;
       const baseUrl = reqOrigin;
 
-      // When the item's content is a markdown string (content_markdown was set via
-      // Generate Markdown), render the markdown as HTML directly so the preview
-      // matches what the Cloudflare Worker will serve.
-      // Strip raw HTML tags first to guard against stored-XSS before passing
-      // to the simple regex-based converter which does not have its own sanitizer.
-      if (typeof item.content === "string" && item.content.trim()) {
-        const safeMd = item.content.replace(/<[^>]*>/g, "");
-        const bodyHtml = markdownToHtml(safeMd);
-        const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${item.title.replace(/</g, "&lt;")}</title>
-  ${item.metaDescription ? `<meta name="description" content="${item.metaDescription.replace(/"/g, "&quot;")}" />` : ""}
-  <link rel="stylesheet" href="${baseUrl}/styles/wt-pages.css" />
-</head>
-<body class="wt-page">
-  <main class="wt-content">
-    ${bodyHtml}
-  </main>
-</body>
-</html>`;
-        return res.set("Content-Type", "text/html").send(html);
-      }
-
       const { renderPageHtml } = await import("./renderer/blockToHtml");
       // Only construct fetcher when env vars are present — avoids noisy fetch failures for unconfigured installs
       const shopifyFetcher = (process.env.SHOPIFY_STOREFRONT_TOKEN && process.env.SHOPIFY_STORE_DOMAIN)
@@ -1984,6 +1966,7 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         status: item.status,
         meta_description: item.metaDescription || null,
         content_json: Array.isArray(item.content) ? item.content : [],
+        content_markdown: (item as any).markdownContent || null,
         featured_image: item.featuredImage || null,
         og_image: (item as any).ogImage || null,
         og_title: (item as any).ogTitle || null,
