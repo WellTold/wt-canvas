@@ -2295,19 +2295,25 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
       if (integration.type === "shopify") {
         const creds = integration.credentials as Record<string, string>;
         if (!creds?.storeDomain) {
-          return res.status(400).json({ message: "Missing storeDomain or clientId/clientSecret" });
+          return res.status(400).json({ message: "Missing store domain" });
         }
+        // Detect misfiled storefront token (shpss_/shpat_ stored as clientSecret)
+        const effectiveToken = creds.storefrontToken ||
+          (creds.clientSecret?.startsWith("shpss_") || creds.clientSecret?.startsWith("shpat_") ? creds.clientSecret : null);
+        const hasRealClientCreds = creds.clientId && creds.clientSecret &&
+          !creds.clientSecret.startsWith("shpss_") && !creds.clientSecret.startsWith("shpat_");
+
         let result: { name: string; domain: string };
-        if (creds.clientId && creds.clientSecret) {
+        if (effectiveToken) {
+          const { testShopifyConnection } = await import("./services/shopify");
+          result = await testShopifyConnection(creds.storeDomain, effectiveToken);
+        } else if (hasRealClientCreds) {
           const { testWithClientCredentials } = await import("./services/shopifyTokenManager");
           result = await testWithClientCredentials(creds.storeDomain, creds.clientId, creds.clientSecret);
-        } else if (creds.storefrontToken) {
-          const { testShopifyConnection } = await import("./services/shopify");
-          result = await testShopifyConnection(creds.storeDomain, creds.storefrontToken);
         } else {
-          return res.status(400).json({ message: "Missing storeDomain or clientId/clientSecret" });
+          return res.status(400).json({ message: "Missing Shopify credentials — add a Storefront API token or Client ID + Secret" });
         }
-        await db.update(integrations).set({ status: "connected", updatedAt: new Date() }).where(eq(integrations.id, id));
+        try { await db.update(integrations).set({ status: "connected", updatedAt: new Date() }).where(eq(integrations.id, id)); } catch {}
         return res.json({ success: true, shopName: result.name, domain: result.domain });
       }
 

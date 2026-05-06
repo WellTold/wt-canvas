@@ -479,7 +479,7 @@ export default function Integrations() {
                 <div className="flex gap-2 pt-2">
                   <Button
                     variant="outline"
-                    onClick={drawer.isNew ? testEnteredCredentials : handleTestExistingConnection}
+                    onClick={testEnteredCredentials}
                     disabled={isTesting}
                     className="flex-1"
                   >
