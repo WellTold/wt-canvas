@@ -980,6 +980,18 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
 
       const siteBaseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
 
+      // Filter supporting keywords — cap at top 8 most semantically similar to primary keyword
+      const rawSupportingKws = supportingKeywords
+        ? supportingKeywords.split(/[,\n]/).map((s: string) => s.trim()).filter(Boolean)
+        : [];
+      const filteredSupportingKws = primaryKeyword && rawSupportingKws.length > 0
+        ? filterSupportingKeywords(primaryKeyword, rawSupportingKws, 8, 10)
+        : rawSupportingKws.slice(0, 10);
+      const filteredSupportingKeywords = filteredSupportingKws.length > 0 ? filteredSupportingKws.join(', ') : undefined;
+      if (rawSupportingKws.length > 0) {
+        console.log(`[generate-webpage-markdown] supporting keywords: ${rawSupportingKws.length} raw → ${filteredSupportingKws.length} filtered: ${filteredSupportingKws.join(', ')}`);
+      }
+
       // Fetch Shopify products + generate FAQ in parallel
       type ShopifyProductItem = { title: string; handle: string; price: string; imageUrl: string | null };
       let shopifyProducts: ShopifyProductItem[] = [];
@@ -988,9 +1000,9 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       // Use primaryKeyword if available, fall back to title so FAQ/CTAs always generate
       const faqSearchTerm = primaryKeyword || title;
       const [shopifyResult, faqItems, ctaData] = await Promise.all([
-        fetchProductList(8, faqSearchTerm).catch(() => ({ items: [] as ShopifyProductItem[] })),
-        generateFAQ(faqSearchTerm).catch(() => []),
-        generateCTAs(faqSearchTerm, siteBaseUrl).catch(() => null),
+        fetchProductList(8, faqSearchTerm).catch((e) => { console.error('[generate-webpage-markdown] Shopify fetch failed:', e?.message); return { items: [] as ShopifyProductItem[] }; }),
+        generateFAQ(faqSearchTerm).catch((e) => { console.error('[generate-webpage-markdown] FAQ generation failed:', e?.message); return []; }),
+        generateCTAs(faqSearchTerm, siteBaseUrl).catch((e) => { console.error('[generate-webpage-markdown] CTA generation failed:', e?.message); return null; }),
       ]);
       console.log(`[generate-webpage-markdown] FAQ: ${faqItems.length} items, CTA: ${!!ctaData}, Products: ${shopifyResult.items.length}`);
 
@@ -1009,7 +1021,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         title,
         type,
         primaryKeyword,
-        supportingKeywords,
+        supportingKeywords: filteredSupportingKeywords,
         articleAngle,
         mood,
         additionalInstructions,

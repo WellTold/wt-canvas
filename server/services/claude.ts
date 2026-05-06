@@ -190,6 +190,7 @@ Return ONLY a valid JSON array with no markdown fencing or extra text:
 
   const userPrompt = `Generate 5 FAQ questions and answers for an article about: ${primaryKeyword}`;
 
+  let rawText = '';
   try {
     const response = await anthropic.messages.create({
       model: MODEL,
@@ -197,12 +198,19 @@ Return ONLY a valid JSON array with no markdown fencing or extra text:
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     });
-    const text = response.content[0].type === 'text' ? response.content[0].text : '[]';
-    const clean = text.replace(/^```(json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+    rawText = response.content[0].type === 'text' ? response.content[0].text : '[]';
+    // Strip any markdown code fences the model might add
+    const clean = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
     const parsed = JSON.parse(clean);
-    if (Array.isArray(parsed)) return parsed.slice(0, 6) as FAQItem[];
+    if (Array.isArray(parsed)) {
+      console.log(`[AI] FAQ generated ${parsed.length} items for keyword: ${primaryKeyword}`);
+      return parsed.slice(0, 6) as FAQItem[];
+    }
+    console.warn('[AI] FAQ response was not an array:', clean.substring(0, 200));
   } catch (e) {
-    console.warn('[AI] FAQ generation/parsing failed:', e);
+    console.error('[AI] FAQ generation/parsing failed for keyword:', primaryKeyword);
+    console.error('[AI] FAQ error:', e instanceof Error ? e.message : e);
+    if (rawText) console.error('[AI] FAQ raw response (first 500 chars):', rawText.substring(0, 500));
   }
   return [];
 }
