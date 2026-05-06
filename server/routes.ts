@@ -2451,6 +2451,19 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
     }
   });
 
+  // Reset all in-progress keywords back to untargeted
+  app.post("/api/keywords/reset-in-progress", requireAuth, async (req, res) => {
+    try {
+      const inProgress = await storage.getKeywords({ status: "in_progress" });
+      for (const kw of inProgress) {
+        await storage.updateKeyword(kw.id, { status: "untargeted", contentItemId: null });
+      }
+      res.json({ reset: inProgress.length });
+    } catch (err) {
+      res.status(500).json({ message: (err as Error).message });
+    }
+  });
+
   // Update keyword
   app.patch("/api/keywords/:id", requireAuth, async (req, res) => {
     const id = parseInt(req.params.id, 10);

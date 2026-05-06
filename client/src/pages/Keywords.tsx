@@ -445,6 +445,18 @@ export default function Keywords() {
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const resetInProgressMutation = useMutation({
+    mutationFn: async () => {
+      const res = await checkResponse(await apiRequest("POST", "/api/keywords/reset-in-progress", {}));
+      return res.json() as Promise<{ reset: number }>;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/keywords"] });
+      toast({ title: "Keywords reset", description: `${data.reset} keyword${data.reset !== 1 ? "s" : ""} set back to untargeted.` });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
   const batchMutation = useMutation({
     mutationFn: async ({ n, clusterFilter }: { n: number; clusterFilter?: string }) => {
       const res = await checkResponse(await apiRequest("POST", "/api/keywords/batch-create", { n, clusterFilter }));
@@ -1219,6 +1231,17 @@ export default function Keywords() {
         <span className="text-xs text-gray-500 self-center ml-auto">
           {keywords.length} keyword{keywords.length !== 1 ? "s" : ""}
         </span>
+        {keywords.some((k) => k.status === "in_progress") && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs border-orange-400 text-orange-700 hover:bg-orange-50 shrink-0"
+            disabled={resetInProgressMutation.isPending}
+            onClick={() => resetInProgressMutation.mutate()}
+          >
+            Reset all in-progress ({keywords.filter((k) => k.status === "in_progress").length})
+          </Button>
+        )}
       </div>
 
       {/* Table */}
