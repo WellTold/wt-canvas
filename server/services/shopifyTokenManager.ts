@@ -43,6 +43,12 @@ export async function resolveCredentials(): Promise<ResolvedCredentials | null> 
     if (rows.length > 0) {
       const creds = rows[0].credentials as Record<string, string>;
       if (creds?.storeDomain && creds?.clientId && creds?.clientSecret) {
+        // Detect misfiled storefront token: shpss_/shpat_ prefixes are storefront tokens,
+        // not OAuth client secrets. Treat the whole record as legacy in that case.
+        if (creds.clientSecret.startsWith("shpss_") || creds.clientSecret.startsWith("shpat_")) {
+          console.log("[Shopify] clientSecret looks like a storefront token — using legacy path");
+          return { storeDomain: creds.storeDomain, storefrontToken: creds.clientSecret };
+        }
         return { storeDomain: creds.storeDomain, clientId: creds.clientId, clientSecret: creds.clientSecret };
       }
       // Priority 3a: DB legacy (storefrontToken)
