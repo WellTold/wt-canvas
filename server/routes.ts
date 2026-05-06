@@ -2573,6 +2573,30 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
   }
   const batchJobs = new Map<string, BatchJob>();
 
+  // Rank a list of supporting keywords by word-overlap similarity to a primary keyword,
+  // then return the top N (default 8, hard cap 10). This prevents dumping an entire
+  // cluster into a single AI prompt while still picking the most relevant terms.
+  function filterSupportingKeywords(
+    primaryKeyword: string,
+    candidates: string[],
+    take = 8,
+    cap = 10
+  ): string[] {
+    const limit = Math.min(take, cap);
+    const primaryWords = new Set(
+      primaryKeyword.toLowerCase().split(/\W+/).filter(Boolean)
+    );
+    const scored = candidates.map(kw => {
+      const kwWords = kw.toLowerCase().split(/\W+/).filter(Boolean);
+      // Score = number of words in kw that also appear in primary keyword
+      const overlap = kwWords.filter(w => primaryWords.has(w)).length;
+      // Tie-break by length of shared word set (prefer shorter, more focused terms)
+      return { kw, score: overlap };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, limit).map(s => s.kw);
+  }
+
   // Build cluster-scoped internal links: published pages in the same keyword cluster.
   // For each linked keyword, we look up the slug from Supabase (UUID IDs) so the AI gets
   // a proper /pages/{slug} URL rather than a raw content ID.
@@ -2914,15 +2938,21 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
       const sorted = [...pool].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0));
       const kw = sorted[0];
 
-      // 2. Pull all untargeted supporting keywords from the same cluster (if cluster exists)
+      // 2. Pull all untargeted supporting keywords from the same cluster (if cluster exists),
+      //    then filter down to the 6-8 most semantically similar to the primary keyword.
+      //    Hard cap: never pass more than 10 supporting keywords to the AI prompt.
       const clusterSupportingKeywords = kw.cluster
         ? untargeted.filter(
             k => k.cluster === kw.cluster && k.id !== kw.id && k.priority === "supporting"
           )
         : [];
-      const supportingKeywordsStr = clusterSupportingKeywords.length > 0
-        ? clusterSupportingKeywords.map(k => k.keyword).join(", ")
+      const filteredSupporting = clusterSupportingKeywords.length > 0
+        ? filterSupportingKeywords(kw.keyword, clusterSupportingKeywords.map(k => k.keyword), 8, 10)
+        : [];
+      const supportingKeywordsStr = filteredSupporting.length > 0
+        ? filteredSupporting.join(", ")
         : undefined;
+      console.log(`[ai-quick-create] cluster "${kw.cluster}" has ${clusterSupportingKeywords.length} supporting keywords → filtered to ${filteredSupporting.length}: ${filteredSupporting.join(", ")}`);
 
       // 3. Determine content type
       const contentType = kw.contentTypeTarget || "blog_article";
