@@ -167,18 +167,32 @@ export async function getStorefrontToken(): Promise<string> {
   }
 
   // New path — exchange client credentials for admin token, then mint storefront token
-  const { token: adminToken, expiresAt: adminExpiresAt } = await fetchAdminToken(
-    creds.storeDomain, creds.clientId, creds.clientSecret
-  );
+  try {
+    const { token: adminToken, expiresAt: adminExpiresAt } = await fetchAdminToken(
+      creds.storeDomain, creds.clientId, creds.clientSecret
+    );
 
-  // Check if a Storefront token already exists for this app
-  let storefrontToken = await fetchExistingStorefrontToken(creds.storeDomain, adminToken);
-  if (!storefrontToken) {
-    storefrontToken = await mintStorefrontToken(creds.storeDomain, adminToken);
+    // Check if a Storefront token already exists for this app
+    let storefrontToken = await fetchExistingStorefrontToken(creds.storeDomain, adminToken);
+    if (!storefrontToken) {
+      storefrontToken = await mintStorefrontToken(creds.storeDomain, adminToken);
+    }
+
+    cache = { storeDomain: creds.storeDomain, storefrontToken, adminToken, adminExpiresAt };
+    return storefrontToken;
+  } catch (err) {
+    // Admin token exchange failed (e.g. credentials not valid for this flow).
+    // Fall back to env-var legacy storefront token if available.
+    console.warn('[Shopify] Admin token exchange failed, falling back to env-var token:', (err as Error).message);
+    const envDomain = process.env.SHOPIFY_STORE_DOMAIN;
+    const envToken = process.env.SHOPIFY_STOREFRONT_TOKEN;
+    if (envDomain && envToken) {
+      console.log('[Shopify] Using SHOPIFY_STOREFRONT_TOKEN env var as fallback');
+      cache = { storeDomain: envDomain, storefrontToken: envToken, adminToken: null, adminExpiresAt: null };
+      return envToken;
+    }
+    throw err;
   }
-
-  cache = { storeDomain: creds.storeDomain, storefrontToken, adminToken, adminExpiresAt };
-  return storefrontToken;
 }
 
 export async function getAdminToken(domain?: string): Promise<string> {

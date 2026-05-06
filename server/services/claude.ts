@@ -714,7 +714,8 @@ Use Markdown hyperlink syntax: [link text](url). Do not bold product names that 
     // Block 7: SEO Rules
     `[7. SEO RULES BLOCK]
 - Include the primary keyword in: H1 and within the first 100 words of body copy
-- Include each supporting keyword at least once naturally in the body
+- Include each supporting keyword at least once naturally in the body — spread them across different sections
+- NEVER write supporting keywords as a series or list in the same sentence or paragraph (e.g., do NOT write "whether you're looking for X, Y, or Z" or "gifts for mom for Christmas, Mother's Day, birthdays..."). Each keyword belongs in its own sentence, in a different section
 - Do not stuff keywords — if it doesn't read naturally, cut it
 - H1 should match or closely paraphrase the article title
 - Use ## for H2 section headers — each should naturally include a supporting keyword where possible
