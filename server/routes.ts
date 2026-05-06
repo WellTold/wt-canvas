@@ -960,6 +960,8 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         words_we_avoid: brandContextRaw.wordsWeAvoid || undefined,
       } : undefined;
 
+      const siteBaseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
+
       // Try to fetch relevant Shopify products for product context
       let productContext: string | undefined;
       if (primaryKeyword) {
@@ -967,7 +969,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           const shopifyResult = await fetchProductList(8, primaryKeyword);
           if (shopifyResult.items.length > 0) {
             productContext = shopifyResult.items
-              .map(p => `- ${p.title} (/products/${p.handle})`)
+              .map(p => `- [${p.title}](${siteBaseUrl}/products/${p.handle})`)
               .join('\n');
           }
         } catch {
@@ -986,6 +988,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         keywordType,
         format,
         productContext,
+        siteBaseUrl,
         brandContext,
       });
 
@@ -2819,12 +2822,13 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
       } : undefined;
 
       // 6. Try to fetch relevant Shopify products for product context
+      const siteBaseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
       let productContext: string | undefined;
       try {
         const shopifyResult = await fetchProductList(8, kw.keyword);
         if (shopifyResult.items.length > 0) {
           productContext = shopifyResult.items
-            .map(p => `- ${p.title} (/products/${p.handle})`)
+            .map(p => `- [${p.title}](${siteBaseUrl}/products/${p.handle})`)
             .join('\n');
         }
       } catch {
@@ -2841,6 +2845,7 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         keywordType: kw.type || undefined,
         mood: "conversational",
         productContext,
+        siteBaseUrl,
         brandContext,
       });
 

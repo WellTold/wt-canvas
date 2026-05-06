@@ -548,6 +548,7 @@ export interface GenerateWebPageMarkdownParams {
   keywordType?: string;
   format?: 'A' | 'B' | 'C';
   productContext?: string;
+  siteBaseUrl?: string;
   brandContext?: {
     voice_document?: string;
     always_rules?: string[];
@@ -569,6 +570,7 @@ export async function generateWebPageMarkdownContent(params: GenerateWebPageMark
     keywordType,
     format: formatOverride,
     productContext,
+    siteBaseUrl = "https://welltolddesign.com",
   } = params;
 
   // [1] Brand voice — prefer stored voice doc, fall back to hardcoded constant
@@ -631,8 +633,25 @@ export async function generateWebPageMarkdownContent(params: GenerateWebPageMark
 
     // Block 5: Product Context
     productContext
-      ? `[5. PRODUCT CONTEXT BLOCK]\nRelevant Well Told products for this article:\n${productContext}`
-      : `[5. PRODUCT CONTEXT BLOCK]\nDraw all product recommendations from the Well Told product universe described in Block 1 above. Do not invent product names — refer to product categories (e.g. "map rocks glass", "constellation wine glass", "topographic mug").`,
+      ? `[5. PRODUCT CONTEXT BLOCK]
+Relevant Well Told products for this article. Each line is a Markdown hyperlink — use these EXACT links when you reference the product in the article body. Do not bold the product name; hyperlink it instead.
+
+${productContext}
+
+When referencing a product inline, write it as a Markdown link: [Product Name](url). Example: "the [Chicago Map Rocks Glass](${siteBaseUrl}/products/chicago-map-rocks-glass) makes a thoughtful gift for anyone who loves the city."
+
+Standard Well Told collection links you may also use where natural:
+- [Map Glassware](${siteBaseUrl}/collections/map-glasses)
+- [Constellation Glassware](${siteBaseUrl}/collections/constellation-glasses)
+- [All Gifts](${siteBaseUrl}/collections/all)`
+      : `[5. PRODUCT CONTEXT BLOCK]
+No specific product data available. Draw all product references from the Well Told product universe described in Block 1. Do not invent product names or URLs. Where you would link to a product, link to a relevant collection instead using these standard URLs:
+- [Map Glassware](${siteBaseUrl}/collections/map-glasses)
+- [Constellation Glassware](${siteBaseUrl}/collections/constellation-glasses)
+- [Topographic Drinkware](${siteBaseUrl}/collections/topographic-drinkware)
+- [All Gifts](${siteBaseUrl}/collections/all)
+
+Use Markdown hyperlink syntax: [link text](url). Do not bold product names that should be links.`,
 
     // Block 6: Content Rules
     `[6. CONTENT RULES BLOCK]
@@ -643,7 +662,7 @@ export async function generateWebPageMarkdownContent(params: GenerateWebPageMark
 - Do not write bullet-point product descriptions — use prose
 - Do end with exactly one CTA — not multiple competing calls to action
 - Do write in second person ("you", "your") for gift guides
-- Do include internal links to relevant Well Told collection pages where natural`,
+- HYPERLINKS: When referencing any Well Told product or collection, always use Markdown link syntax [text](url). Never bold a product name that should be a link. Every product mention should be a clickable hyperlink.`,
 
     // Block 7: SEO Rules
     `[7. SEO RULES BLOCK]
@@ -653,7 +672,7 @@ export async function generateWebPageMarkdownContent(params: GenerateWebPageMark
 - H1 should match or closely paraphrase the article title
 - Use ## for H2 section headers — each should naturally include a supporting keyword where possible
 - Return a single complete Markdown document starting with the # H1 title
-- Use standard Markdown: **bold**, *italic*, bullet lists, numbered lists, blockquotes (>)
+- Use standard Markdown: **bold**, *italic*, [hyperlinks](url), bullet lists, numbered lists, blockquotes (>)
 - Do NOT include JSON, code fences, or any non-Markdown formatting
 - Do NOT add subscription CTAs, follow-our-blog links, or placeholder links`,
 
