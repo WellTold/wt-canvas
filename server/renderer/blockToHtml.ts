@@ -640,8 +640,11 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
   </div>
 </section>` : '';
 
-    // FAQ section
-    const faqHtml = wtFaq.length > 0 ? `
+    // FAQ section — only render separately if FAQ is NOT already embedded in the markdown.
+    // New articles have FAQ appended to the markdown text directly; this block handles
+    // legacy articles where _wt_faq was stored but the markdown has no FAQ section.
+    const faqInMarkdown = page.content_markdown?.includes('## Frequently Asked Questions') ?? false;
+    const faqHtml = (!faqInMarkdown && wtFaq.length > 0) ? `
 <section class="wt-faq" itemscope itemtype="https://schema.org/FAQPage" aria-label="Frequently Asked Questions">
   <h2 class="wt-faq__heading">Frequently Asked Questions</h2>
   ${wtFaq.map(f => `<div class="wt-faq__item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">

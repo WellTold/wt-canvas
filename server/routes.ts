@@ -985,17 +985,14 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       let shopifyProducts: ShopifyProductItem[] = [];
       let productContext: string | undefined;
 
+      // Use primaryKeyword if available, fall back to title so FAQ/CTAs always generate
+      const faqSearchTerm = primaryKeyword || title;
       const [shopifyResult, faqItems, ctaData] = await Promise.all([
-        primaryKeyword
-          ? fetchProductList(8, primaryKeyword).catch(() => ({ items: [] as ShopifyProductItem[] }))
-          : Promise.resolve({ items: [] as ShopifyProductItem[] }),
-        primaryKeyword
-          ? generateFAQ(primaryKeyword).catch(() => [])
-          : Promise.resolve([]),
-        primaryKeyword
-          ? generateCTAs(primaryKeyword, siteBaseUrl).catch(() => null)
-          : Promise.resolve(null),
+        fetchProductList(8, faqSearchTerm).catch(() => ({ items: [] as ShopifyProductItem[] })),
+        generateFAQ(faqSearchTerm).catch(() => []),
+        generateCTAs(faqSearchTerm, siteBaseUrl).catch(() => null),
       ]);
+      console.log(`[generate-webpage-markdown] FAQ: ${faqItems.length} items, CTA: ${!!ctaData}, Products: ${shopifyResult.items.length}`);
 
       shopifyProducts = (shopifyResult.items as ShopifyProductItem[]).filter(p => p.imageUrl);
       if (shopifyProducts.length === 0 && shopifyResult.items.length > 0) {
@@ -1072,7 +1069,16 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         structuredData["_wt_cta"] = ctaData;
       }
 
-      res.json({ markdown, structuredData });
+      // Append FAQ directly into the markdown so it appears in the editor text view
+      // and in any markdown-to-HTML conversion (e.g. the inline preview).
+      // _wt_faq in structured_data is kept solely for the FAQPage JSON-LD schema.
+      let finalMarkdown = markdown;
+      if (faqItems.length > 0) {
+        const faqMd = faqItems.map((f: any) => `**${f.question}**\n\n${f.answer}`).join('\n\n');
+        finalMarkdown = markdown.trimEnd() + '\n\n## Frequently Asked Questions\n\n' + faqMd;
+      }
+
+      res.json({ markdown: finalMarkdown, structuredData });
     } catch (error) {
       console.error('Web page markdown generation error:', error);
       res.status(500).json({ message: "Failed to generate markdown: " + (error as Error).message });
@@ -2658,12 +2664,14 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         // Run Shopify fetch, FAQ, CTA, and internal links all in parallel
         type BatchShopifyItem = { title: string; handle: string; price: string; imageUrl: string | null };
         const searchQuery = kw.cluster ? `${kw.keyword} ${kw.cluster}` : kw.keyword;
+        const faqSearchTerm = kw.keyword || title;
         const [shopifyResult, faqItems, ctaData, internalLinks] = await Promise.all([
           fetchProductList(8, searchQuery).catch(() => ({ items: [] as BatchShopifyItem[] })),
-          generateFAQ(kw.keyword).catch(() => []),
-          generateCTAs(kw.keyword, siteBaseUrl).catch(() => null),
+          generateFAQ(faqSearchTerm).catch(() => []),
+          generateCTAs(faqSearchTerm, siteBaseUrl).catch(() => null),
           getClusterInternalLinks(kw.cluster ?? null),
         ]);
+        console.log(`[batch-create] keyword="${kw.keyword}" FAQ: ${faqItems.length} items, CTA: ${!!ctaData}, Products: ${shopifyResult.items.length}`);
 
         // Products with images preferred for cards; all products used for AI context
         const productsWithImages = (shopifyResult.items as BatchShopifyItem[]).filter(p => p.imageUrl);
@@ -2711,6 +2719,13 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
 
         const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
+        // Append FAQ to the markdown so it appears in the editor text view
+        let batchMarkdown = markdown;
+        if (faqItems.length > 0) {
+          const faqMd = faqItems.map((f: any) => `**${f.question}**\n\n${f.answer}`).join('\n\n');
+          batchMarkdown = markdown.trimEnd() + '\n\n## Frequently Asked Questions\n\n' + faqMd;
+        }
+
         const created = await storage.createContentItem({
           title,
           slug,
@@ -2718,7 +2733,7 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
           status: "draft",
           approvalStatus: "pending",
           primaryKeyword: kw.keyword,
-          markdownContent: markdown,
+          markdownContent: batchMarkdown,
           structuredData,
           authorId,
         } as any);
@@ -2933,12 +2948,14 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
       // 6. Run Shopify, FAQ, and CTA fetching in parallel for product context
       const siteBaseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
       type ShopifyProductItem = { title: string; handle: string; price: string; imageUrl: string | null };
+      const faqSearchTerm = kw.keyword || title;
 
       const [shopifyResult, faqItems, ctaData] = await Promise.all([
-        fetchProductList(8, kw.keyword).catch(() => ({ items: [] as ShopifyProductItem[] })),
-        generateFAQ(kw.keyword).catch(() => []),
-        generateCTAs(kw.keyword, siteBaseUrl).catch(() => null),
+        fetchProductList(8, faqSearchTerm).catch(() => ({ items: [] as ShopifyProductItem[] })),
+        generateFAQ(faqSearchTerm).catch(() => []),
+        generateCTAs(faqSearchTerm, siteBaseUrl).catch(() => null),
       ]);
+      console.log(`[ai-quick-create] FAQ: ${faqItems.length} items, CTA: ${!!ctaData}, Products: ${shopifyResult.items.length}`);
 
       // Build product context string for AI prompt
       let productContext: string | undefined;
@@ -3005,6 +3022,13 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         .slice(0, 80);
       const finalSlug = await storage.generateUniqueSlug(baseSlug, contentType);
 
+      // Append FAQ to the markdown so it appears in the editor text view
+      let finalMarkdown = markdown;
+      if (faqItems.length > 0) {
+        const faqMd = faqItems.map((f: any) => `**${f.question}**\n\n${f.answer}`).join('\n\n');
+        finalMarkdown = markdown.trimEnd() + '\n\n## Frequently Asked Questions\n\n' + faqMd;
+      }
+
       // 8. Create the content item — store markdown, structured data (FAQ/products/CTAs), and keywords
       const newItem = await storage.createContentItem({
         title,
@@ -3014,7 +3038,7 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         approvalStatus: "pending",
         primaryKeyword: kw.keyword,
         supportingKeywords: supportingKeywordsStr || null,
-        markdownContent: markdown,
+        markdownContent: finalMarkdown,
         structuredData: Object.keys(structuredData).length > 0 ? structuredData : null,
         authorId: req.userId!,
       } as any);
