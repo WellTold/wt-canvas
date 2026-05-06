@@ -168,6 +168,45 @@ function detectPersona(type: string, keywordType?: string, primaryKeyword?: stri
   return 'Personal Gifter';
 }
 
+export interface FAQItem {
+  question: string;
+  answer: string;
+}
+
+export async function generateFAQ(primaryKeyword: string): Promise<FAQItem[]> {
+  const systemPrompt = `You generate FAQ content for Well Told Design, a Boston-based gift brand making story-driven objects — map glassware, constellation gifts, and topographic drinkware.
+
+Rules:
+- Questions should mirror how a real person searches Google (e.g. "What is a good gift for a hiker who has everything?")
+- Answers should be 2-4 sentences, direct, and specific
+- At least 2 answers should naturally mention a Well Told product type (map glassware, constellation gifts, personalized drinkware, throws, etc.)
+- Do not be salesy — answer the question genuinely first, then mention the product as a concrete example
+- Questions should cover: what to give, how to choose, what makes a good gift, and at least one specific Well Told angle
+- Do not use exclamation points
+- Do not use: amazing, incredible, perfect, stunning, game-changer, must-have
+
+Return ONLY a valid JSON array with no markdown fencing or extra text:
+[{"question": "...", "answer": "..."}, ...]`;
+
+  const userPrompt = `Generate 5 FAQ questions and answers for an article about: ${primaryKeyword}`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 1500,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    });
+    const text = response.content[0].type === 'text' ? response.content[0].text : '[]';
+    const clean = text.replace(/^```(json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+    const parsed = JSON.parse(clean);
+    if (Array.isArray(parsed)) return parsed.slice(0, 6) as FAQItem[];
+  } catch (e) {
+    console.warn('[AI] FAQ generation/parsing failed:', e);
+  }
+  return [];
+}
+
 export interface GenerateArticleParams {
   title: string;
   type: string;

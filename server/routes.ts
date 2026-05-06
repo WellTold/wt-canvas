@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { seedUsers } from "./services/auth";
 import { insertContentItemSchema, insertContentBlockSchema, blockPresets, siteSettings, integrations, insertIntegrationSchema, emailStyles, insertEmailStyleSchema, insertKeywordSchema } from "@shared/schema";
 import { z } from "zod";
-import { improveContent, refineContent, generateTitle, generateMetaDescription, generateSection, suggestKeywords, generateCompleteArticle, generateWebPageMarkdown, generateWebPageMarkdownContent } from "./services/claude";
+import { improveContent, refineContent, generateTitle, generateMetaDescription, generateSection, suggestKeywords, generateCompleteArticle, generateWebPageMarkdown, generateWebPageMarkdownContent, generateFAQ } from "./services/claude";
 import { marked } from "marked";
 import { fetchProductList, isShopifyConfigured } from "./services/shopify";
 import { supabaseLegacyPublisher } from "./services/supabase-legacy";
@@ -357,10 +357,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         delete processedUpdateData.scheduledDate;
       }
 
-      // Convert structuredDataType string → full JSON-LD structured_data object
-      if (processedUpdateData.structuredDataType) {
+      // Convert structuredDataType string → JSON-LD structured_data object
+      // If structuredData is already provided (e.g. from AI generation with FAQ/products), skip overwrite
+      if (processedUpdateData.structuredDataType && !processedUpdateData.structuredData) {
         const sdType = processedUpdateData.structuredDataType;
         processedUpdateData.structuredData = { "@context": "https://schema.org", "@type": sdType };
+        delete processedUpdateData.structuredDataType;
+      } else if (processedUpdateData.structuredDataType) {
         delete processedUpdateData.structuredDataType;
       }
 
@@ -977,19 +980,29 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
 
       const siteBaseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
 
-      // Try to fetch relevant Shopify products for product context
+      // Fetch Shopify products + generate FAQ in parallel
+      type ShopifyProductItem = { title: string; handle: string; price: string; imageUrl: string | null };
+      let shopifyProducts: ShopifyProductItem[] = [];
       let productContext: string | undefined;
-      if (primaryKeyword) {
-        try {
-          const shopifyResult = await fetchProductList(8, primaryKeyword);
-          if (shopifyResult.items.length > 0) {
-            productContext = shopifyResult.items
-              .map(p => `- [${p.title}](${siteBaseUrl}/products/${p.handle})`)
-              .join('\n');
-          }
-        } catch {
-          // Shopify not configured or unavailable — AI uses product universe from brand voice
-        }
+
+      const [shopifyResult, faqItems] = await Promise.all([
+        primaryKeyword
+          ? fetchProductList(8, primaryKeyword).catch(() => ({ items: [] as ShopifyProductItem[] }))
+          : Promise.resolve({ items: [] as ShopifyProductItem[] }),
+        primaryKeyword
+          ? generateFAQ(primaryKeyword).catch(() => [])
+          : Promise.resolve([]),
+      ]);
+
+      shopifyProducts = (shopifyResult.items as ShopifyProductItem[]).filter(p => p.imageUrl);
+      if (shopifyProducts.length === 0 && shopifyResult.items.length > 0) {
+        shopifyProducts = shopifyResult.items as ShopifyProductItem[];
+      }
+
+      if (shopifyProducts.length > 0) {
+        productContext = shopifyProducts
+          .map(p => `- [${p.title}](${siteBaseUrl}/products/${p.handle})`)
+          .join('\n');
       }
 
       const markdown = await generateWebPageMarkdownContent({
@@ -1007,7 +1020,51 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         brandContext,
       });
 
-      res.json({ markdown });
+      // Build composite structured data — Article JSON-LD + private _wt_ fields for worker rendering
+      const slug = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const articleUrl = `${siteBaseUrl}/a/articles/${slug}`;
+      const structuredData: Record<string, any> = {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": title,
+        "author": {
+          "@type": "Organization",
+          "name": "Well Told Design",
+          "url": siteBaseUrl,
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "Well Told Design",
+          "url": siteBaseUrl,
+          "logo": {
+            "@type": "ImageObject",
+            "url": `${siteBaseUrl}/a/articles/styles/welltold-logo.png`,
+          },
+        },
+        "mainEntityOfPage": {
+          "@type": "WebPage",
+          "@id": articleUrl,
+        },
+        ...(primaryKeyword ? { "keywords": [primaryKeyword, ...(supportingKeywords ? supportingKeywords.split(/[,\n]/).map(s => s.trim()).filter(Boolean) : [])].join(', ') } : {}),
+      };
+
+      // Embed FAQ as FAQPage schema + private render data
+      if (faqItems.length > 0) {
+        structuredData["_wt_faq"] = faqItems;
+      }
+
+      // Embed product cards render data
+      if (shopifyProducts.length > 0) {
+        structuredData["_wt_products"] = shopifyProducts.slice(0, 4).map(p => ({
+          title: p.title,
+          handle: p.handle,
+          imageUrl: p.imageUrl,
+          price: p.price,
+          url: `${siteBaseUrl}/products/${p.handle}`,
+        }));
+      }
+
+      res.json({ markdown, structuredData });
     } catch (error) {
       console.error('Web page markdown generation error:', error);
       res.status(500).json({ message: "Failed to generate markdown: " + (error as Error).message });

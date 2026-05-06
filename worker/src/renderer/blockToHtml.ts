@@ -880,7 +880,106 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
   // When content_markdown is present, prefer it over block rendering.
   // This is the path consumed by the Cloudflare Worker after "Generate Markdown".
   if (page.content_markdown && page.content_markdown.trim()) {
-    const body = markdownToHtmlSafe(page.content_markdown);
+    const sd = schema && typeof schema === 'object' ? (schema as Record<string, any>) : {};
+    const wtFaq: Array<{ question: string; answer: string }> = Array.isArray(sd._wt_faq) ? sd._wt_faq : [];
+    const wtProducts: Array<{ title: string; handle: string; imageUrl: string | null; price: string; url: string }> = Array.isArray(sd._wt_products) ? sd._wt_products : [];
+
+    // Build clean Article JSON-LD (strip private _wt_ keys)
+    const articleSchema: Record<string, any> = {};
+    for (const [k, v] of Object.entries(sd)) {
+      if (!k.startsWith('_wt_')) articleSchema[k] = v;
+    }
+    // Ensure og_image gets into Article schema if available
+    if (ogImage && !articleSchema.image) articleSchema.image = ogImage;
+    if (!articleSchema.datePublished && page.published_at) articleSchema.datePublished = page.published_at;
+    if (!articleSchema.dateModified && page.updated_at) articleSchema.dateModified = page.updated_at;
+    if (!articleSchema.description && page.meta_description) articleSchema.description = page.meta_description;
+
+    // Build FAQPage JSON-LD if FAQ data present
+    const faqSchema = wtFaq.length > 0 ? {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": wtFaq.map(f => ({
+        "@type": "Question",
+        "name": escHtml(f.question),
+        "acceptedAnswer": { "@type": "Answer", "text": escHtml(f.answer) },
+      })),
+    } : null;
+
+    // BreadcrumbList schema
+    const breadcrumbSchema = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": baseUrl },
+        { "@type": "ListItem", "position": 2, "name": "Gift Guides", "item": `${baseUrl}/a/articles` },
+        { "@type": "ListItem", "position": 3, "name": page.title, "item": canonical },
+      ],
+    };
+
+    // Organization schema (sitewide brand entity)
+    const orgSchema = {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Well Told Design",
+      "url": baseUrl,
+      "description": "Well Told Design makes story-driven everyday objects — glassware, drinkware, throws, and accessories featuring maps, constellations, and topographic themes.",
+      "sameAs": ["https://www.instagram.com/welltolddesign", "https://www.pinterest.com/welltolddesign"],
+    };
+
+    // Brand context paragraph (below H1, for LLM extraction)
+    const brandContextHtml = `<div class="wt-brand-context" aria-label="About Well Told Design">
+  <p><strong>Well Told Design</strong> is a Boston-based gift brand specialising in story-driven objects — glassware, drinkware, and textiles engraved with maps, constellations, and topographic designs. Every piece is personalised to a specific place, date, or memory.</p>
+</div>`;
+
+    // Featured products grid
+    const productsHtml = wtProducts.length > 0 ? `
+<section class="wt-products-grid" aria-label="Featured Products">
+  <h2 class="wt-products-grid__heading">Featured Products</h2>
+  <div class="wt-products-grid__cards">
+    ${wtProducts.map(p => `<div class="wt-product-card">
+      <a href="${escAttr(p.url)}" class="wt-product-card__link" rel="noopener">
+        ${p.imageUrl ? `<img src="${escAttr(p.imageUrl)}?width=600" alt="${escAttr(p.title)}" loading="lazy" class="wt-product-card__img" width="600" />` : `<div class="wt-product-card__img-placeholder"></div>`}
+        <div class="wt-product-card__body">
+          <h3 class="wt-product-card__title">${escHtml(p.title)}</h3>
+          ${p.price && p.price !== '0' ? `<span class="wt-product-card__price">$${escHtml(p.price)}</span>` : ''}
+          <span class="wt-product-card__cta">Shop This →</span>
+        </div>
+      </a>
+    </div>`).join('\n    ')}
+  </div>
+</section>` : '';
+
+    // FAQ section with inline schema markup
+    const faqHtml = wtFaq.length > 0 ? `
+<section class="wt-faq" itemscope itemtype="https://schema.org/FAQPage" aria-label="Frequently Asked Questions">
+  <h2 class="wt-faq__heading">Frequently Asked Questions</h2>
+  ${wtFaq.map(f => `<div class="wt-faq__item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+    <h3 class="wt-faq__question" itemprop="name">${escHtml(f.question)}</h3>
+    <div class="wt-faq__answer" itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+      <div itemprop="text">${escHtml(f.answer)}</div>
+    </div>
+  </div>`).join('\n  ')}
+</section>` : '';
+
+    // Insert brand context paragraph after the first H1 tag in rendered body
+    let body = markdownToHtmlSafe(page.content_markdown);
+    body = body.replace(/<h1>/, `<h1>`); // no-op marker — insert brand context after h1
+    const h1Match = body.match(/<h1>[^<]*<\/h1>/);
+    if (h1Match) {
+      const h1End = body.indexOf(h1Match[0]) + h1Match[0].length;
+      body = body.slice(0, h1End) + '\n' + brandContextHtml + body.slice(h1End);
+    } else {
+      body = brandContextHtml + '\n' + body;
+    }
+
+    const allSchemas = [
+      Object.keys(articleSchema).length > 1 ? articleSchema : null,
+      faqSchema,
+      breadcrumbSchema,
+      orgSchema,
+    ].filter(Boolean);
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -895,14 +994,14 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
   <meta property="og:description" content="${escAttr(page.meta_description || "")}" />
   <meta property="og:url" content="${escAttr(canonical)}" />
   ${ogImage ? `<meta property="og:image" content="${escAttr(ogImage)}" />` : ""}
-  <meta property="og:site_name" content="Well Told" />
+  <meta property="og:site_name" content="Well Told Design" />
 
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${escAttr(ogTitle)}" />
   <meta name="twitter:description" content="${escAttr(page.meta_description || "")}" />
   ${ogImage ? `<meta name="twitter:image" content="${escAttr(ogImage)}" />` : ""}
 
-  ${schema ? `<script type="application/ld+json">${safeJsonLd(schema)}</script>` : ""}
+  ${allSchemas.map(s => `<script type="application/ld+json">${safeJsonLd(s)}</script>`).join('\n  ')}
 
   <link rel="stylesheet" href="${escAttr(baseUrl)}/a/articles/styles/wt-pages.css" />
   ${page.custom_css ? `<style>${page.custom_css}</style>` : ""}
@@ -911,6 +1010,8 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
   ${renderSiteHeader(siteSettings)}
   <main class="wt-content">
     ${body}
+    ${productsHtml}
+    ${faqHtml}
   </main>
   ${renderSiteFooter(siteSettings)}
 </body>

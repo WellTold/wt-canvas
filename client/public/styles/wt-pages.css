@@ -323,7 +323,121 @@ body {
 .wt-shopify-placeholder { margin: 2rem 0; padding: 1.25rem 1.5rem; border: 2px dashed #ccc; background: #fafafa; color: var(--wt-color-muted); font-size: 0.9rem; }
 .wt-shopify-placeholder code { font-family: monospace; background: #f0f0f0; padding: 0.1em 0.4em; }
 
-/* Responsive */
+/* ── Brand Context Paragraph ────────────────────────────────────────────── */
+.wt-brand-context {
+  margin: 1rem 0 2rem;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--wt-color-border);
+  background: var(--wt-color-surface);
+}
+.wt-brand-context p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--wt-color-muted);
+  line-height: 1.5;
+}
+
+/* ── Featured Products Grid ─────────────────────────────────────────────── */
+.wt-products-grid {
+  margin: 3rem 0 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid var(--wt-color-border);
+}
+.wt-products-grid__heading {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem;
+  letter-spacing: -0.01em;
+}
+.wt-products-grid__cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+.wt-product-card {
+  border: 1px solid var(--wt-color-border);
+  overflow: hidden;
+  transition: box-shadow 0.15s;
+}
+.wt-product-card:hover { box-shadow: 4px 4px 0 var(--wt-color-border); }
+.wt-product-card__link {
+  display: block;
+  text-decoration: none;
+  color: var(--wt-color-text);
+}
+.wt-product-card__img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  border-bottom: 1px solid var(--wt-color-border);
+}
+.wt-product-card__img-placeholder {
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--wt-color-surface);
+  border-bottom: 1px solid var(--wt-color-border);
+}
+.wt-product-card__body {
+  padding: 0.9rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.wt-product-card__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.wt-product-card__price {
+  font-size: 0.85rem;
+  color: var(--wt-color-muted);
+}
+.wt-product-card__cta {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── FAQ Section ─────────────────────────────────────────────────────────── */
+.wt-faq {
+  margin: 3rem 0 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid var(--wt-color-border);
+}
+.wt-faq__heading {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem;
+  letter-spacing: -0.01em;
+}
+.wt-faq__item {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e8e3df;
+}
+.wt-faq__item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+.wt-faq__question {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.wt-faq__answer {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--wt-color-muted);
+}
+.wt-faq__answer div { margin: 0; }
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   :root { --wt-gutter: 1.25rem; }
   body { font-size: 17px; }
