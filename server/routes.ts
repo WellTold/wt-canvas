@@ -2685,6 +2685,18 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
           () => `${kw.keyword.charAt(0).toUpperCase() + kw.keyword.slice(1)}: A Complete Guide`
         );
 
+        // Load cluster siblings and filter to top 6-8 most relevant supporting keywords
+        const clusterSiblings = kw.cluster
+          ? (await storage.getKeywords({ cluster: kw.cluster })).filter(
+              k => k.id !== kw.id && k.priority === "supporting"
+            )
+          : [];
+        const filteredBatchSupporting = clusterSiblings.length > 0
+          ? filterSupportingKeywords(kw.keyword, clusterSiblings.map(k => k.keyword), 8, 10)
+          : [];
+        const batchSupportingStr = filteredBatchSupporting.length > 0 ? filteredBatchSupporting.join(", ") : undefined;
+        console.log(`[batch-create] keyword="${kw.keyword}" cluster siblings: ${clusterSiblings.length} → filtered supporting: ${filteredBatchSupporting.length}`);
+
         // Run Shopify fetch, FAQ, CTA, and internal links all in parallel
         type BatchShopifyItem = { title: string; handle: string; price: string; imageUrl: string | null };
         const searchQuery = kw.cluster ? `${kw.keyword} ${kw.cluster}` : kw.keyword;
@@ -2710,6 +2722,7 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
           title,
           type: targetType,
           primaryKeyword: kw.keyword,
+          supportingKeywords: batchSupportingStr,
           articleAngle: kw.articleAngle ?? undefined,
           keywordType: kw.type || undefined,
           mood: "conversational",
