@@ -2269,6 +2269,12 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
       if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
       const [row] = await db.update(integrations).set({ ...parsed.data, updatedAt: new Date() }).where(eq(integrations.id, id)).returning();
       if (!row) return res.status(404).json({ message: "Integration not found" });
+      // Clear Shopify token cache so next generation picks up the new credentials
+      if (row.type === "shopify") {
+        const { clearTokenCache } = await import("./services/shopifyTokenManager");
+        clearTokenCache();
+        console.log("[Shopify] Token cache cleared after credential update");
+      }
       res.json(row);
     } catch (err) {
       res.status(500).json({ message: (err as Error).message });
@@ -2348,11 +2354,14 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         }
         let result: { name: string; domain: string };
         if (creds.clientId && creds.clientSecret) {
-          const { testWithClientCredentials } = await import("./services/shopifyTokenManager");
+          const { testWithClientCredentials, clearTokenCache } = await import("./services/shopifyTokenManager");
           result = await testWithClientCredentials(creds.storeDomain, creds.clientId, creds.clientSecret);
+          clearTokenCache();
         } else if (creds.storefrontToken) {
           const { testShopifyConnection } = await import("./services/shopify");
+          const { clearTokenCache } = await import("./services/shopifyTokenManager");
           result = await testShopifyConnection(creds.storeDomain, creds.storefrontToken);
+          clearTokenCache();
         } else {
           return res.status(400).json({ message: "Missing storeDomain or clientId/clientSecret" });
         }

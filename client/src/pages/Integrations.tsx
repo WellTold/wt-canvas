@@ -170,7 +170,14 @@ export default function Integrations() {
     const def = INTEGRATION_DEFS.find((d) => d.type === integration.type as IntegrationType);
     if (!def) return;
     setDrawer({ open: true, integration, def, isNew: false, newType: null });
-    setCredentials((integration.credentials as Record<string, string>) ?? {});
+    const rawCreds = (integration.credentials as Record<string, string>) ?? {};
+    // If clientSecret looks like a storefront token (shpss_/shpat_), move it to
+    // storefrontToken and clear clientSecret — prevents it being silently re-saved as OAuth secret
+    if (rawCreds.clientSecret?.startsWith("shpss_") || rawCreds.clientSecret?.startsWith("shpat_")) {
+      setCredentials({ ...rawCreds, storefrontToken: rawCreds.storefrontToken || rawCreds.clientSecret, clientSecret: "" });
+    } else {
+      setCredentials(rawCreds);
+    }
     setIntegrationName(integration.name);
     setTestResult(null);
   }
