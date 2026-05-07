@@ -2346,7 +2346,6 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         if (!creds?.storeDomain) {
           return res.status(400).json({ message: "Missing storeDomain or clientId/clientSecret" });
         }
-        console.log("[shopify-test] domain:", creds.storeDomain, "| storefrontToken prefix:", creds.storefrontToken ? creds.storefrontToken.slice(0, 12) + "..." : "(none)", "| clientId:", creds.clientId ? creds.clientId.slice(0, 8) + "..." : "(none)");
         let result: { name: string; domain: string };
         if (creds.clientId && creds.clientSecret) {
           const { testWithClientCredentials } = await import("./services/shopifyTokenManager");

@@ -274,7 +274,11 @@ export default function Integrations() {
     } else if (drawer.integration) {
       updateMutation.mutate({
         id: drawer.integration.id,
-        data: { name: integrationName, credentials },
+        data: {
+          name: integrationName,
+          credentials,
+          ...(testResult?.success ? { status: "connected" } : {}),
+        },
       });
     }
   }
