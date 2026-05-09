@@ -124,22 +124,24 @@ const SHOP_QUERY = `
 `;
 
 export async function testShopifyConnection(storeDomain: string, storefrontToken: string): Promise<{ name: string; domain: string }> {
-  const endpoint = getEndpointFromCreds(storeDomain);
-  console.log(`[Shopify] testShopifyConnection → endpoint: ${endpoint}, token prefix: ${storefrontToken?.slice(0, 12)}...`);
+  const cleanDomain = sanitizeDomain(storeDomain);
+  const cleanToken = storefrontToken.trim();
+  const endpoint = getEndpointFromCreds(cleanDomain);
+  console.log(`[Shopify] testShopifyConnection → endpoint: ${endpoint}, token length: ${cleanToken.length}, prefix: ${cleanToken.slice(0, 12)}...`);
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Shopify-Storefront-Access-Token": storefrontToken,
+      "X-Shopify-Storefront-Access-Token": cleanToken,
     },
     body: JSON.stringify({ query: SHOP_QUERY, variables: {} }),
   });
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    console.error(`[Shopify] testShopifyConnection 401 body: ${body}`);
+    console.error(`[Shopify] testShopifyConnection failed ${response.status} for domain=${cleanDomain} body=${body}`);
     if (response.status === 401) {
       throw new Error(
-        `Shopify returned 401. Most likely fix: in your Shopify admin go to Settings → Apps → Develop apps → [your app] → Configuration, enable "Storefront API integration", add the scope "unauthenticated_read_product_listings", save, then go to API credentials and copy the fresh Storefront API access token.`
+        `Shopify returned 401 (endpoint: ${endpoint}). Check that the Store Domain is exactly "yourstore.myshopify.com" (no https://, no trailing slash) and that the Storefront API token is the current one from your app's API credentials page.`
       );
     }
     throw new Error(`Shopify API returned ${response.status}: ${body}`);
