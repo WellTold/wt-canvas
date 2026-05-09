@@ -338,6 +338,129 @@ export interface PaginatedResult<T> {
   endCursor: string | null;
 }
 
+// Stop words to strip when extracting meaningful search terms from keyword phrases
+const STOP_WORDS = new Set([
+  'a','an','the','and','or','but','in','on','at','to','for','of','with',
+  'is','are','was','were','be','been','being','have','has','had','do','does',
+  'did','will','would','could','should','may','might','shall','can','need',
+  'best','top','great','good','great','perfect','ideal','ultimate','complete',
+  'how','what','when','where','who','why','which','guide','tips','ideas',
+  'most','more','less','very','really','just','only','also','both','all',
+  'any','some','no','not','so','as','if','then','than','that','this','these',
+  'those','from','into','about','up','out','her','him','his','its','our','your',
+  'their','my','me','us','we','you','he','she','they','it',
+]);
+
+function extractSearchTerms(query: string): string[] {
+  return query
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+}
+
+function normaliseProduct(p: any): ShopifyProductSummary {
+  return {
+    id: `gid://shopify/Product/${p.id}`,
+    title: p.title,
+    handle: p.handle || '',
+    price: p.variants?.[0]?.price ?? '0',
+    currencyCode: 'USD',
+    imageUrl: p.images?.[0]?.src ?? null,
+    imageAlt: p.images?.[0]?.alt || null,
+  };
+}
+
+async function adminFetchProductsRelevant(
+  token: string,
+  domain: string,
+  count: number,
+  query?: string,
+): Promise<PaginatedResult<ShopifyProductSummary>> {
+  const seen = new Map<string, any>(); // id → raw product object
+
+  if (query) {
+    const terms = extractSearchTerms(query);
+
+    if (terms.length > 0) {
+      // Run all signal searches in parallel: custom collections, smart collections, tags
+      const searches = await Promise.allSettled([
+        // Custom collections whose title contains any term
+        ...terms.map(t =>
+          adminRest(`custom_collections.json?title=${encodeURIComponent(t)}&limit=5`, token, domain)
+            .then((j: any) => j?.custom_collections ?? [])
+            .catch(() => [])
+        ),
+        // Smart collections whose title contains any term
+        ...terms.map(t =>
+          adminRest(`smart_collections.json?title=${encodeURIComponent(t)}&limit=5`, token, domain)
+            .then((j: any) => j?.smart_collections ?? [])
+            .catch(() => [])
+        ),
+        // Products tagged with any term
+        ...terms.map(t =>
+          adminRest(`products.json?tag=${encodeURIComponent(t)}&limit=${count}&status=active`, token, domain)
+            .then((j: any) => j?.products ?? [])
+            .catch(() => [])
+        ),
+      ]);
+
+      const taggedProducts: any[] = [];
+      const collectionIds = new Set<string>();
+
+      for (const result of searches) {
+        if (result.status !== 'fulfilled') continue;
+        const items: any[] = result.value;
+        for (const item of items) {
+          if ('handle' in item && 'variants' in item) {
+            // It's a product (from tag search)
+            taggedProducts.push(item);
+          } else if ('id' in item) {
+            // It's a collection
+            collectionIds.add(String(item.id));
+          }
+        }
+      }
+
+      // Fetch products from each matched collection (parallel)
+      const collectionProductFetches = await Promise.allSettled(
+        [...collectionIds].map(id =>
+          adminRest(`collections/${id}/products.json?limit=${count}&status=active`, token, domain)
+            .then((j: any) => j?.products ?? [])
+            .catch(() => [])
+        )
+      );
+
+      for (const r of collectionProductFetches) {
+        if (r.status === 'fulfilled') {
+          for (const p of r.value) seen.set(String(p.id), p);
+        }
+      }
+      for (const p of taggedProducts) seen.set(String(p.id), p);
+    }
+  }
+
+  // Back-fill with recent active products if we don't have enough yet
+  if (seen.size < count) {
+    const needed = count - seen.size;
+    const fallback = await adminRest(
+      `products.json?limit=${needed}&status=active`,
+      token, domain
+    ).catch(() => ({ products: [] }));
+    for (const p of (fallback?.products ?? [])) {
+      if (!seen.has(String(p.id))) seen.set(String(p.id), p);
+    }
+  }
+
+  const products = [...seen.values()].slice(0, count);
+  console.log(`[Shopify] Admin REST smart fetch → ${products.length} products (query: "${query ?? 'none'}")`);
+  return {
+    items: products.map(normaliseProduct),
+    hasNextPage: false,
+    endCursor: null,
+  };
+}
+
 export async function fetchProductList(
   count = 40,
   query?: string,
@@ -348,27 +471,7 @@ export async function fetchProductList(
   if (!creds) throw new Error("Shopify is not configured");
 
   if (creds.useAdmin) {
-    // Admin REST title filter is prefix-only and won't match keyword-based queries like
-    // "best gifts for dad" against product titles like "Chicago Map Rocks Glass".
-    // Skip the query filter so we always get a broad set of active products.
-    const params = new URLSearchParams({ limit: String(safeCount), status: "active" });
-    if (after) params.set("page_info", after);
-    const json = await adminRest(`products.json?${params}`, creds.token, creds.domain);
-    console.log(`[Shopify] Admin REST fetchProductList → ${(json?.products ?? []).length} products returned`);
-    const products: any[] = json?.products ?? [];
-    return {
-      items: products.map((p: any) => ({
-        id: `gid://shopify/Product/${p.id}`,
-        title: p.title,
-        handle: p.handle || "",
-        price: p.variants?.[0]?.price ?? "0",
-        currencyCode: "USD",
-        imageUrl: p.images?.[0]?.src ?? null,
-        imageAlt: p.images?.[0]?.alt || null,
-      })),
-      hasNextPage: false,
-      endCursor: null,
-    };
+    return adminFetchProductsRelevant(creds.token, creds.domain, safeCount, query);
   }
 
   const data = await gql(PRODUCTS_QUERY, {
