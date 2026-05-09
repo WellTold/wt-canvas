@@ -15,8 +15,12 @@ async function getShopifyCredentials(): Promise<{ domain: string; token: string 
   return { domain: creds.storeDomain, token };
 }
 
+function sanitizeDomain(domain: string): string {
+  return domain.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+}
+
 function getEndpointFromCreds(domain: string): string {
-  return `https://${domain}/api/${SHOPIFY_API_VERSION}/graphql.json`;
+  return `https://${sanitizeDomain(domain)}/api/${SHOPIFY_API_VERSION}/graphql.json`;
 }
 
 async function gql(query: string, variables: Record<string, any>): Promise<any> {
