@@ -435,11 +435,15 @@ export default function Integrations() {
                           <Label htmlFor="cred-storefrontToken">Storefront API Token</Label>
                           <Input
                             id="cred-storefrontToken"
-                            type="password"
+                            type="text"
                             value={credentials["storefrontToken"] ?? ""}
-                            onChange={(e) => { setCredentials((prev) => ({ ...prev, storefrontToken: e.target.value, clientId: "", clientSecret: "" })); setTestResult(null); }}
-                            placeholder="shpss_••••••••"
+                            onChange={(e) => { setCredentials((prev) => ({ ...prev, storefrontToken: e.target.value.trim(), clientId: "", clientSecret: "" })); setTestResult(null); }}
+                            placeholder="shpss_..."
+                            className="font-mono text-xs"
                           />
+                          {credentials["storefrontToken"] && !credentials["storefrontToken"].startsWith("shpss_") && !credentials["storefrontToken"].startsWith("shpat_") && (
+                            <p className="text-xs text-red-600">This doesn't look like a Shopify storefront token — it should start with <code>shpss_</code></p>
+                          )}
                         </div>
                       </>
                     ) : (
