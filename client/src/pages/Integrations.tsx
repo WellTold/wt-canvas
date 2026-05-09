@@ -110,15 +110,21 @@ export default function Integrations() {
   const [integrationName, setIntegrationName] = useState("");
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [isTesting, setIsTesting] = useState(false);
-  const [shopifyMode, setShopifyMode] = useState<"token" | "oauth">("token");
+  const [shopifyMode, setShopifyMode] = useState<"admin" | "token" | "oauth">("admin");
 
   // When opening an existing Shopify integration, detect which mode was used
   useEffect(() => {
     if (drawer.def?.type === "shopify" && drawer.integration) {
       const creds = (drawer.integration.credentials as Record<string, string>) ?? {};
-      setShopifyMode(creds.clientId && creds.clientSecret && !creds.clientSecret.startsWith("shpss_") ? "oauth" : "token");
+      if (creds.adminToken || creds.storefrontToken?.startsWith("shpat_") || creds.clientSecret?.startsWith("shpat_")) {
+        setShopifyMode("admin");
+      } else if (creds.clientId && creds.clientSecret && !creds.clientSecret.startsWith("shpss_")) {
+        setShopifyMode("oauth");
+      } else {
+        setShopifyMode("token");
+      }
     } else {
-      setShopifyMode("token");
+      setShopifyMode("admin");
     }
   }, [drawer.open]);
 
@@ -171,13 +177,17 @@ export default function Integrations() {
     if (!def) return;
     setDrawer({ open: true, integration, def, isNew: false, newType: null });
     const rawCreds = (integration.credentials as Record<string, string>) ?? {};
-    // If clientSecret looks like a storefront token (shpss_/shpat_), move it to
-    // storefrontToken and clear clientSecret — prevents it being silently re-saved as OAuth secret
-    if (rawCreds.clientSecret?.startsWith("shpss_") || rawCreds.clientSecret?.startsWith("shpat_")) {
-      setCredentials({ ...rawCreds, storefrontToken: rawCreds.storefrontToken || rawCreds.clientSecret, clientSecret: "" });
-    } else {
-      setCredentials(rawCreds);
+    // Normalize misfiled tokens into the correct field
+    let normalised = { ...rawCreds };
+    if (normalised.clientSecret?.startsWith("shpat_")) {
+      normalised = { ...normalised, adminToken: normalised.adminToken || normalised.clientSecret, clientSecret: "" };
+    } else if (normalised.clientSecret?.startsWith("shpss_")) {
+      normalised = { ...normalised, storefrontToken: normalised.storefrontToken || normalised.clientSecret, clientSecret: "" };
     }
+    if (normalised.storefrontToken?.startsWith("shpat_")) {
+      normalised = { ...normalised, adminToken: normalised.adminToken || normalised.storefrontToken, storefrontToken: "" };
+    }
+    setCredentials(normalised);
     setIntegrationName(integration.name);
     setTestResult(null);
   }
@@ -401,8 +411,15 @@ export default function Integrations() {
                     <div className="flex border border-black overflow-hidden text-sm font-medium">
                       <button
                         type="button"
+                        onClick={() => { setShopifyMode("admin"); setTestResult(null); }}
+                        className={`flex-1 py-1.5 transition-colors ${shopifyMode === "admin" ? "bg-black text-white" : "bg-white text-black hover:bg-gray-50"}`}
+                      >
+                        Admin Token
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => { setShopifyMode("token"); setTestResult(null); }}
-                        className={`flex-1 py-1.5 transition-colors ${shopifyMode === "token" ? "bg-black text-white" : "bg-white text-black hover:bg-gray-50"}`}
+                        className={`flex-1 py-1.5 border-l border-black transition-colors ${shopifyMode === "token" ? "bg-black text-white" : "bg-white text-black hover:bg-gray-50"}`}
                       >
                         Storefront Token
                       </button>
@@ -421,15 +438,40 @@ export default function Integrations() {
                       <Input
                         id="cred-storeDomain"
                         value={credentials["storeDomain"] ?? ""}
-                        onChange={(e) => { setCredentials((prev) => ({ ...prev, storeDomain: e.target.value })); setTestResult(null); }}
+                        onChange={(e) => { setCredentials((prev) => ({ ...prev, storeDomain: e.target.value.trim() })); setTestResult(null); }}
                         placeholder="your-store.myshopify.com"
                       />
                     </div>
 
-                    {shopifyMode === "token" ? (
+                    {shopifyMode === "admin" ? (
                       <>
                         <div className="text-xs text-muted-foreground bg-muted/50 border rounded p-3 space-y-1">
-                          <p>Find it in Shopify admin → Settings → Apps → Develop apps → your app → <strong>API credentials</strong> → Storefront API access token. If it's hidden, click <strong>Rotate</strong>.</p>
+                          <p>Find it in Shopify admin → Settings → Apps → Develop apps → your app → <strong>API credentials</strong> → Admin API access token. Starts with <code>shpat_</code>.</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="cred-adminToken">Admin API Access Token</Label>
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              id="cred-adminToken"
+                              type="text"
+                              value={credentials["adminToken"] ?? ""}
+                              onChange={(e) => { setCredentials((prev) => ({ ...prev, adminToken: e.target.value.trim(), storefrontToken: "", clientId: "", clientSecret: "" })); setTestResult(null); }}
+                              placeholder="shpat_..."
+                              className="font-mono text-xs"
+                            />
+                            {credentials["adminToken"] && (
+                              <button type="button" className="text-xs text-muted-foreground underline whitespace-nowrap" onClick={() => { setCredentials((prev) => ({ ...prev, adminToken: "" })); setTestResult(null); }}>Clear</button>
+                            )}
+                          </div>
+                          {credentials["adminToken"] && !credentials["adminToken"].startsWith("shpat_") && (
+                            <p className="text-xs text-red-600">Admin API tokens start with <code>shpat_</code></p>
+                          )}
+                        </div>
+                      </>
+                    ) : shopifyMode === "token" ? (
+                      <>
+                        <div className="text-xs text-muted-foreground bg-muted/50 border rounded p-3 space-y-1">
+                          <p>Find it in Shopify admin → Settings → Apps → Develop apps → your app → <strong>API credentials</strong> → Storefront API access token. Starts with <code>shpss_</code>.</p>
                         </div>
                         <div className="space-y-1.5">
                           <Label htmlFor="cred-storefrontToken">Storefront API Token</Label>
@@ -438,22 +480,16 @@ export default function Integrations() {
                               id="cred-storefrontToken"
                               type="text"
                               value={credentials["storefrontToken"] ?? ""}
-                              onChange={(e) => { setCredentials((prev) => ({ ...prev, storefrontToken: e.target.value.trim(), clientId: "", clientSecret: "" })); setTestResult(null); }}
+                              onChange={(e) => { setCredentials((prev) => ({ ...prev, storefrontToken: e.target.value.trim(), adminToken: "", clientId: "", clientSecret: "" })); setTestResult(null); }}
                               placeholder="shpss_..."
                               className="font-mono text-xs"
                             />
                             {credentials["storefrontToken"] && (
-                              <button
-                                type="button"
-                                className="text-xs text-muted-foreground underline whitespace-nowrap"
-                                onClick={() => { setCredentials((prev) => ({ ...prev, storefrontToken: "" })); setTestResult(null); }}
-                              >
-                                Clear
-                              </button>
+                              <button type="button" className="text-xs text-muted-foreground underline whitespace-nowrap" onClick={() => { setCredentials((prev) => ({ ...prev, storefrontToken: "" })); setTestResult(null); }}>Clear</button>
                             )}
                           </div>
                           {credentials["storefrontToken"] && !credentials["storefrontToken"].startsWith("shpss_") && !credentials["storefrontToken"].startsWith("shpat_") && (
-                            <p className="text-xs text-red-600">This doesn't look like a Shopify storefront token — it should start with <code>shpss_</code></p>
+                            <p className="text-xs text-red-600">Storefront tokens start with <code>shpss_</code></p>
                           )}
                         </div>
                       </>

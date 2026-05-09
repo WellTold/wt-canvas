@@ -1,18 +1,31 @@
-import { resolveCredentials, isLegacy, getStorefrontToken } from "./shopifyTokenManager";
+import { resolveCredentials, isLegacy, isAdmin, getStorefrontToken } from "./shopifyTokenManager";
 
 const SHOPIFY_API_VERSION = "2026-01";
 
-async function getShopifyCredentials(): Promise<{ domain: string; token: string } | null> {
+interface ShopifyCredentials {
+  domain: string;
+  token: string;
+  useAdmin: boolean;
+}
+
+async function getShopifyCredentials(): Promise<ShopifyCredentials | null> {
   const creds = await resolveCredentials();
   if (!creds) return null;
 
+  if (isAdmin(creds)) {
+    return { domain: creds.storeDomain, token: creds.adminToken, useAdmin: true };
+  }
   if (isLegacy(creds)) {
-    return { domain: creds.storeDomain, token: creds.storefrontToken };
+    // Detect shpat_ in storefront field — route to admin API
+    if (creds.storefrontToken.startsWith("shpat_")) {
+      return { domain: creds.storeDomain, token: creds.storefrontToken, useAdmin: true };
+    }
+    return { domain: creds.storeDomain, token: creds.storefrontToken, useAdmin: false };
   }
 
-  // New-style: exchange credentials for a Storefront token
+  // OAuth: exchange client credentials for a Storefront token
   const token = await getStorefrontToken();
-  return { domain: creds.storeDomain, token };
+  return { domain: creds.storeDomain, token, useAdmin: false };
 }
 
 function sanitizeDomain(domain: string): string {
@@ -21,6 +34,25 @@ function sanitizeDomain(domain: string): string {
 
 function getEndpointFromCreds(domain: string): string {
   return `https://${sanitizeDomain(domain)}/api/${SHOPIFY_API_VERSION}/graphql.json`;
+}
+
+function getAdminRestUrl(domain: string, path: string): string {
+  return `https://${sanitizeDomain(domain)}/admin/api/${SHOPIFY_API_VERSION}/${path}`;
+}
+
+async function adminRest(path: string, token: string, domain: string): Promise<any> {
+  const url = getAdminRestUrl(domain, path);
+  const response = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": token,
+    },
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Shopify Admin API ${response.status}: ${body}`);
+  }
+  return response.json();
 }
 
 async function gql(query: string, variables: Record<string, any>): Promise<any> {
@@ -123,11 +155,21 @@ const SHOP_QUERY = `
   }
 `;
 
-export async function testShopifyConnection(storeDomain: string, storefrontToken: string): Promise<{ name: string; domain: string }> {
+export async function testShopifyConnection(storeDomain: string, token: string): Promise<{ name: string; domain: string }> {
   const cleanDomain = sanitizeDomain(storeDomain);
-  const cleanToken = storefrontToken.trim();
+  const cleanToken = token.trim();
+  const useAdmin = cleanToken.startsWith("shpat_");
+
+  if (useAdmin) {
+    console.log(`[Shopify] testShopifyConnection (Admin REST) domain=${cleanDomain}, prefix=${cleanToken.slice(0, 12)}...`);
+    const json = await adminRest("shop.json", cleanToken, cleanDomain);
+    const shop = json?.shop;
+    if (!shop) throw new Error("No shop data returned from Admin API");
+    return { name: shop.name, domain: shop.domain ?? cleanDomain };
+  }
+
   const endpoint = getEndpointFromCreds(cleanDomain);
-  console.log(`[Shopify] testShopifyConnection → endpoint: ${endpoint}, token length: ${cleanToken.length}, prefix: ${cleanToken.slice(0, 12)}...`);
+  console.log(`[Shopify] testShopifyConnection (Storefront) endpoint=${endpoint}, length=${cleanToken.length}, prefix=${cleanToken.slice(0, 12)}...`);
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
@@ -141,7 +183,7 @@ export async function testShopifyConnection(storeDomain: string, storefrontToken
     console.error(`[Shopify] testShopifyConnection failed ${response.status} for domain=${cleanDomain} body=${body}`);
     if (response.status === 401) {
       throw new Error(
-        `Shopify returned 401 (endpoint: ${endpoint}). The token is being rejected — make sure you are using the current Storefront API access token from your app's API credentials page (rotate it if needed to get a fresh one).`
+        `Shopify Storefront API returned 401. If you have an Admin API access token (shpat_...) use that instead — it works without Storefront API being configured.`
       );
     }
     throw new Error(`Shopify API returned ${response.status}: ${body}`);
@@ -159,6 +201,33 @@ export async function isShopifyConfigured(): Promise<boolean> {
 }
 
 export async function fetchProduct(rawId: string): Promise<ShopifyProduct> {
+  const creds = await getShopifyCredentials();
+  if (!creds) throw new Error("Shopify is not configured");
+
+  if (creds.useAdmin) {
+    const numericId = rawId.replace(/^gid:\/\/shopify\/Product\//, "");
+    const json = await adminRest(`products/${numericId}.json`, creds.token, creds.domain);
+    const p = json?.product;
+    if (!p) throw new Error(`Product not found: ${rawId}`);
+    return {
+      id: `gid://shopify/Product/${p.id}`,
+      title: p.title,
+      handle: p.handle || "",
+      description: p.body_html?.replace(/<[^>]+>/g, "") ?? "",
+      imageUrl: p.images?.[0]?.src ?? null,
+      imageAlt: p.images?.[0]?.alt || null,
+      price: p.variants?.[0]?.price ?? "0",
+      currencyCode: "USD",
+      variants: (p.variants ?? []).map((v: any) => ({
+        id: `gid://shopify/ProductVariant/${v.id}`,
+        title: v.title,
+        price: v.price ?? "0",
+        available: (v.inventory_quantity ?? 1) > 0,
+        options: [],
+      })),
+    };
+  }
+
   const id = toProductGid(rawId);
   const data = await gql(PRODUCT_QUERY, { id });
   const p = data?.product;
@@ -275,6 +344,30 @@ export async function fetchProductList(
   after?: string,
 ): Promise<PaginatedResult<ShopifyProductSummary>> {
   const safeCount = Math.min(Math.max(count, 1), 40);
+  const creds = await getShopifyCredentials();
+  if (!creds) throw new Error("Shopify is not configured");
+
+  if (creds.useAdmin) {
+    const params = new URLSearchParams({ limit: String(safeCount), status: "active" });
+    if (query) params.set("title", query);
+    if (after) params.set("page_info", after);
+    const json = await adminRest(`products.json?${params}`, creds.token, creds.domain);
+    const products: any[] = json?.products ?? [];
+    return {
+      items: products.map((p: any) => ({
+        id: `gid://shopify/Product/${p.id}`,
+        title: p.title,
+        handle: p.handle || "",
+        price: p.variants?.[0]?.price ?? "0",
+        currencyCode: "USD",
+        imageUrl: p.images?.[0]?.src ?? null,
+        imageAlt: p.images?.[0]?.alt || null,
+      })),
+      hasNextPage: false,
+      endCursor: null,
+    };
+  }
+
   const data = await gql(PRODUCTS_QUERY, {
     count: safeCount,
     query: query || null,

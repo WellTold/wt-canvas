@@ -25,10 +25,19 @@ export interface LegacyCredentials {
   storefrontToken: string;
 }
 
-export type ResolvedCredentials = ClientCredentials | LegacyCredentials;
+export interface AdminCredentials {
+  storeDomain: string;
+  adminToken: string;
+}
+
+export type ResolvedCredentials = ClientCredentials | LegacyCredentials | AdminCredentials;
 
 export function isLegacy(creds: ResolvedCredentials): creds is LegacyCredentials {
   return "storefrontToken" in creds;
+}
+
+export function isAdmin(creds: ResolvedCredentials): creds is AdminCredentials {
+  return "adminToken" in creds;
 }
 
 export async function resolveCredentials(): Promise<ResolvedCredentials | null> {
@@ -42,16 +51,28 @@ export async function resolveCredentials(): Promise<ResolvedCredentials | null> 
 
     if (rows.length > 0) {
       const creds = rows[0].credentials as Record<string, string>;
+      // Admin API token (shpat_) — highest priority, works without Storefront API config
+      if (creds?.storeDomain && creds?.adminToken) {
+        return { storeDomain: creds.storeDomain, adminToken: creds.adminToken };
+      }
       if (creds?.storeDomain && creds?.clientId && creds?.clientSecret) {
-        // Detect misfiled storefront token: shpss_/shpat_ prefixes are storefront tokens,
-        // not OAuth client secrets. Treat the whole record as legacy in that case.
-        if (creds.clientSecret.startsWith("shpss_") || creds.clientSecret.startsWith("shpat_")) {
+        // Detect misfiled admin token in clientSecret
+        if (creds.clientSecret.startsWith("shpat_")) {
+          console.log("[Shopify] clientSecret looks like an admin token — using admin path");
+          return { storeDomain: creds.storeDomain, adminToken: creds.clientSecret };
+        }
+        // Detect misfiled storefront token in clientSecret
+        if (creds.clientSecret.startsWith("shpss_")) {
           console.log("[Shopify] clientSecret looks like a storefront token — using legacy path");
           return { storeDomain: creds.storeDomain, storefrontToken: creds.clientSecret };
         }
         return { storeDomain: creds.storeDomain, clientId: creds.clientId, clientSecret: creds.clientSecret };
       }
-      // Priority 3a: DB legacy (storefrontToken)
+      // DB legacy — admin token in storefrontToken field
+      if (creds?.storeDomain && creds?.storefrontToken?.startsWith("shpat_")) {
+        return { storeDomain: creds.storeDomain, adminToken: creds.storefrontToken };
+      }
+      // DB legacy — storefront token
       if (creds?.storeDomain && creds?.storefrontToken) {
         return { storeDomain: creds.storeDomain, storefrontToken: creds.storefrontToken };
       }

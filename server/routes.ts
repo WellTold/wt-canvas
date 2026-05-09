@@ -2303,21 +2303,26 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         if (!creds?.storeDomain) {
           return res.status(400).json({ message: "Missing store domain" });
         }
-        // Detect misfiled storefront token (shpss_/shpat_ stored as clientSecret)
-        const effectiveToken = creds.storefrontToken ||
-          (creds.clientSecret?.startsWith("shpss_") || creds.clientSecret?.startsWith("shpat_") ? creds.clientSecret : null);
-        const hasRealClientCreds = creds.clientId && creds.clientSecret &&
+        // Admin token takes priority — works without Storefront API config
+        const adminToken = creds.adminToken ||
+          (creds.clientSecret?.startsWith("shpat_") ? creds.clientSecret : null) ||
+          (creds.storefrontToken?.startsWith("shpat_") ? creds.storefrontToken : null);
+        const storefrontToken = !adminToken && (creds.storefrontToken ||
+          (creds.clientSecret?.startsWith("shpss_") ? creds.clientSecret : null));
+        const hasRealClientCreds = !adminToken && creds.clientId && creds.clientSecret &&
           !creds.clientSecret.startsWith("shpss_") && !creds.clientSecret.startsWith("shpat_");
 
         let result: { name: string; domain: string };
-        if (effectiveToken) {
-          const { testShopifyConnection } = await import("./services/shopify");
-          result = await testShopifyConnection(creds.storeDomain, effectiveToken);
+        const { testShopifyConnection } = await import("./services/shopify");
+        if (adminToken) {
+          result = await testShopifyConnection(creds.storeDomain, adminToken);
+        } else if (storefrontToken) {
+          result = await testShopifyConnection(creds.storeDomain, storefrontToken);
         } else if (hasRealClientCreds) {
           const { testWithClientCredentials } = await import("./services/shopifyTokenManager");
           result = await testWithClientCredentials(creds.storeDomain, creds.clientId, creds.clientSecret);
         } else {
-          return res.status(400).json({ message: "Missing Shopify credentials — add a Storefront API token or Client ID + Secret" });
+          return res.status(400).json({ message: "Missing Shopify credentials — add an Admin API token or Storefront API token" });
         }
         try { await db.update(integrations).set({ status: "connected", updatedAt: new Date() }).where(eq(integrations.id, id)); } catch {}
         return res.json({ success: true, shopName: result.name, domain: result.domain });
@@ -2350,20 +2355,23 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
 
       if (type === "shopify") {
         if (!creds?.storeDomain) {
-          return res.status(400).json({ message: "Missing storeDomain or clientId/clientSecret" });
+          return res.status(400).json({ message: "Missing storeDomain" });
         }
+        const { testShopifyConnection } = await import("./services/shopify");
+        const { clearTokenCache } = await import("./services/shopifyTokenManager");
         let result: { name: string; domain: string };
-        if (creds.clientId && creds.clientSecret) {
-          const { testWithClientCredentials, clearTokenCache } = await import("./services/shopifyTokenManager");
+        if (creds.adminToken) {
+          result = await testShopifyConnection(creds.storeDomain, creds.adminToken);
+          clearTokenCache();
+        } else if (creds.clientId && creds.clientSecret) {
+          const { testWithClientCredentials } = await import("./services/shopifyTokenManager");
           result = await testWithClientCredentials(creds.storeDomain, creds.clientId, creds.clientSecret);
           clearTokenCache();
         } else if (creds.storefrontToken) {
-          const { testShopifyConnection } = await import("./services/shopify");
-          const { clearTokenCache } = await import("./services/shopifyTokenManager");
           result = await testShopifyConnection(creds.storeDomain, creds.storefrontToken);
           clearTokenCache();
         } else {
-          return res.status(400).json({ message: "Missing storeDomain or clientId/clientSecret" });
+          return res.status(400).json({ message: "Missing credentials — provide an Admin API token, Storefront token, or Client ID + Secret" });
         }
         return res.json({ success: true, shopName: result.name, domain: result.domain });
       }
