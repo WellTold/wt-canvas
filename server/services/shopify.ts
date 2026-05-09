@@ -348,10 +348,13 @@ export async function fetchProductList(
   if (!creds) throw new Error("Shopify is not configured");
 
   if (creds.useAdmin) {
+    // Admin REST title filter is prefix-only and won't match keyword-based queries like
+    // "best gifts for dad" against product titles like "Chicago Map Rocks Glass".
+    // Skip the query filter so we always get a broad set of active products.
     const params = new URLSearchParams({ limit: String(safeCount), status: "active" });
-    if (query) params.set("title", query);
     if (after) params.set("page_info", after);
     const json = await adminRest(`products.json?${params}`, creds.token, creds.domain);
+    console.log(`[Shopify] Admin REST fetchProductList → ${(json?.products ?? []).length} products returned`);
     const products: any[] = json?.products ?? [];
     return {
       items: products.map((p: any) => ({

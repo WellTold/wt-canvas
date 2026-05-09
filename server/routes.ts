@@ -1057,7 +1057,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           "@type": "WebPage",
           "@id": articleUrl,
         },
-        ...(primaryKeyword ? { "keywords": [primaryKeyword, ...(supportingKeywords ? supportingKeywords.split(/[,\n]/).map(s => s.trim()).filter(Boolean) : [])].join(', ') } : {}),
+        ...(primaryKeyword ? { "keywords": [primaryKeyword, ...(filteredSupportingKeywords ? filteredSupportingKeywords.split(', ') : [])].join(', ') } : {}),
       };
 
       // Embed FAQ as FAQPage schema + private render data
@@ -3132,14 +3132,19 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
       // 9. Mark primary keyword in_progress and link it
       await storage.updateKeyword(kw.id, { status: "in_progress", contentItemId });
 
-      // 10. Mark every cluster supporting keyword in_progress and link them all to the same article
-      if (clusterSupportingKeywords.length > 0) {
+      // 10. Only mark the FILTERED supporting keywords (the ones actually used in the AI prompt)
+      //     as in_progress. Do NOT mark all cluster keywords — a cluster can have hundreds.
+      const filteredSupportingObjects = clusterSupportingKeywords.filter(sk =>
+        filteredSupporting.includes(sk.keyword)
+      );
+      if (filteredSupportingObjects.length > 0) {
         await Promise.all(
-          clusterSupportingKeywords.map(sk =>
+          filteredSupportingObjects.map(sk =>
             storage.updateKeyword(sk.id, { status: "in_progress", contentItemId })
           )
         );
       }
+      console.log(`[ai-quick-create] linked ${filteredSupportingObjects.length} supporting keywords (of ${clusterSupportingKeywords.length} in cluster) to article ${contentItemId}`);
 
       res.json({
         id: newItem.id,
@@ -3147,7 +3152,7 @@ const { data: template, error: fetchError } = await supabaseClient.from('templat
         keyword: kw.keyword,
         type: contentType,
         cluster: kw.cluster || null,
-        supportingKeywordsCount: clusterSupportingKeywords.length,
+        supportingKeywordsCount: filteredSupportingObjects.length,
       });
     } catch (error) {
       console.error("AI quick-create error:", error);
