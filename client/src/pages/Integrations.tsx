@@ -433,14 +433,25 @@ export default function Integrations() {
                         </div>
                         <div className="space-y-1.5">
                           <Label htmlFor="cred-storefrontToken">Storefront API Token</Label>
-                          <Input
-                            id="cred-storefrontToken"
-                            type="text"
-                            value={credentials["storefrontToken"] ?? ""}
-                            onChange={(e) => { setCredentials((prev) => ({ ...prev, storefrontToken: e.target.value.trim(), clientId: "", clientSecret: "" })); setTestResult(null); }}
-                            placeholder="shpss_..."
-                            className="font-mono text-xs"
-                          />
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              id="cred-storefrontToken"
+                              type="text"
+                              value={credentials["storefrontToken"] ?? ""}
+                              onChange={(e) => { setCredentials((prev) => ({ ...prev, storefrontToken: e.target.value.trim(), clientId: "", clientSecret: "" })); setTestResult(null); }}
+                              placeholder="shpss_..."
+                              className="font-mono text-xs"
+                            />
+                            {credentials["storefrontToken"] && (
+                              <button
+                                type="button"
+                                className="text-xs text-muted-foreground underline whitespace-nowrap"
+                                onClick={() => { setCredentials((prev) => ({ ...prev, storefrontToken: "" })); setTestResult(null); }}
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
                           {credentials["storefrontToken"] && !credentials["storefrontToken"].startsWith("shpss_") && !credentials["storefrontToken"].startsWith("shpat_") && (
                             <p className="text-xs text-red-600">This doesn't look like a Shopify storefront token — it should start with <code>shpss_</code></p>
                           )}
