@@ -1,6 +1,6 @@
 import { resolveCredentials, isLegacy, getStorefrontToken } from "./shopifyTokenManager";
 
-const SHOPIFY_API_VERSION = "2024-10";
+const SHOPIFY_API_VERSION = "2025-04";
 
 async function getShopifyCredentials(): Promise<{ domain: string; token: string } | null> {
   const creds = await resolveCredentials();
@@ -141,7 +141,7 @@ export async function testShopifyConnection(storeDomain: string, storefrontToken
     console.error(`[Shopify] testShopifyConnection failed ${response.status} for domain=${cleanDomain} body=${body}`);
     if (response.status === 401) {
       throw new Error(
-        `Shopify returned 401 (endpoint: ${endpoint}). Check that the Store Domain is exactly "yourstore.myshopify.com" (no https://, no trailing slash) and that the Storefront API token is the current one from your app's API credentials page.`
+        `Shopify returned 401 (endpoint: ${endpoint}). The token is being rejected — make sure you are using the current Storefront API access token from your app's API credentials page (rotate it if needed to get a fresh one).`
       );
     }
     throw new Error(`Shopify API returned ${response.status}: ${body}`);

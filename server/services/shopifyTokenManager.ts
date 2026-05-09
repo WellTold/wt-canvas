@@ -238,7 +238,7 @@ export async function testWithClientCredentials(
     storefrontToken = await mintStorefrontToken(storeDomain, adminToken);
   }
 
-  const SHOPFRONT_API_VERSION = "2024-10";
+  const SHOPFRONT_API_VERSION = "2025-04";
   const SHOP_QUERY = `{ shop { name primaryDomain { url } } }`;
   const endpoint = `https://${storeDomain}/api/${SHOPFRONT_API_VERSION}/graphql.json`;
   const response = await fetch(endpoint, {
