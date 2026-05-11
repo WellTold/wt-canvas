@@ -3124,6 +3124,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
             return res.status(400).json({ message: "Missing store domain" });
           }
           // Admin token takes priority — works without Storefront API config
+          // Note: shpss_ is now Shopify's Client Secret format, NOT a Storefront token
           const adminToken =
             creds.adminToken ||
             (creds.clientSecret?.startsWith("shpat_")
@@ -3133,16 +3134,13 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
               ? creds.storefrontToken
               : null);
           const storefrontToken =
-            !adminToken &&
-            (creds.storefrontToken ||
-              (creds.clientSecret?.startsWith("shpss_")
-                ? creds.clientSecret
-                : null));
+            !adminToken && !creds.clientId && creds.storefrontToken
+              ? creds.storefrontToken
+              : null;
           const hasRealClientCreds =
             !adminToken &&
             creds.clientId &&
             creds.clientSecret &&
-            !creds.clientSecret.startsWith("shpss_") &&
             !creds.clientSecret.startsWith("shpat_");
 
           let result: { name: string; domain: string };

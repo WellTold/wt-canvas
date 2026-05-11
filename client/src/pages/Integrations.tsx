@@ -118,7 +118,7 @@ export default function Integrations() {
       const creds = (drawer.integration.credentials as Record<string, string>) ?? {};
       if (creds.adminToken || creds.storefrontToken?.startsWith("shpat_") || creds.clientSecret?.startsWith("shpat_")) {
         setShopifyMode("admin");
-      } else if (creds.clientId && creds.clientSecret && !creds.clientSecret.startsWith("shpss_")) {
+      } else if (creds.clientId && creds.clientSecret) {
         setShopifyMode("oauth");
       } else {
         setShopifyMode("token");
@@ -179,10 +179,9 @@ export default function Integrations() {
     const rawCreds = (integration.credentials as Record<string, string>) ?? {};
     // Normalize misfiled tokens into the correct field
     let normalised = { ...rawCreds };
+    // Only move shpat_ tokens — shpss_ is valid as a Client Secret in Shopify's current format
     if (normalised.clientSecret?.startsWith("shpat_")) {
       normalised = { ...normalised, adminToken: normalised.adminToken || normalised.clientSecret, clientSecret: "" };
-    } else if (normalised.clientSecret?.startsWith("shpss_")) {
-      normalised = { ...normalised, storefrontToken: normalised.storefrontToken || normalised.clientSecret, clientSecret: "" };
     }
     if (normalised.storefrontToken?.startsWith("shpat_")) {
       normalised = { ...normalised, adminToken: normalised.adminToken || normalised.storefrontToken, storefrontToken: "" };
@@ -208,7 +207,7 @@ export default function Integrations() {
       const hasToken = credentials.storeDomain && credentials.storefrontToken;
       const hasClientCreds = credentials.storeDomain && credentials.clientId && credentials.clientSecret;
       if (!hasToken && !hasClientCreds) {
-        setTestResult({ success: false, message: "Please fill in store domain and Storefront API token first." });
+        setTestResult({ success: false, message: "Please fill in store domain and either a Storefront token or Client ID + Secret." });
         setIsTesting(false);
         return;
       }
@@ -446,7 +445,8 @@ export default function Integrations() {
                     {shopifyMode === "admin" ? (
                       <>
                         <div className="text-xs text-muted-foreground bg-muted/50 border rounded p-3 space-y-1">
-                          <p>Find it in Shopify admin → Settings → Apps → Develop apps → your app → <strong>API credentials</strong> → Admin API access token. Starts with <code>shpat_</code>.</p>
+                          <p>Use an <strong>App automation token</strong> from your Shopify Partners dashboard → Apps → your app → API access → Create access token.</p>
+                          <p>Or use a custom app Admin API token from Shopify admin → Settings → Apps → Develop apps → your app → API credentials.</p>
                         </div>
                         <div className="space-y-1.5">
                           <Label htmlFor="cred-adminToken">Admin API Access Token</Label>
@@ -456,16 +456,13 @@ export default function Integrations() {
                               type="text"
                               value={credentials["adminToken"] ?? ""}
                               onChange={(e) => { setCredentials((prev) => ({ ...prev, adminToken: e.target.value.trim(), storefrontToken: "", clientId: "", clientSecret: "" })); setTestResult(null); }}
-                              placeholder="shpat_..."
+                              placeholder="shpat_... or app automation token"
                               className="font-mono text-xs"
                             />
                             {credentials["adminToken"] && (
                               <button type="button" className="text-xs text-muted-foreground underline whitespace-nowrap" onClick={() => { setCredentials((prev) => ({ ...prev, adminToken: "" })); setTestResult(null); }}>Clear</button>
                             )}
                           </div>
-                          {credentials["adminToken"] && !credentials["adminToken"].startsWith("shpat_") && (
-                            <p className="text-xs text-red-600">Admin API tokens start with <code>shpat_</code></p>
-                          )}
                         </div>
                       </>
                     ) : shopifyMode === "token" ? (
@@ -496,7 +493,8 @@ export default function Integrations() {
                     ) : (
                       <>
                         <div className="text-xs text-muted-foreground bg-muted/50 border rounded p-3 space-y-1">
-                          <p>Find these in Shopify admin → Settings → Apps → Develop apps → your app → <strong>API credentials</strong>.</p>
+                          <p>Find these in your Shopify Partners dashboard → Apps → your app → <strong>Settings</strong>.</p>
+                          <p>Client Secret starts with <code>shpss_</code> — that's correct for this field.</p>
                         </div>
                         <div className="space-y-1.5">
                           <Label htmlFor="cred-clientId">Client ID</Label>
@@ -514,7 +512,7 @@ export default function Integrations() {
                             type="password"
                             value={credentials["clientSecret"] ?? ""}
                             onChange={(e) => { setCredentials((prev) => ({ ...prev, clientSecret: e.target.value, storefrontToken: "" })); setTestResult(null); }}
-                            placeholder="••••••••"
+                            placeholder="shpss_••••••••"
                           />
                         </div>
                       </>

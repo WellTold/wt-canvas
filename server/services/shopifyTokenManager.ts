@@ -56,16 +56,12 @@ export async function resolveCredentials(): Promise<ResolvedCredentials | null> 
         return { storeDomain: creds.storeDomain, adminToken: creds.adminToken };
       }
       if (creds?.storeDomain && creds?.clientId && creds?.clientSecret) {
-        // Detect misfiled admin token in clientSecret
+        // Detect misfiled admin token in clientSecret (shpat_ prefix)
         if (creds.clientSecret.startsWith("shpat_")) {
           console.log("[Shopify] clientSecret looks like an admin token — using admin path");
           return { storeDomain: creds.storeDomain, adminToken: creds.clientSecret };
         }
-        // Detect misfiled storefront token in clientSecret
-        if (creds.clientSecret.startsWith("shpss_")) {
-          console.log("[Shopify] clientSecret looks like a storefront token — using legacy path");
-          return { storeDomain: creds.storeDomain, storefrontToken: creds.clientSecret };
-        }
+        // Note: Shopify Client Secrets now use shpss_ prefix — do NOT mis-route to legacy
         return { storeDomain: creds.storeDomain, clientId: creds.clientId, clientSecret: creds.clientSecret };
       }
       // DB legacy — admin token in storefrontToken field
@@ -107,8 +103,7 @@ export async function fetchAdminToken(
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    // Shopify 2026: no grant_type needed — just client_id + client_secret exchange
-    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
+    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, grant_type: "client_credentials" }),
   });
   if (!response.ok) {
     const text = await response.text().catch(() => "");
