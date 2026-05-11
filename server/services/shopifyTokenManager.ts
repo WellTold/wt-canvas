@@ -107,7 +107,8 @@ export async function fetchAdminToken(
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, grant_type: "client_credentials" }),
+    // Shopify 2026: no grant_type needed — just client_id + client_secret exchange
+    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
   });
   if (!response.ok) {
     const text = await response.text().catch(() => "");
@@ -224,8 +225,15 @@ export async function getStorefrontToken(): Promise<string> {
 
 export async function getAdminToken(domain?: string): Promise<string> {
   const creds = await resolveCredentials();
-  if (!creds || isLegacy(creds)) throw new Error("Client credentials not configured");
+  if (!creds) throw new Error("Shopify is not configured");
 
+  // Direct admin token — return immediately (no expiry)
+  if (isAdmin(creds)) return creds.adminToken;
+
+  // Legacy storefront-only credentials — no admin token available
+  if (isLegacy(creds)) throw new Error("No admin token available — configure Client ID + Secret or an Admin API token");
+
+  // Client credentials — exchange for a temporary admin token with caching
   const targetDomain = domain ?? creds.storeDomain;
   const FIVE_MIN = 5 * 60 * 1000;
   if (
@@ -240,6 +248,8 @@ export async function getAdminToken(domain?: string): Promise<string> {
   if (cache) {
     cache.adminToken = token;
     cache.adminExpiresAt = expiresAt;
+  } else {
+    cache = { storeDomain: targetDomain, storefrontToken: "", adminToken: token, adminExpiresAt: expiresAt };
   }
   return token;
 }

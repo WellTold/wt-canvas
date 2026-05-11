@@ -1,4 +1,4 @@
-import { resolveCredentials, isLegacy, isAdmin, getStorefrontToken } from "./shopifyTokenManager";
+import { resolveCredentials, isLegacy, isAdmin, getStorefrontToken, getAdminToken } from "./shopifyTokenManager";
 
 const SHOPIFY_API_VERSION = "2026-01";
 
@@ -56,14 +56,22 @@ async function adminRest(path: string, token: string, domain: string): Promise<a
 }
 
 async function gql(query: string, variables: Record<string, any>): Promise<any> {
-  const creds = await getShopifyCredentials();
+  const creds = await resolveCredentials();
   if (!creds) throw new Error("Shopify is not configured");
 
-  const response = await fetch(getEndpointFromCreds(creds.domain), {
+  // Always use a proper Storefront API token — never an Admin token here
+  let storefrontToken: string;
+  if (isLegacy(creds)) {
+    storefrontToken = creds.storefrontToken;
+  } else {
+    storefrontToken = await getStorefrontToken();
+  }
+
+  const response = await fetch(getEndpointFromCreds(creds.storeDomain), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Shopify-Storefront-Access-Token": creds.token,
+      "X-Shopify-Storefront-Access-Token": storefrontToken,
     },
     body: JSON.stringify({ query, variables }),
   });
@@ -532,13 +540,22 @@ export async function fetchProductList(
   after?: string,
 ): Promise<PaginatedResult<ShopifyProductSummary>> {
   const safeCount = Math.min(Math.max(count, 1), 40);
-  const creds = await getShopifyCredentials();
+  const creds = await resolveCredentials();
   if (!creds) throw new Error("Shopify is not configured");
 
-  if (creds.useAdmin) {
-    return adminFetchProductsRelevant(creds.token, creds.domain, safeCount, query);
+  // Always try Admin REST first — works for AdminCredentials and ClientCredentials (OAuth exchange).
+  // AdminCredentials: direct shpat_ token. ClientCredentials: exchanges client_id+secret for temp token.
+  // This gives the best product search (tag/collection matching) and includes product images.
+  if (!isLegacy(creds)) {
+    try {
+      const adminToken = await getAdminToken(creds.storeDomain);
+      return adminFetchProductsRelevant(adminToken, creds.storeDomain, safeCount, query);
+    } catch (err: any) {
+      console.warn(`[Shopify] Admin token unavailable for product list (${err?.message}), falling back to Storefront API`);
+    }
   }
 
+  // Storefront GQL fallback — used for legacy Storefront-only tokens, or when admin unavailable
   const data = await gql(PRODUCTS_QUERY, {
     count: safeCount,
     query: query || null,
