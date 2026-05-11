@@ -371,6 +371,59 @@ function normaliseProduct(p: any): ShopifyProductSummary {
   };
 }
 
+// Storefront API product search — used as fallback when Admin REST lacks read_products scope.
+// Uses env vars directly so it works even when the DB token is an admin-only shpat_ token.
+async function storefrontFallbackSearch(query: string, count: number): Promise<ShopifyProductSummary[]> {
+  const token = process.env.SHOPIFY_STOREFRONT_TOKEN;
+  const domain = process.env.SHOPIFY_STORE_DOMAIN;
+  if (!token || !domain) return [];
+
+  const cleanDomain = sanitizeDomain(domain);
+  const url = `https://${cleanDomain}/api/${SHOPIFY_API_VERSION}/graphql.json`;
+
+  const gqlQuery = `
+    query SearchProducts($query: String!, $count: Int!) {
+      products(first: $count, query: $query) {
+        nodes {
+          id title handle
+          featuredImage { url altText }
+          priceRange { minVariantPrice { amount currencyCode } }
+        }
+      }
+    }
+  `;
+
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Storefront-Access-Token': token,
+      },
+      body: JSON.stringify({ query: gqlQuery, variables: { query, count } }),
+    });
+    if (!resp.ok) {
+      console.error(`[Shopify] Storefront fallback ${resp.status} for query "${query}"`);
+      return [];
+    }
+    const json = await resp.json() as any;
+    const nodes: any[] = json?.data?.products?.nodes ?? [];
+    console.log(`[Shopify] Storefront fallback → ${nodes.length} products for query "${query}"`);
+    return nodes.map((p: any) => ({
+      id: p.id,
+      title: p.title,
+      handle: p.handle || '',
+      imageUrl: p.featuredImage?.url ?? null,
+      imageAlt: p.featuredImage?.altText ?? null,
+      price: p.priceRange?.minVariantPrice?.amount ?? '0',
+      currencyCode: p.priceRange?.minVariantPrice?.currencyCode ?? 'USD',
+    }));
+  } catch (err: any) {
+    console.error(`[Shopify] Storefront fallback error: ${err?.message}`);
+    return [];
+  }
+}
+
 async function adminFetchProductsRelevant(
   token: string,
   domain: string,
@@ -455,8 +508,17 @@ async function adminFetchProductsRelevant(
     }
   }
 
-  const products = [...seen.values()].slice(0, count);
+  let products = [...seen.values()].slice(0, count);
   console.log(`[Shopify] Admin REST smart fetch → ${products.length} products (query: "${query ?? 'none'}")`);
+
+  // If admin REST returned nothing (e.g. missing read_products scope), fall back to Storefront API
+  if (products.length === 0 && query) {
+    const sfProducts = await storefrontFallbackSearch(query, count);
+    if (sfProducts.length > 0) {
+      return { items: sfProducts, hasNextPage: false, endCursor: null };
+    }
+  }
+
   return {
     items: products.map(normaliseProduct),
     hasNextPage: false,
