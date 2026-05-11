@@ -41,7 +41,23 @@ export function isAdmin(creds: ResolvedCredentials): creds is AdminCredentials {
 }
 
 export async function resolveCredentials(): Promise<ResolvedCredentials | null> {
-  // Priority 1: DB integrations table — new-style (clientId + clientSecret)
+  // Priority 1: Env vars with client credentials — takes precedence when fully configured
+  // This follows the Shopify docs: https://shopify.dev/docs/apps/build/dev-dashboard/get-api-access-tokens
+  const envClientId = process.env.SHOPIFY_CLIENT_ID;
+  const envClientSecret = process.env.SHOPIFY_CLIENT_SECRET;
+  const shopSubdomain = process.env.SHOPIFY_SHOP;
+  const storeUrl = process.env.SHOPIFY_STORE_URL;
+  if (envClientId && envClientSecret && (shopSubdomain || storeUrl)) {
+    let storeDomain: string;
+    if (shopSubdomain) {
+      storeDomain = shopSubdomain.includes(".") ? shopSubdomain : `${shopSubdomain}.myshopify.com`;
+    } else {
+      storeDomain = storeUrl!.replace(/^https?:\/\//, "").replace(/\/$/, "");
+    }
+    return { storeDomain, clientId: envClientId, clientSecret: envClientSecret };
+  }
+
+  // Priority 2: DB integrations table
   try {
     const rows = await db
       .select()
@@ -51,50 +67,28 @@ export async function resolveCredentials(): Promise<ResolvedCredentials | null> 
 
     if (rows.length > 0) {
       const creds = rows[0].credentials as Record<string, string>;
-      // Admin API token (shpat_) — highest priority, works without Storefront API config
-      if (creds?.storeDomain && creds?.adminToken) {
+      // Only accept shpat_ as a valid admin token — atkn_ are Partners API tokens, not Store Admin tokens
+      if (creds?.storeDomain && creds?.adminToken?.startsWith("shpat_")) {
         return { storeDomain: creds.storeDomain, adminToken: creds.adminToken };
       }
       if (creds?.storeDomain && creds?.clientId && creds?.clientSecret) {
-        // Detect misfiled admin token in clientSecret (shpat_ prefix)
         if (creds.clientSecret.startsWith("shpat_")) {
-          console.log("[Shopify] clientSecret looks like an admin token — using admin path");
           return { storeDomain: creds.storeDomain, adminToken: creds.clientSecret };
         }
-        // Note: Shopify Client Secrets now use shpss_ prefix — do NOT mis-route to legacy
         return { storeDomain: creds.storeDomain, clientId: creds.clientId, clientSecret: creds.clientSecret };
       }
-      // DB legacy — admin token in storefrontToken field
       if (creds?.storeDomain && creds?.storefrontToken?.startsWith("shpat_")) {
         return { storeDomain: creds.storeDomain, adminToken: creds.storefrontToken };
       }
-      // DB legacy — storefront token
       if (creds?.storeDomain && creds?.storefrontToken) {
         return { storeDomain: creds.storeDomain, storefrontToken: creds.storefrontToken };
       }
     }
   } catch {
-    // DB not available — fall through to env vars
+    // DB not available — fall through to legacy env vars
   }
 
-  // Priority 2: Env vars — Shopify-standard names (https://shopify.dev/docs/apps/build/dev-dashboard/get-api-access-tokens)
-  // SHOPIFY_SHOP = store subdomain only, e.g. "welltold" → welltold.myshopify.com
-  const clientId = process.env.SHOPIFY_CLIENT_ID;
-  const clientSecret = process.env.SHOPIFY_CLIENT_SECRET;
-  const shopSubdomain = process.env.SHOPIFY_SHOP;
-  const storeUrl = process.env.SHOPIFY_STORE_URL;
-  if (clientId && clientSecret && (shopSubdomain || storeUrl)) {
-    let storeDomain: string;
-    if (shopSubdomain) {
-      // Build full myshopify.com domain from subdomain
-      storeDomain = shopSubdomain.includes(".") ? shopSubdomain : `${shopSubdomain}.myshopify.com`;
-    } else {
-      storeDomain = storeUrl!.replace(/^https?:\/\//, "").replace(/\/$/, "");
-    }
-    return { storeDomain, clientId, clientSecret };
-  }
-
-  // Priority 3b: Env vars — legacy storefront token
+  // Priority 3: Env vars — legacy storefront token only
   const domain = process.env.SHOPIFY_STORE_DOMAIN;
   const token = process.env.SHOPIFY_STOREFRONT_TOKEN;
   if (domain && token) return { storeDomain: domain, storefrontToken: token };
