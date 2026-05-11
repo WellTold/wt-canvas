@@ -77,16 +77,24 @@ export async function resolveCredentials(): Promise<ResolvedCredentials | null> 
     // DB not available — fall through to env vars
   }
 
-  // Priority 2: Env vars — new-style
+  // Priority 2: Env vars — Shopify-standard names (https://shopify.dev/docs/apps/build/dev-dashboard/get-api-access-tokens)
+  // SHOPIFY_SHOP = store subdomain only, e.g. "welltold" → welltold.myshopify.com
   const clientId = process.env.SHOPIFY_CLIENT_ID;
   const clientSecret = process.env.SHOPIFY_CLIENT_SECRET;
+  const shopSubdomain = process.env.SHOPIFY_SHOP;
   const storeUrl = process.env.SHOPIFY_STORE_URL;
-  if (clientId && clientSecret && storeUrl) {
-    const storeDomain = storeUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  if (clientId && clientSecret && (shopSubdomain || storeUrl)) {
+    let storeDomain: string;
+    if (shopSubdomain) {
+      // Build full myshopify.com domain from subdomain
+      storeDomain = shopSubdomain.includes(".") ? shopSubdomain : `${shopSubdomain}.myshopify.com`;
+    } else {
+      storeDomain = storeUrl!.replace(/^https?:\/\//, "").replace(/\/$/, "");
+    }
     return { storeDomain, clientId, clientSecret };
   }
 
-  // Priority 3b: Env vars — legacy
+  // Priority 3b: Env vars — legacy storefront token
   const domain = process.env.SHOPIFY_STORE_DOMAIN;
   const token = process.env.SHOPIFY_STOREFRONT_TOKEN;
   if (domain && token) return { storeDomain: domain, storefrontToken: token };
@@ -100,10 +108,16 @@ export async function fetchAdminToken(
   clientSecret: string
 ): Promise<{ token: string; expiresAt: number }> {
   const url = `https://${domain}/admin/oauth/access_token`;
+  // Shopify requires form-encoded body, NOT JSON
+  const body = new URLSearchParams({
+    grant_type: "client_credentials",
+    client_id: clientId,
+    client_secret: clientSecret,
+  });
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, grant_type: "client_credentials" }),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
   });
   if (!response.ok) {
     const text = await response.text().catch(() => "");

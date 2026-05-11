@@ -44,6 +44,7 @@ externalPort = 80
 
 [userenv.shared]
 SITE_BASE_URL = "https://welltold.design/pages"
+SHOPIFY_SHOP = "welltold"
 
 [postMerge]
 path = "scripts/post-merge.sh"
