@@ -446,7 +446,10 @@ async function adminFetchProductsRelevant(
     const fallback = await adminRest(
       `products.json?limit=${needed}&status=active`,
       token, domain
-    ).catch(() => ({ products: [] }));
+    ).catch((err: any) => {
+      console.error(`[Shopify] Admin REST fallback failed (products.json): ${err?.message ?? err}`);
+      return { products: [] };
+    });
     for (const p of (fallback?.products ?? [])) {
       if (!seen.has(String(p.id))) seen.set(String(p.id), p);
     }

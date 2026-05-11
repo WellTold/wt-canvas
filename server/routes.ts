@@ -1514,21 +1514,9 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           structuredData["_wt_cta"] = ctaData;
         }
 
-        // Append FAQ directly into the markdown so it appears in the editor text view
-        // and in any markdown-to-HTML conversion (e.g. the inline preview).
-        // _wt_faq in structured_data is kept solely for the FAQPage JSON-LD schema.
-        let finalMarkdown = markdown;
-        if (faqItems.length > 0) {
-          const faqMd = faqItems
-            .map((f: any) => `### ${f.question}\n\n${f.answer}`)
-            .join("\n\n");
-          finalMarkdown =
-            markdown.trimEnd() +
-            "\n\n## Frequently Asked Questions\n\n" +
-            faqMd;
-        }
-
-        res.json({ markdown: finalMarkdown, structuredData });
+        // FAQ lives only in _wt_faq structured data — rendered as accordion by the worker.
+        // Do NOT append to markdown (that prevents accordion rendering on the live site).
+        res.json({ markdown: markdown.trimEnd(), structuredData });
       } catch (error) {
         console.error("Web page markdown generation error:", error);
         res.status(500).json({
@@ -3824,18 +3812,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-|-$/g, "");
 
-        // Append FAQ to the markdown so it appears in the editor text view
-        let batchMarkdown = markdown;
-        if (faqItems.length > 0) {
-          const faqMd = faqItems
-            .map((f: any) => `### ${f.question}\n\n${f.answer}`)
-            .join("\n\n");
-          batchMarkdown =
-            markdown.trimEnd() +
-            "\n\n## Frequently Asked Questions\n\n" +
-            faqMd;
-        }
-
+        // FAQ lives only in _wt_faq structured data — rendered as accordion by the worker.
         const created = await storage.createContentItem({
           title,
           slug,
@@ -3843,7 +3820,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           status: "draft",
           approvalStatus: "pending",
           primaryKeyword: kw.keyword,
-          markdownContent: batchMarkdown,
+          markdownContent: markdown.trimEnd(),
           structuredData,
           authorId,
         } as any);
@@ -4230,16 +4207,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         .slice(0, 80);
       const finalSlug = await storage.generateUniqueSlug(baseSlug, contentType);
 
-      // Append FAQ to the markdown so it appears in the editor text view
-      let finalMarkdown = markdown;
-      if (faqItems.length > 0) {
-        const faqMd = faqItems
-          .map((f: any) => `### ${f.question}\n\n${f.answer}`)
-          .join("\n\n");
-        finalMarkdown =
-          markdown.trimEnd() + "\n\n## Frequently Asked Questions\n\n" + faqMd;
-      }
-
+      // FAQ lives only in _wt_faq structured data — rendered as accordion by the worker.
       // 8. Create the content item — store markdown, structured data (FAQ/products/CTAs), and keywords
       const newItem = await storage.createContentItem({
         title,
@@ -4249,7 +4217,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         approvalStatus: "pending",
         primaryKeyword: kw.keyword,
         supportingKeywords: supportingKeywordsStr || null,
-        markdownContent: finalMarkdown,
+        markdownContent: markdown.trimEnd(),
         structuredData:
           Object.keys(structuredData).length > 0 ? structuredData : null,
         authorId: req.userId!,

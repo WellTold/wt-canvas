@@ -967,22 +967,27 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
   </div>
 </section>` : '';
 
-    // FAQ section — only render separately if FAQ is NOT already embedded in the markdown.
-    // New articles have FAQ appended to the markdown text; this block handles legacy articles.
-    const faqInMarkdown = page.content_markdown?.includes('## Frequently Asked Questions') ?? false;
-    const faqHtml = (!faqInMarkdown && wtFaq.length > 0) ? `
-<section class="wt-faq" itemscope itemtype="https://schema.org/FAQPage" aria-label="Frequently Asked Questions">
-  <h2 class="wt-faq__heading">Frequently Asked Questions</h2>
-  ${wtFaq.map(f => `<div class="wt-faq__item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
-    <h3 class="wt-faq__question" itemprop="name">${escHtml(f.question)}</h3>
-    <div class="wt-faq__answer" itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
-      <div itemprop="text">${escHtml(f.answer)}</div>
-    </div>
-  </div>`).join('\n  ')}
-</section>` : '';
+    // FAQ section — always render as accordion from _wt_faq structured data.
+    // FAQ is NOT embedded in the markdown body; it lives only in structured_data._wt_faq.
+    const faqHtml = wtFaq.length > 0 ? `
+<div class="wt-accordion" aria-label="Frequently Asked Questions">
+  <h2 class="wt-accordion-title">Frequently Asked Questions</h2>
+  ${wtFaq.map(f => `<details class="wt-accordion-item">
+    <summary class="wt-accordion-question">${escHtml(f.question)}</summary>
+    <div class="wt-accordion-answer">${escHtml(f.answer)}</div>
+  </details>`).join('\n  ')}
+</div>` : '';
+
+    // Strip legacy inline FAQ from markdown body — FAQ is now rendered as accordion from _wt_faq.
+    // Handles articles created before the structured-data-only approach.
+    let markdownForRender = page.content_markdown ?? '';
+    if (wtFaq.length > 0) {
+      const faqHeadingIdx = markdownForRender.indexOf('\n\n## Frequently Asked Questions');
+      if (faqHeadingIdx !== -1) markdownForRender = markdownForRender.slice(0, faqHeadingIdx);
+    }
 
     // Insert brand context paragraph after the first H1 tag in rendered body
-    let body = markdownToHtmlSafe(page.content_markdown);
+    let body = markdownToHtmlSafe(markdownForRender);
     const h1Match = body.match(/<h1>[^<]*<\/h1>/);
     if (h1Match) {
       const h1End = body.indexOf(h1Match[0]) + h1Match[0].length;

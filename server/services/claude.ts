@@ -131,7 +131,7 @@ Well Told products fall into these categories:
 When writing gift guides, draw recommendations from this universe. Do not recommend products outside this world unless explicitly writing a broad editorial guide.`;
 
 const FORMAT_A_INSTRUCTIONS = `FORMAT: Well Told Gift Guide
-Write a focused gift guide of 8-12 items. Every recommendation must come from the Well Told product universe defined above. Give each item 2-4 sentences of story context — why this specific object works for this specific person or moment. Do not use bullet points for product descriptions; write in prose. End with a single CTA paragraph linking to the collection. Do not pad with generic lifestyle products outside Well Told's world.`;
+Write a focused gift guide of 5-7 items maximum. Every recommendation must come from the Well Told product universe defined above. Give each item 2-4 sentences of story context — why this specific object works for this specific person or moment. Do not use bullet points for product descriptions; write in prose. Aim for 700-950 words total including intro and CTA paragraph. End with a single CTA paragraph linking to the collection. Do not pad with generic lifestyle products outside Well Told's world.`;
 
 const FORMAT_B_INSTRUCTIONS = `FORMAT: Brand Editorial Guide
 Write this as an opinionated essay, not a product list. The goal is to help the reader think differently about gifting in this context. Reference Well Told products 2-3 times as concrete examples, but do not make this a roundup. Write 600-900 words. End with a single understated CTA paragraph.`;
