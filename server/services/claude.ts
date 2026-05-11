@@ -173,7 +173,7 @@ export interface FAQItem {
   answer: string;
 }
 
-export async function generateFAQ(primaryKeyword: string): Promise<FAQItem[]> {
+export async function generateFAQ(primaryKeyword: string, supportingKeywords?: string): Promise<FAQItem[]> {
   const systemPrompt = `You generate FAQ content for Well Told Design, a Boston-based gift brand making story-driven objects — map glassware, constellation gifts, and topographic drinkware.
 
 Rules:
@@ -188,7 +188,9 @@ Rules:
 Return ONLY a valid JSON array with no markdown fencing or extra text:
 [{"question": "...", "answer": "..."}, ...]`;
 
-  const userPrompt = `Generate 5 FAQ questions and answers for an article about: ${primaryKeyword}`;
+  const userPrompt = supportingKeywords
+    ? `Generate 6 FAQ questions and answers for an article about: ${primaryKeyword}\n\nRelated keyword angles to draw question topics from (do not use these as a list — each should inspire one distinct question):\n${supportingKeywords}`
+    : `Generate 5 FAQ questions and answers for an article about: ${primaryKeyword}`;
 
   let rawText = '';
   try {
@@ -681,11 +683,15 @@ export async function generateWebPageMarkdownContent(params: GenerateWebPageMark
     // Block 5: Product Context
     productContext
       ? `[5. PRODUCT CONTEXT BLOCK]
-Relevant Well Told products for this article. Each line is a Markdown hyperlink — use these EXACT links when you reference the product in the article body. Do not bold the product name; hyperlink it instead.
+Relevant Well Told products for this article. Each line shows the product link and, where available, a product image URL.
+
+LINKING: When you reference a product inline, use Markdown hyperlink syntax: [Product Name](url). Do not bold the product name.
+
+IMAGES: Where a product line includes "— image: <url>", embed the image once in the article at a natural point near where you first mention that product, using this syntax:
+![Product Name](image-url)
+Place the image directly after the paragraph that mentions the product. Do not embed the same image twice. Only use image URLs explicitly listed below — do not invent or guess image URLs.
 
 ${productContext}
-
-When referencing a product inline, write it as a Markdown link: [Product Name](url). Example: "the [Chicago Map Rocks Glass](${siteBaseUrl}/products/chicago-map-rocks-glass) makes a thoughtful gift for anyone who loves the city."
 
 Standard Well Told collection links you may also use where natural:
 - [Map Glassware](${siteBaseUrl}/collections/map-glasses)

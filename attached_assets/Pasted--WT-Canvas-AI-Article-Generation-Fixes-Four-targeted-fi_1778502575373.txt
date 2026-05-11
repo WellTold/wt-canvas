@@ -1,0 +1,314 @@
+# WT Canvas — AI Article Generation Fixes
+
+Four targeted fixes to `server/services/claude.ts` and `server/routes.ts`. No architectural changes — all edits are isolated. Apply them in order.
+
+-----
+
+## Fix 1 — Pass supporting keywords to FAQ generation
+
+**Problem:** `generateFAQ` only receives the primary keyword. Supporting keywords are never used, so the FAQ misses long-tail question coverage across the cluster.
+
+### `server/services/claude.ts` — update the function signature and prompt
+
+**Find** (line ~176):
+
+```ts
+export async function generateFAQ(primaryKeyword: string): Promise<FAQItem[]> {
+```
+
+**Replace with:**
+
+```ts
+export async function generateFAQ(primaryKeyword: string, supportingKeywords?: string): Promise<FAQItem[]> {
+```
+
+**Find** (line ~191):
+
+```ts
+  const userPrompt = `Generate 5 FAQ questions and answers for an article about: ${primaryKeyword}`;
+```
+
+**Replace with:**
+
+```ts
+  const userPrompt = supportingKeywords
+    ? `Generate 6 FAQ questions and answers for an article about: ${primaryKeyword}\n\nRelated keyword angles to draw question topics from (do not use these as a list — each should inspire one distinct question):\n${supportingKeywords}`
+    : `Generate 5 FAQ questions and answers for an article about: ${primaryKeyword}`;
+```
+
+-----
+
+### `server/routes.ts` — pass supporting keywords from both endpoints
+
+**In `/api/ai/generate-webpage-markdown`** (around line 1394–1416), find the `generateFAQ` call inside the `Promise.all`:
+
+```ts
+          generateFAQ(faqSearchTerm).catch((e) => {
+```
+
+**Replace with:**
+
+```ts
+          generateFAQ(faqSearchTerm, filteredSupportingKeywords).catch((e) => {
+```
+
+-----
+
+**In `/api/pages/ai-quick-create`** (around line 4128–4148), find the `generateFAQ` call inside the `Promise.all`:
+
+```ts
+        generateFAQ(faqSearchTerm).catch((e) => {
+          console.error("[ai-quick-create] FAQ generation failed:", e?.message);
+          return [];
+        }),
+```
+
+**Replace with:**
+
+```ts
+        generateFAQ(faqSearchTerm, supportingKeywordsStr).catch((e) => {
+          console.error("[ai-quick-create] FAQ generation failed:", e?.message);
+          return [];
+        }),
+```
+
+-----
+
+## Fix 2 — Include product image URLs in the context passed to Claude
+
+**Problem:** Both routes fetch Shopify products and correctly filter for ones with `imageUrl`, but then drop the image URL when building `productContext`. Claude never receives image URLs and cannot embed product images in the article.
+
+### `server/routes.ts` — update `productContext` builder in `/api/ai/generate-webpage-markdown`
+
+**Find** (around line 1428–1432):
+
+```ts
+        if (shopifyProducts.length > 0) {
+          productContext = shopifyProducts
+            .map((p) => `- [${p.title}](${siteBaseUrl}/products/${p.handle})`)
+            .join("\n");
+        }
+```
+
+**Replace with:**
+
+```ts
+        if (shopifyProducts.length > 0) {
+          productContext = shopifyProducts
+            .map((p) => {
+              const productUrl = `${siteBaseUrl}/products/${p.handle}`;
+              const imageLine = p.imageUrl ? ` — image: ${p.imageUrl}` : "";
+              return `- [${p.title}](${productUrl})${imageLine}`;
+            })
+            .join("\n");
+        }
+```
+
+-----
+
+### `server/routes.ts` — update `productContext` builder in `/api/pages/ai-quick-create`
+
+**Find** (around line 4120–4125):
+
+```ts
+      const productContext =
+        allProducts.length > 0
+          ? allProducts
+              .map((p) => `- [${p.title}](${siteBaseUrl}/products/${p.handle})`)
+              .join("\n")
+          : undefined;
+```
+
+**Replace with:**
+
+```ts
+      const productContext =
+        allProducts.length > 0
+          ? allProducts
+              .map((p) => {
+                const productUrl = `${siteBaseUrl}/products/${p.handle}`;
+                const imageLine = p.imageUrl ? ` — image: ${p.imageUrl}` : "";
+                return `- [${p.title}](${productUrl})${imageLine}`;
+              })
+              .join("\n")
+          : undefined;
+```
+
+-----
+
+### `server/services/claude.ts` — update Block 5 prompt to instruct Claude to use images
+
+**Find** the Block 5 section (around line 681–701) — specifically the opening instruction line of the truthy branch:
+
+```ts
+      : `[5. PRODUCT CONTEXT BLOCK]
+Relevant Well Told products for this article. Each line is a Markdown hyperlink — use these EXACT links when you reference the product in the article body. Do not bold the product name; hyperlink it instead.
+```
+
+**Replace with:**
+
+```ts
+      : `[5. PRODUCT CONTEXT BLOCK]
+Relevant Well Told products for this article. Each line shows the product link and, where available, a product image URL.
+
+LINKING: When you reference a product inline, use Markdown hyperlink syntax: [Product Name](url). Do not bold the product name.
+
+IMAGES: Where a product line includes "— image: <url>", embed the image once in the article at a natural point near where you first mention that product, using this syntax:
+![Product Name](image-url)
+Place the image directly after the paragraph that mentions the product. Do not embed the same image twice. Only use image URLs explicitly listed below — do not invent or guess image URLs.
+```
+
+-----
+
+## Fix 3 — Use H3 headings for FAQ markdown (LLM-serving format)
+
+**Problem:** FAQ questions are appended as `**bold text**`, which is not semantic markup. LLMs parsing markdown for Q&A structure use heading hierarchy. H3 is the correct pattern and also works with FAQPage schema crawlers.
+
+### `server/routes.ts` — update FAQ markdown appending in `/api/ai/generate-webpage-markdown`
+
+**Find** (around line 1517–1524):
+
+```ts
+        if (faqItems.length > 0) {
+          const faqMd = faqItems
+            .map((f: any) => `**${f.question}**\n\n${f.answer}`)
+            .join("\n\n");
+          finalMarkdown =
+            markdown.trimEnd() +
+            "\n\n## Frequently Asked Questions\n\n" +
+            faqMd;
+        }
+```
+
+**Replace with:**
+
+```ts
+        if (faqItems.length > 0) {
+          const faqMd = faqItems
+            .map((f: any) => `### ${f.question}\n\n${f.answer}`)
+            .join("\n\n");
+          finalMarkdown =
+            markdown.trimEnd() +
+            "\n\n## Frequently Asked Questions\n\n" +
+            faqMd;
+        }
+```
+
+-----
+
+### `server/routes.ts` — same change in `/api/pages/ai-quick-create`
+
+**Find** (around line 4205–4211):
+
+```ts
+      if (faqItems.length > 0) {
+        const faqMd = faqItems
+          .map((f: any) => `**${f.question}**\n\n${f.answer}`)
+          .join("\n\n");
+        finalMarkdown =
+          markdown.trimEnd() + "\n\n## Frequently Asked Questions\n\n" + faqMd;
+      }
+```
+
+**Replace with:**
+
+```ts
+      if (faqItems.length > 0) {
+        const faqMd = faqItems
+          .map((f: any) => `### ${f.question}\n\n${f.answer}`)
+          .join("\n\n");
+        finalMarkdown =
+          markdown.trimEnd() + "\n\n## Frequently Asked Questions\n\n" + faqMd;
+      }
+```
+
+-----
+
+## Fix 4 — Improve `filterSupportingKeywords` scoring
+
+**Problem:** The current scorer counts only exact word overlap between the supporting keyword and the primary keyword. Keywords that are semantically related but lexically different score 0 and are ranked arbitrarily. The fix adds a second scoring signal: words shared between supporting keywords and the primary keyword’s *expanded* word set (including partial/stem matches), and also avoids packing the selection with near-duplicate phrases.
+
+### `server/routes.ts` — replace the `filterSupportingKeywords` function (around line 3557)
+
+**Find:**
+
+```ts
+  function filterSupportingKeywords(
+    primaryKeyword: string,
+    candidates: string[],
+    take = 8,
+    cap = 10,
+  ): string[] {
+    const limit = Math.min(take, cap);
+    const primaryWords = new Set(
+      primaryKeyword.toLowerCase().split(/\W+/).filter(Boolean),
+    );
+    const scored = candidates.map((kw) => {
+      const kwWords = kw.toLowerCase().split(/\W+/).filter(Boolean);
+      // Score = number of words in kw that also appear in primary keyword
+      const overlap = kwWords.filter((w) => primaryWords.has(w)).length;
+      // Tie-break by length of shared word set (prefer shorter, more focused terms)
+      return { kw, score: overlap };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, limit).map((s) => s.kw);
+  }
+```
+
+**Replace with:**
+
+```ts
+  function filterSupportingKeywords(
+    primaryKeyword: string,
+    candidates: string[],
+    take = 8,
+    cap = 10,
+  ): string[] {
+    const limit = Math.min(take, cap);
+
+    // Build primary word set — also include 4-char+ stems so "hiking" matches "hike"
+    const primaryTokens = primaryKeyword.toLowerCase().split(/\W+/).filter(Boolean);
+    const primaryWords = new Set(primaryTokens);
+    const primaryStems = new Set(primaryTokens.filter(w => w.length >= 4).map(w => w.slice(0, 4)));
+
+    const scored = candidates.map((kw) => {
+      const kwWords = kw.toLowerCase().split(/\W+/).filter(Boolean);
+      // Signal 1: exact word overlap with primary
+      const exactOverlap = kwWords.filter(w => primaryWords.has(w)).length;
+      // Signal 2: stem overlap (partial match) — half-weight
+      const stemOverlap = kwWords.filter(w => w.length >= 4 && primaryStems.has(w.slice(0, 4)) && !primaryWords.has(w)).length;
+      const score = exactOverlap + stemOverlap * 0.5;
+      return { kw, score };
+    });
+
+    // Sort by score descending, break ties by shorter keyword (more focused)
+    scored.sort((a, b) => b.score - a.score || a.kw.length - b.kw.length);
+
+    // Deduplicate near-identical phrases: skip a candidate if it shares 80%+ of its
+    // words with an already-selected keyword (prevents packing the list with variants)
+    const selected: string[] = [];
+    for (const { kw } of scored) {
+      if (selected.length >= limit) break;
+      const kwWords = new Set(kw.toLowerCase().split(/\W+/).filter(Boolean));
+      const isDuplicate = selected.some(s => {
+        const sWords = s.toLowerCase().split(/\W+/).filter(Boolean);
+        const shared = sWords.filter(w => kwWords.has(w)).length;
+        return shared / Math.max(sWords.length, kwWords.size) >= 0.8;
+      });
+      if (!isDuplicate) selected.push(kw);
+    }
+
+    return selected;
+  }
+```
+
+-----
+
+## Summary of files changed
+
+|File                       |Changes                                                                                                                                                   |
+|---------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+|`server/services/claude.ts`|`generateFAQ` signature + user prompt; Block 5 prompt image instructions                                                                                  |
+|`server/routes.ts`         |`generateFAQ` calls (both endpoints); `productContext` builder (both endpoints); FAQ markdown format (both endpoints); `filterSupportingKeywords` function|
+
+No database changes. No new dependencies. No changes to the Shopify service.
