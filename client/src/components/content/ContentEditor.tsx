@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
-import { ArrowLeft, Wand2, Save, Plus, Mail, ExternalLink, Bookmark, BookMarked, ShoppingBag, ChevronUp, ChevronDown, Eye, Settings2, Upload, Megaphone } from "lucide-react";
+import { ArrowLeft, Wand2, Save, Plus, Mail, ExternalLink, Bookmark, BookMarked, ShoppingBag, ChevronUp, ChevronDown, Eye, Settings2, Upload, Megaphone, RefreshCw } from "lucide-react";
 import { EmailPreviewModal } from "./EmailPreviewModal";
 import { Badge } from "@/components/ui/badge";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -64,6 +64,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [showPagePreview, setShowPagePreview] = useState(false);
   const [pushKlaviyoLoading, setPushKlaviyoLoading] = useState(false);
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const [showCampaignDialog, setShowCampaignDialog] = useState(false);
   const [campaignAudiences, setCampaignAudiences] = useState<Array<{ id: string; name: string; kind: "list" | "segment" }>>([]);
   const [campaignAudiencesLoading, setCampaignAudiencesLoading] = useState(false);
@@ -874,6 +875,30 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
     }
   });
 
+  const regenerateMutation = useMutation({
+    mutationFn: async () => {
+      const itemId = contentItemId || currentContentItem?.id;
+      if (!itemId) throw new Error("Save the page first before regenerating.");
+      const res = await apiRequest("POST", `/api/pages/${itemId}/regenerate`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Regeneration failed");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      const itemId = contentItemId || currentContentItem?.id;
+      queryClient.invalidateQueries({ queryKey: ["/api/content-items", String(itemId)] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content-items"] });
+      setShowRegenerateConfirm(false);
+      toast({ title: "Page regenerated", description: `"${data.title}" has been rebuilt from scratch.` });
+    },
+    onError: (error: any) => {
+      setShowRegenerateConfirm(false);
+      toast({ title: "Regeneration failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const addBlockWithContent = (type: string, initialContent: Record<string, any>) => {
     const newBlock = {
       id: Date.now().toString(),
@@ -1530,6 +1555,20 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
               >
                 <Megaphone className="h-4 w-4 mr-1" />
                 Push to Campaign
+              </Button>
+            )}
+
+            {/* Regenerate — only for non-email pages that have been saved */}
+            {!isEmailContent && (contentItemId || currentContentItem?.id) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowRegenerateConfirm(true)}
+                disabled={regenerateMutation.isPending}
+                title={!primaryKeyword ? "Set a primary keyword in Settings first" : "Rebuild this page from scratch using AI"}
+              >
+                <RefreshCw className={`h-4 w-4 mr-1 ${regenerateMutation.isPending ? "animate-spin" : ""}`} />
+                {regenerateMutation.isPending ? "Regenerating…" : "Regenerate"}
               </Button>
             )}
 
@@ -2279,6 +2318,35 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
         contentId={contentItemId || currentContentItem?.id || 0}
         contentTitle={title || currentContentItem?.title || ""}
       />
+
+      {/* Regenerate Confirmation Dialog */}
+      <Dialog open={showRegenerateConfirm} onOpenChange={setShowRegenerateConfirm}>
+        <DialogContent className="max-w-sm w-full" style={{ borderRadius: 0 }}>
+          <DialogHeader>
+            <DialogTitle className="text-sm font-medium flex items-center gap-2">
+              <RefreshCw className="h-4 w-4" />Regenerate this page?
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1 text-sm text-gray-600">
+            <p>This will rebuild the entire page from scratch using the current primary keyword: <span className="font-semibold text-black">{primaryKeyword || currentContentItem?.primaryKeyword}</span>.</p>
+            <p>The title, content, FAQ, and product suggestions will all be replaced. This cannot be undone.</p>
+          </div>
+          <DialogFooter className="pt-2 flex gap-2">
+            <Button variant="outline" size="sm" className="rounded-none" onClick={() => setShowRegenerateConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="rounded-none bg-black hover:bg-gray-800 text-white"
+              onClick={() => regenerateMutation.mutate()}
+              disabled={regenerateMutation.isPending}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${regenerateMutation.isPending ? "animate-spin" : ""}`} />
+              {regenerateMutation.isPending ? "Regenerating…" : "Yes, regenerate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Push to Campaign Dialog */}
       <Dialog open={showCampaignDialog} onOpenChange={setShowCampaignDialog}>

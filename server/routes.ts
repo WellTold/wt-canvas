@@ -4411,6 +4411,148 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
     }
   });
 
+  // ── AI Regenerate (in-place) ─────────────────────────────────────────────────
+  // Rebuilds an existing page fresh using the same ai-quick-create pipeline
+  // but updates the item in-place instead of creating a new one.
+  app.post("/api/pages/:id/regenerate", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const item = await storage.getContentItem(id as any);
+      if (!item) return res.status(404).json({ message: "Content item not found" });
+
+      const primaryKw = item.primaryKeyword;
+      if (!primaryKw) {
+        return res.status(400).json({ message: "This page has no primary keyword set. Add one in Settings before regenerating." });
+      }
+
+      const contentType = (item.contentType || item.type || "blog_article") as string;
+      const siteBaseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
+
+      type ShopifyProductItem = { title: string; handle: string; price: string; imageUrl: string | null; variants?: any[] };
+
+      // Resolve supporting keywords from cluster (same logic as ai-quick-create)
+      const allKws = await storage.getKeywords({});
+      const linkedKw = allKws.find((k) => k.keyword.toLowerCase() === primaryKw.toLowerCase());
+      const cluster = linkedKw?.cluster || null;
+      const clusterSupporting = cluster
+        ? allKws.filter((k) => k.cluster === cluster && k.keyword.toLowerCase() !== primaryKw.toLowerCase() && k.priority === "supporting")
+        : [];
+      const filteredSupporting = clusterSupporting.length > 0
+        ? filterSupportingKeywords(primaryKw, clusterSupporting.map((k) => k.keyword), 8, 10)
+        : item.supportingKeywords
+          ? item.supportingKeywords.split(",").map((s: string) => s.trim()).filter(Boolean)
+          : [];
+      const supportingKeywordsStr = filteredSupporting.length > 0 ? filteredSupporting.join(", ") : undefined;
+
+      // Generate new title
+      let title: string;
+      try {
+        title = await generateTitle(primaryKw, contentType, primaryKw);
+      } catch {
+        title = item.title || `${primaryKw.charAt(0).toUpperCase() + primaryKw.slice(1)}: A Complete Guide`;
+      }
+
+      // Fetch products + brand context in parallel
+      const catalogEntry = matchProductCatalog(title, primaryKw);
+      const shopifyFetch = catalogEntry
+        ? fetchProductsByHandles(catalogEntry.handles).then(items => ({ items })).catch(() => ({ items: [] as ShopifyProductItem[] }))
+        : fetchProductList(8, primaryKw).catch(() => ({ items: [] as ShopifyProductItem[] }));
+
+      const [brandContextRaw, shopifyResult] = await Promise.all([
+        storage.getBrandContext().catch(() => null),
+        shopifyFetch,
+      ]);
+
+      const brandContext = brandContextRaw
+        ? {
+            voice_document: brandContextRaw.voiceDocument || undefined,
+            always_rules: brandContextRaw.alwaysRules || undefined,
+            avoid_rules: brandContextRaw.avoidRules || undefined,
+            words_we_use: brandContextRaw.wordsWeUse || undefined,
+            words_we_avoid: brandContextRaw.wordsWeAvoid || undefined,
+          }
+        : undefined;
+
+      const shopifyProducts = (shopifyResult.items as ShopifyProductItem[]).filter((p) => p.imageUrl);
+      const allProducts = shopifyProducts.length > 0 ? shopifyProducts : (shopifyResult.items as ShopifyProductItem[]);
+
+      let productContext: string | undefined = allProducts.length > 0
+        ? allProducts.map((p) => {
+            const productUrl = `${siteBaseUrl}/products/${p.handle}`;
+            const imageLine = p.imageUrl ? ` — image: ${p.imageUrl}` : "";
+            const variantTitles = (p.variants ?? []).map((v: any) => v.title).filter((t: string) => t && t !== "Default Title");
+            const variantLine = variantTitles.length > 0 ? ` (available in: ${variantTitles.join(", ")})` : "";
+            return `- [${p.title}](${productUrl})${variantLine}${imageLine}`;
+          }).join("\n")
+        : undefined;
+
+      if (catalogEntry) {
+        const supplementary: string[] = [];
+        (catalogEntry.collections ?? []).forEach(c => supplementary.push(`- [${slugToLabel(c)}](${siteBaseUrl}/collections/${c})`));
+        (catalogEntry.pages ?? []).forEach(p => supplementary.push(`- [${slugToLabel(p)}](${siteBaseUrl}/pages/${p})`));
+        if (supplementary.length > 0) productContext = (productContext ? productContext + "\n" : "") + supplementary.join("\n");
+      }
+
+      // Generate markdown + FAQ + CTAs in parallel
+      const [markdown, faqItems, ctaData] = await Promise.all([
+        generateWebPageMarkdownContent({
+          title,
+          type: contentType,
+          primaryKeyword: primaryKw,
+          supportingKeywords: supportingKeywordsStr,
+          articleAngle: linkedKw?.articleAngle || undefined,
+          keywordType: linkedKw?.type || undefined,
+          mood: "conversational",
+          productContext,
+          siteBaseUrl,
+          brandContext,
+        }),
+        generateFAQ(primaryKw, supportingKeywordsStr).catch(() => []),
+        generateCTAs(primaryKw, siteBaseUrl).catch(() => null),
+      ]);
+
+      // Build structured data
+      const now = new Date().toISOString();
+      const structuredData: Record<string, any> = {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        headline: title,
+        datePublished: now,
+        dateModified: now,
+        publisher: { "@type": "Organization", name: "Well Told Design", url: siteBaseUrl },
+        ...(primaryKw ? { keywords: primaryKw + (supportingKeywordsStr ? ", " + supportingKeywordsStr : "") } : {}),
+      };
+      if (faqItems.length > 0) structuredData["_wt_faq"] = faqItems;
+      if (shopifyProducts.length > 0) {
+        structuredData["_wt_products"] = shopifyProducts.slice(0, 4).map((p) => ({
+          title: p.title, handle: p.handle, imageUrl: p.imageUrl, price: p.price,
+          url: `${siteBaseUrl}/products/${p.handle}`,
+        }));
+      }
+      if (ctaData) structuredData["_wt_cta"] = ctaData;
+
+      // Build new slug from new title (preserve existing slug if type won't change)
+      const baseSlug = title.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 80);
+      const newSlug = item.slug && item.slug !== "" ? item.slug : await storage.generateUniqueSlug(baseSlug, contentType);
+
+      // Update the existing item in-place
+      await storage.updateContentItem(id as any, {
+        title,
+        slug: newSlug,
+        markdownContent: markdown.trimEnd(),
+        primaryKeyword: primaryKw,
+        supportingKeywords: supportingKeywordsStr || null,
+        structuredData: Object.keys(structuredData).length > 0 ? structuredData : null,
+      } as any);
+
+      console.log(`[regenerate] Rebuilt page ${id} — "${title}" (${contentType})`);
+      res.json({ id, title, keyword: primaryKw, type: contentType });
+    } catch (error) {
+      console.error("Regenerate error:", error);
+      res.status(500).json({ message: "Failed to regenerate page: " + (error as Error).message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
