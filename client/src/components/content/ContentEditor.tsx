@@ -150,11 +150,12 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   };
 
   const addBlockFromPreset = (preset: any) => {
+    const nextOrder = localBlocks.length === 0 ? 0 : Math.max(...localBlocks.map((b: any) => b.order ?? 0)) + 1;
     const newBlock = {
       id: Date.now().toString(),
       type: preset.blockType,
       content: { ...(preset.content || {}) },
-      order: localBlocks.length,
+      order: nextOrder,
     };
     setLocalBlocks([...localBlocks, newBlock]);
     setHasUnsavedChanges(true);
@@ -901,11 +902,12 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   });
 
   const addBlockWithContent = (type: string, initialContent: Record<string, any>) => {
+    const nextOrder = localBlocks.length === 0 ? 0 : Math.max(...localBlocks.map((b: any) => b.order ?? 0)) + 1;
     const newBlock = {
       id: Date.now().toString(),
       type,
       content: initialContent,
-      order: localBlocks.length
+      order: nextOrder
     };
     setLocalBlocks([...localBlocks, newBlock]);
     setHasUnsavedChanges(true);
@@ -955,11 +957,12 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       // HTML Block (admin/developer only)
       html_block:                { html: "" },
     };
+    const nextOrder = localBlocks.length === 0 ? 0 : Math.max(...localBlocks.map((b: any) => b.order ?? 0)) + 1;
     const newBlock = {
       id: Date.now().toString(),
       type,
       content: defaultContent[type] ?? { text: "" },
-      order: localBlocks.length
+      order: nextOrder
     };
     setLocalBlocks([...localBlocks, newBlock]);
     setHasUnsavedChanges(true);
@@ -990,11 +993,11 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
     if (direction === 'up' && idx === 0) return;
     if (direction === 'down' && idx === sorted.length - 1) return;
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-    const newBlocks = sorted.map((b: any, i: number) => {
-      if (i === idx) return { ...b, order: sorted[swapIdx].order };
-      if (i === swapIdx) return { ...b, order: sorted[idx].order };
-      return b;
-    });
+    // Swap positions in the array, then re-stamp clean sequential orders.
+    // This avoids bugs caused by duplicate or non-sequential order values.
+    const reordered = [...sorted];
+    [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
+    const newBlocks = reordered.map((b: any, i: number) => ({ ...b, order: i }));
     setLocalBlocks(newBlocks);
     setHasUnsavedChanges(true);
   };
