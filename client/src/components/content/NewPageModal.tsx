@@ -26,6 +26,8 @@ import {
   ChevronRight,
   Loader2,
   Sparkles,
+  PenLine,
+  LayoutGrid,
 } from "lucide-react";
 
 interface Template {
@@ -66,7 +68,7 @@ const TYPE_CONFIG: Record<string, { label: string; icon: typeof FileText; color:
   lead_magnet: { label: "Lead Magnet", icon: Magnet, color: "bg-yellow-50 border-yellow-200 text-yellow-700" },
 };
 
-type StartMode = "choose" | "keyword" | "template" | "topic";
+type StartMode = "choose" | "keyword" | "topic" | "blank" | "markdown";
 
 interface NewPageModalProps {
   open: boolean;
@@ -89,6 +91,8 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
   const [prelaunchTemplate, setPrelaunchTemplate] = useState<Template | null>(null);
   const [prelaunchKeywordId, setPrelaunchKeywordId] = useState<number | null>(null);
   const [isQuickCreating, setIsQuickCreating] = useState(false);
+  const [selectedContentType, setSelectedContentType] = useState<string>("blog_article");
+  const [isCreatingBlank, setIsCreatingBlank] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const { data: allTemplates = [], isLoading: templatesLoading } = useQuery<Template[]>({
@@ -136,6 +140,8 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
       setPrelaunchTemplate(null);
       setPrelaunchKeywordId(null);
       setIsQuickCreating(false);
+      setSelectedContentType("blog_article");
+      setIsCreatingBlank(false);
     }
   }, [open]);
 
@@ -186,12 +192,38 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
     handleGetRecommendation({ topic: topicText.trim() });
   };
 
+  const handleCreateBlank = async (isMarkdown: boolean) => {
+    setIsCreatingBlank(true);
+    try {
+      const body: any = {
+        title: "Untitled",
+        type: selectedContentType,
+        status: "idea",
+      };
+      if (isMarkdown) {
+        body.markdownContent = "";
+      } else {
+        body.content = [];
+      }
+      const response = await apiRequest("POST", "/api/content-items", body);
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ message: "Unknown error" }));
+        throw new Error(err.message || "Failed to create page");
+      }
+      const item = await response.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/content"] });
+      onClose();
+      setLocation(`/pages/builder/${item.id}`);
+    } catch (err: any) {
+      toast({ title: "Could not create page", description: err.message, variant: "destructive" });
+    } finally {
+      setIsCreatingBlank(false);
+    }
+  };
+
   const openPrelaunch = (template: Template, kwId?: number | null) => {
     setPrelaunchTemplate(template);
     setPrelaunchKeywordId(kwId ?? null);
-    // Do NOT call onClose() here — that would trigger the reset useEffect and
-    // clear prelaunchTemplate before PreLaunchModal has a chance to render.
-    // The NewPageModal Dialog is hidden via open={open && !prelaunchTemplate}.
   };
 
   const handlePrelaunchLaunch = async (params: any) => {
@@ -219,7 +251,6 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
         ? `/pages/builder?templateId=${templateId}&type=${templateType}&keywordId=${kwId}`
         : `/pages/builder?templateId=${templateId}&type=${templateType}`;
 
-      // Close the parent modal before navigating so state is fully torn down
       onClose();
       setLocation(builderUrl);
 
@@ -233,64 +264,108 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
     ? keywords.filter((k) => k.keyword.toLowerCase().includes(keywordSearch.toLowerCase()))
     : keywords;
 
+  const renderTypeSelector = () => (
+    <div className="space-y-2">
+      <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Content type</Label>
+      <div className="grid grid-cols-3 gap-2">
+        {Object.entries(TYPE_CONFIG).map(([key, cfg]) => {
+          const Icon = cfg.icon;
+          const isSelected = selectedContentType === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setSelectedContentType(key)}
+              className={`flex flex-col items-center gap-1.5 p-3 border-2 text-center transition-all ${
+                isSelected
+                  ? "border-black bg-white shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
+                  : "border-gray-200 bg-white hover:border-gray-400"
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              <span className="text-xs font-medium leading-tight">{cfg.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   const renderChooseStep = () => (
-    <div className="space-y-4">
-      <div>
-        <p className="text-sm text-gray-500 mb-4">Choose how you want to start creating this page.</p>
-        <div className="grid grid-cols-1 gap-3">
-          <button
-            className="flex items-start gap-3 p-4 border-2 border-black bg-white hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all text-left disabled:opacity-60 disabled:cursor-not-allowed"
-            onClick={handleAiPickForMe}
-            disabled={isQuickCreating}
-          >
-            {isQuickCreating
-              ? <Loader2 className="h-5 w-5 mt-0.5 shrink-0 animate-spin" />
-              : <Sparkles className="h-5 w-5 mt-0.5 shrink-0" />
-            }
-            <div>
-              <div className="font-bold text-sm">AI Pick for Me</div>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {isQuickCreating
-                  ? "AI is writing your page… this takes about 20 seconds."
-                  : "AI picks the next best keyword, writes the full page, and drops you straight into the editor."
-                }
-              </p>
-            </div>
-          </button>
+    <div className="space-y-3">
+      <p className="text-sm text-gray-500">Choose how you want to start creating this page.</p>
 
-          <button
-            className="flex items-start gap-3 p-4 border-2 border-dashed border-gray-300 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all text-left"
-            onClick={() => setMode("keyword")}
-          >
-            <Keyboard className="h-5 w-5 mt-0.5 shrink-0 text-gray-500" />
-            <div>
-              <div className="font-bold text-sm">Keyword-first</div>
-              <p className="text-xs text-gray-500 mt-0.5">Pick a keyword from your library. AI recommends a template and generates a title.</p>
-            </div>
-          </button>
+      <div className="space-y-2">
+        <button
+          className="w-full flex items-start gap-3 p-4 border-2 border-black bg-white hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all text-left disabled:opacity-60 disabled:cursor-not-allowed"
+          onClick={handleAiPickForMe}
+          disabled={isQuickCreating}
+        >
+          {isQuickCreating
+            ? <Loader2 className="h-5 w-5 mt-0.5 shrink-0 animate-spin" />
+            : <Sparkles className="h-5 w-5 mt-0.5 shrink-0" />
+          }
+          <div>
+            <div className="font-bold text-sm">AI Pick for Me</div>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {isQuickCreating
+                ? "AI is writing your page… this takes about 20 seconds."
+                : "AI picks the next best keyword, writes the full page, and drops you straight into the editor."
+              }
+            </p>
+          </div>
+        </button>
 
-          <button
-            className="flex items-start gap-3 p-4 border-2 border-dashed border-gray-300 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all text-left"
-            onClick={() => setMode("template")}
-          >
-            <Layers className="h-5 w-5 mt-0.5 shrink-0 text-gray-500" />
-            <div>
-              <div className="font-bold text-sm">Template-first</div>
-              <p className="text-xs text-gray-500 mt-0.5">Browse and pick a template, then optionally attach a keyword.</p>
-            </div>
-          </button>
+        <button
+          className="w-full flex items-start gap-3 p-4 border-2 border-dashed border-gray-300 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all text-left"
+          onClick={() => setMode("keyword")}
+        >
+          <Keyboard className="h-5 w-5 mt-0.5 shrink-0 text-gray-500" />
+          <div>
+            <div className="font-bold text-sm">Keyword First</div>
+            <p className="text-xs text-gray-500 mt-0.5">Pick a keyword from your library. AI picks the template, type, and title.</p>
+          </div>
+        </button>
 
-          <button
-            className="flex items-start gap-3 p-4 border-2 border-dashed border-gray-300 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all text-left"
-            onClick={() => setMode("topic")}
-          >
-            <MessageSquare className="h-5 w-5 mt-0.5 shrink-0 text-gray-500" />
-            <div>
-              <div className="font-bold text-sm">Topic-first</div>
-              <p className="text-xs text-gray-500 mt-0.5">Just type a topic or description. AI recommends a keyword and template.</p>
-            </div>
-          </button>
-        </div>
+        <button
+          className="w-full flex items-start gap-3 p-4 border-2 border-dashed border-gray-300 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all text-left"
+          onClick={() => setMode("topic")}
+        >
+          <MessageSquare className="h-5 w-5 mt-0.5 shrink-0 text-gray-500" />
+          <div>
+            <div className="font-bold text-sm">Topic / Title</div>
+            <p className="text-xs text-gray-500 mt-0.5">Type a topic or working title. AI picks the keyword, template, and type.</p>
+          </div>
+        </button>
+      </div>
+
+      <div className="relative flex items-center gap-3 py-1">
+        <div className="flex-1 border-t border-gray-200" />
+        <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Manual Templates</span>
+        <div className="flex-1 border-t border-gray-200" />
+      </div>
+
+      <div className="space-y-2">
+        <button
+          className="w-full flex items-start gap-3 p-4 border-2 border-dashed border-gray-300 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all text-left"
+          onClick={() => setMode("markdown")}
+        >
+          <PenLine className="h-5 w-5 mt-0.5 shrink-0 text-gray-500" />
+          <div>
+            <div className="font-bold text-sm">Markdown Template</div>
+            <p className="text-xs text-gray-500 mt-0.5">Start with an empty markdown editor. Write and format content directly.</p>
+          </div>
+        </button>
+
+        <button
+          className="w-full flex items-start gap-3 p-4 border-2 border-dashed border-gray-300 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all text-left"
+          onClick={() => setMode("blank")}
+        >
+          <LayoutGrid className="h-5 w-5 mt-0.5 shrink-0 text-gray-500" />
+          <div>
+            <div className="font-bold text-sm">Blank Blocks</div>
+            <p className="text-xs text-gray-500 mt-0.5">Start from scratch with an empty block canvas. No AI, no template.</p>
+          </div>
+        </button>
       </div>
     </div>
   );
@@ -420,7 +495,7 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
         <div className="flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-300 text-amber-800 text-xs">
           <span className="mt-0.5">⚠</span>
           <span>
-            <strong>{selectedKeyword.keyword}</strong> is marked as a <strong>supporting</strong> keyword. For best results, consider choosing a primary keyword to anchor your page. Supporting keywords work better as additional context.
+            <strong>{selectedKeyword.keyword}</strong> is marked as a <strong>supporting</strong> keyword. For best results, consider choosing a primary keyword to anchor your page.
           </span>
         </div>
       )}
@@ -444,7 +519,7 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
     <div className="space-y-4">
       <div>
         <Label className="text-sm font-bold uppercase tracking-wider mb-2 block">
-          What's the topic or page idea?
+          What's the topic or working title?
         </Label>
         <div className="flex gap-2">
           <Input
@@ -484,31 +559,46 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
     </div>
   );
 
-  const renderTemplateStep = () => (
-    <div className="space-y-4">
-      <p className="text-sm text-gray-500">Select a template to get started. You can attach a keyword after.</p>
-      <TemplateGrid
-        templates={allTemplates}
-        onSelect={(t) => openPrelaunch(t, null)}
-        isLoading={templatesLoading}
-      />
+  const renderManualStep = (isMarkdown: boolean) => (
+    <div className="space-y-6">
+      <p className="text-sm text-gray-500">
+        {isMarkdown
+          ? "Start with an empty markdown editor. Choose a content type to continue."
+          : "Start from scratch with no blocks and no AI. Choose a content type to continue."
+        }
+      </p>
+
+      {renderTypeSelector()}
+
+      <Button
+        className="w-full rounded-none bg-black hover:bg-gray-800 text-white"
+        onClick={() => handleCreateBlank(isMarkdown)}
+        disabled={isCreatingBlank}
+      >
+        {isCreatingBlank
+          ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Creating...</>
+          : `Create ${isMarkdown ? "Markdown" : "Blank"} Page`
+        }
+      </Button>
     </div>
   );
 
   const renderStep = () => {
     switch (mode) {
       case "keyword": return renderKeywordStep();
-      case "template": return renderTemplateStep();
       case "topic": return renderTopicStep();
+      case "markdown": return renderManualStep(true);
+      case "blank": return renderManualStep(false);
       default: return renderChooseStep();
     }
   };
 
   const stepTitle: Record<StartMode, string> = {
     choose: "New Page",
-    keyword: "Keyword-first",
-    template: "Template-first",
-    topic: "Topic-first",
+    keyword: "Keyword First",
+    topic: "Topic / Title",
+    markdown: "Markdown Template",
+    blank: "Blank Blocks",
   };
 
   return (
@@ -526,6 +616,7 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
                     setSelectedKeyword(null);
                     setKeywordSearch("");
                     setTopicText("");
+                    setSelectedContentType("blog_article");
                   }}
                 >
                   ← Back
