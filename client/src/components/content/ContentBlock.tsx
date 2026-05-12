@@ -1995,6 +1995,107 @@ export function ContentBlock({
           </div>
         );
 
+      case 'image_text':
+        return (
+          <div className="space-y-4">
+            {/* Mini preview */}
+            <div style={{ display: "flex", border: "1px solid #e2e8f0", overflow: "hidden" }}>
+              {safeContent?.layout !== "image_right" && (
+                <div style={{ width: "50%", aspectRatio: "1/1", background: safeContent?.imageUrl ? `url(${safeContent.imageUrl}) center/cover` : "#f0ebe7", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {!safeContent?.imageUrl && <span style={{ fontSize: 11, color: "#aaa" }}>No image</span>}
+                </div>
+              )}
+              <div style={{ width: "50%", aspectRatio: "1/1", background: safeContent?.textBgColor || "#ffffff", padding: "16px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                {safeContent?.heading && <p style={{ margin: "0 0 6px", fontWeight: 700, fontSize: 12, color: safeContent?.textColor || "#333333", textAlign: safeContent?.textAlign || "left" }}>{safeContent.heading}</p>}
+                {safeContent?.body && <p style={{ margin: 0, fontSize: 11, lineHeight: 1.5, color: safeContent?.textColor || "#333333", textAlign: safeContent?.textAlign || "left" }}>{safeContent.body}</p>}
+                {safeContent?.ctaText && <p style={{ margin: "8px 0 0", fontSize: 11, textDecoration: "underline", color: safeContent?.textColor || "#333333", textAlign: safeContent?.textAlign || "left" }}>{safeContent.ctaText}</p>}
+              </div>
+              {safeContent?.layout === "image_right" && (
+                <div style={{ width: "50%", aspectRatio: "1/1", background: safeContent?.imageUrl ? `url(${safeContent.imageUrl}) center/cover` : "#f0ebe7", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {!safeContent?.imageUrl && <span style={{ fontSize: 11, color: "#aaa" }}>No image</span>}
+                </div>
+              )}
+            </div>
+
+            {/* Fields */}
+            <div>
+              <Label className="text-xs">Layout</Label>
+              <Select value={safeContent?.layout || "image_left"} onValueChange={(v) => onUpdate({ ...safeContent, layout: v })}>
+                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="image_left">Image left, text right</SelectItem>
+                  <SelectItem value="image_right">Text left, image right</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs">Image URL</Label>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  value={safeContent?.imageUrl || ""}
+                  onChange={(e) => onUpdate({ ...safeContent, imageUrl: e.target.value })}
+                  placeholder="https://res.cloudinary.com/…"
+                  className="text-sm flex-1"
+                />
+                <Button variant="outline" size="sm" onClick={() => setImagePickerTarget("imageUrl")}>Browse</Button>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Image alt text</Label>
+              <Input value={safeContent?.imageAlt || ""} onChange={(e) => onUpdate({ ...safeContent, imageAlt: e.target.value })} placeholder="Descriptive alt text" className="mt-1 text-sm" />
+            </div>
+
+            <div>
+              <Label className="text-xs">Heading (optional)</Label>
+              <Input value={safeContent?.heading || ""} onChange={(e) => onUpdate({ ...safeContent, heading: e.target.value })} placeholder="Custom engraved premium glassware…" className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Body text</Label>
+              <Textarea value={safeContent?.body || ""} onChange={(e) => onUpdate({ ...safeContent, body: e.target.value })} placeholder="Enter your paragraph text…" className="mt-1 text-sm" rows={4} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">CTA text (optional)</Label>
+                <Input value={safeContent?.ctaText || ""} onChange={(e) => onUpdate({ ...safeContent, ctaText: e.target.value })} placeholder="Shop now" className="mt-1 text-sm" />
+              </div>
+              <div>
+                <Label className="text-xs">CTA link</Label>
+                <Input value={safeContent?.ctaLink || ""} onChange={(e) => onUpdate({ ...safeContent, ctaLink: e.target.value })} placeholder="https://…" className="mt-1 text-sm" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">Text align</Label>
+                <Select value={safeContent?.textAlign || "left"} onValueChange={(v) => onUpdate({ ...safeContent, textAlign: v })}>
+                  <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="left">Left</SelectItem>
+                    <SelectItem value="center">Center</SelectItem>
+                    <SelectItem value="right">Right</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Text colour</Label>
+                <div className="flex gap-1 mt-1 items-center">
+                  <input type="color" value={safeContent?.textColor || "#333333"} onChange={(e) => onUpdate({ ...safeContent, textColor: e.target.value })} className="h-8 w-8 cursor-pointer rounded border" />
+                  <Input value={safeContent?.textColor || "#333333"} onChange={(e) => onUpdate({ ...safeContent, textColor: e.target.value })} placeholder="#333333" className="text-xs h-8 flex-1" />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Text panel bg</Label>
+                <div className="flex gap-1 mt-1 items-center">
+                  <input type="color" value={safeContent?.textBgColor || "#ffffff"} onChange={(e) => onUpdate({ ...safeContent, textBgColor: e.target.value })} className="h-8 w-8 cursor-pointer rounded border" />
+                  <Input value={safeContent?.textBgColor || "#ffffff"} onChange={(e) => onUpdate({ ...safeContent, textBgColor: e.target.value })} placeholder="#ffffff" className="text-xs h-8 flex-1" />
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
       case 'ugc_review':
         return (
           <div className="space-y-4">

@@ -773,6 +773,39 @@ function renderPromoCode(c: any, bg?: BlockBg): string {
   );
 }
 
+function renderImageText(c: any, bg?: BlockBg): string {
+  const layout    = c.layout    || "image_left";
+  const imageUrl  = c.imageUrl  || "";
+  const imageAlt  = c.imageAlt  || "";
+  const heading   = c.heading   || "";
+  const body      = c.body      || "";
+  const textAlign = c.textAlign || "left";
+  const textColor = c.textColor || "#333333";
+  const textBg    = c.textBgColor || "#ffffff";
+  const ctaText   = c.ctaText   || "";
+  const ctaLink   = c.ctaLink   || "#";
+
+  const headingHtml = heading
+    ? `<p style="margin:0 0 10px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:18px;font-weight:700;line-height:1.3;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(heading)}</p>`
+    : "";
+  const bodyHtml = body
+    ? `<p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;line-height:1.65;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(body)}</p>`
+    : "";
+  const ctaHtml = ctaText
+    ? `<p style="margin:18px 0 0;text-align:${esc(textAlign)};"><a href="${esc(ctaLink)}" style="font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-weight:600;color:${esc(textColor)};text-decoration:underline;">${esc(ctaText)}</a></p>`
+    : "";
+
+  const imageCell = imageUrl
+    ? `<td width="300" valign="top" style="padding:0;"><img src="${esc(imageUrl)}" width="300" height="300" alt="${esc(imageAlt)}" style="display:block;width:300px;height:300px;object-fit:cover;border:0;" /></td>`
+    : `<td width="300" valign="top" style="padding:0;background-color:#f0ebe7;width:300px;height:300px;"></td>`;
+
+  const textCell = `<td width="300" valign="middle" style="padding:32px 28px;background-color:${esc(textBg)};vertical-align:middle;">${headingHtml}${bodyHtml}${ctaHtml}</td>`;
+
+  const cols  = layout === "image_right" ? `${textCell}${imageCell}` : `${imageCell}${textCell}`;
+  const inner = `<table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${cols}</tr></table>`;
+  return row(inner, textBg, "0", bg);
+}
+
 function renderUgcReview(c: any, bg?: BlockBg): string {
   const bgColor   = c.backgroundColor || "#e8643a";
   const textColor = c.textColor       || "#ffffff";
@@ -1058,6 +1091,7 @@ export function renderBlockToEmailHtml(
     case "promo_code":        return renderPromoCode(c, bg);
     case "review":            return renderReview(c, bg);
     case "ugc_review":        return renderUgcReview(c, bg);
+    case "image_text":        return renderImageText(c, bg);
     case "gif_image":         return renderGifImage(c, bg);
     case "countdown_timer":   return renderCountdownTimer(c, bg);
     case "progress_loyalty":  return renderProgressLoyalty(c, bg);
