@@ -928,11 +928,6 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
       "sameAs": ["https://www.instagram.com/welltolddesign", "https://www.pinterest.com/welltolddesign"],
     };
 
-    // Brand context paragraph (below H1, for LLM extraction)
-    const brandContextHtml = `<div class="wt-brand-context" aria-label="About Well Told Design">
-  <p><strong>Well Told Design</strong> is a Boston-based gift brand specialising in story-driven objects — glassware, drinkware, and textiles engraved with maps, constellations, and topographic designs. Every piece is personalised to a specific place, date, or memory.</p>
-</div>`;
-
     // Inline CTA (Type A) — injected after the 2nd H2 in the article body
     const inlineCtaHtml = wtCta?.inline ? `
 <div class="wt-cta-inline">
@@ -986,15 +981,7 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
       if (faqHeadingIdx !== -1) markdownForRender = markdownForRender.slice(0, faqHeadingIdx);
     }
 
-    // Insert brand context paragraph after the first H1 tag in rendered body
     let body = markdownToHtmlSafe(markdownForRender);
-    const h1Match = body.match(/<h1>[^<]*<\/h1>/);
-    if (h1Match) {
-      const h1End = body.indexOf(h1Match[0]) + h1Match[0].length;
-      body = body.slice(0, h1End) + '\n' + brandContextHtml + body.slice(h1End);
-    } else {
-      body = brandContextHtml + '\n' + body;
-    }
 
     // Inject inline CTA after the 2nd <h2> in the article body (mid-article placement)
     if (inlineCtaHtml) {
