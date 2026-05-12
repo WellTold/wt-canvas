@@ -633,10 +633,18 @@ a { color: inherit; }
 
 /* Headings */
 .wt-heading { font-family: var(--wt-font-sans); font-weight: 700; line-height: 1.2; margin: 2.5rem 0 1rem; color: var(--wt-color-text); }
-.wt-h1 { font-size: 2.5rem; margin-top: 0; }
-.wt-h2 { font-size: 1.75rem; }
-.wt-h3 { font-size: 1.35rem; }
+.wt-h1 { font-size: 2.5rem; margin-top: 0; text-transform: uppercase; text-align: center; letter-spacing: 0.02em; }
+.wt-h2 { font-size: 1.75rem; text-transform: uppercase; letter-spacing: 0.02em; }
+.wt-h3 { font-size: 1.35rem; text-transform: uppercase; letter-spacing: 0.01em; }
 .wt-h4 { font-size: 1.1rem; }
+
+/* Article headings — bare tags from markdown renderer (no class) */
+.wt-content h1 { font-size: 2.5rem; font-weight: 700; line-height: 1.2; margin: 0 0 1rem; text-transform: uppercase; text-align: center; letter-spacing: 0.02em; word-wrap: break-word; overflow-wrap: break-word; }
+.wt-content h2 { font-size: 1.75rem; font-weight: 700; line-height: 1.2; margin: 2rem 0 0.75rem; text-transform: uppercase; letter-spacing: 0.02em; word-wrap: break-word; overflow-wrap: break-word; }
+.wt-content h3 { font-size: 1.35rem; font-weight: 700; line-height: 1.3; margin: 1.5rem 0 0.5rem; text-transform: uppercase; letter-spacing: 0.01em; word-wrap: break-word; overflow-wrap: break-word; }
+
+/* Responsive images inside article content */
+.wt-content img { max-width: 100%; width: 100%; height: auto; display: block; margin: 2rem auto; }
 
 /* Paragraph */
 .wt-paragraph { margin: 0 0 1.5rem; }
@@ -765,7 +773,7 @@ a { color: inherit; }
 /* Product Card */
 .wt-shopify-card { display: flex; flex-direction: column; margin: 2.5rem 0; border: 1px solid var(--wt-color-border); }
 .wt-shopify-card-img-link { display: block; overflow: hidden; }
-.wt-shopify-card-img { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; border-bottom: 1px solid var(--wt-color-border); }
+.wt-shopify-card-img { width: 100%; max-width: 100%; height: auto; display: block; border-bottom: 1px solid var(--wt-color-border); }
 .wt-shopify-card-body { padding: 1.5rem; flex: 1; display: flex; flex-direction: column; gap: 0.75rem; }
 .wt-shopify-card-title { font-size: 1.25rem; font-weight: 700; margin: 0; }
 .wt-shopify-card-desc { font-size: 0.9rem; color: var(--wt-color-muted); margin: 0; line-height: 1.5; }
@@ -903,11 +911,17 @@ a { color: inherit; }
   body { font-size: 17px; }
   .wt-h1 { font-size: 2rem; }
   .wt-h2 { font-size: 1.5rem; }
+  .wt-h3 { font-size: 1.2rem; }
+  .wt-content h1 { font-size: 2rem; }
+  .wt-content h2 { font-size: 1.5rem; }
+  .wt-content h3 { font-size: 1.2rem; }
+  .wt-content img { max-width: 100%; width: 100%; height: auto; }
   .wt-hero-headline { font-size: 2rem; }
   .wt-two-col { grid-template-columns: 1fr; }
   .wt-icon-row--3, .wt-icon-row--4 { grid-template-columns: 1fr; }
   .wt-author { flex-direction: column; }
   .wt-shopify-grid { grid-template-columns: repeat(2, 1fr); }
+  .wt-shopify-card-img { width: 100%; height: auto; }
   .wt-nav { flex-wrap: wrap; gap: 1rem; }
   .wt-nav__links { gap: 1rem; }
 }
