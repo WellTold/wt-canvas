@@ -696,13 +696,13 @@ ${productContext}
 Standard Well Told collection links you may also use where natural:
 - [Map Glassware](${siteBaseUrl}/collections/map-glasses)
 - [Constellation Glassware](${siteBaseUrl}/collections/constellation-glasses)
-- [All Gifts](${siteBaseUrl}/collections/all)`
+- [Topographic Drinkware](${siteBaseUrl}/collections/topographic-drinkware)`
       : `[5. PRODUCT CONTEXT BLOCK]
 No specific product data available. Draw all product references from the Well Told product universe described in Block 1. Do not invent product names or URLs. Where you would link to a product, link to a relevant collection instead using these standard URLs:
 - [Map Glassware](${siteBaseUrl}/collections/map-glasses)
 - [Constellation Glassware](${siteBaseUrl}/collections/constellation-glasses)
 - [Topographic Drinkware](${siteBaseUrl}/collections/topographic-drinkware)
-- [All Gifts](${siteBaseUrl}/collections/all)
+- [Anniversary Gifts](${siteBaseUrl}/collections/anniversary-gifts)
 
 Use Markdown hyperlink syntax: [link text](url). Do not bold product names that should be links.`,
 
@@ -1009,24 +1009,24 @@ export async function generateCTAs(primaryKeyword: string, siteBaseUrl: string):
 
 Write two CTAs for this article:
 
-CTA 1 (inline, mid-article): One sentence (max 20 words, lead with a specific image or memory) + one button label (max 8 words). Pick a relevant collection URL from: /collections/gifts-for-hikers, /collections/anniversary-gifts, /collections/gifts-for-mom, /collections/wine-glasses, /collections/city-maps, /collections/all.
+CTA 1 (inline, mid-article): One sentence (max 20 words, lead with a specific image or memory) + one button label (max 8 words). Pick the single most relevant collection URL from: /collections/gifts-for-hikers, /collections/anniversary-gifts, /collections/gifts-for-mom, /collections/wine-glasses, /collections/city-maps, /collections/map-glasses, /collections/constellation-glasses, /collections/topographic-drinkware.
 
-CTA 2 (bottom section): One headline (max 8 words) + one supporting sentence (max 25 words) + one primary button label (max 6 words) + one secondary link label (max 6 words).
+CTA 2 (bottom section): One headline (max 8 words) + one supporting sentence (max 25 words) + one primary button label (max 6 words) + one secondary link label (max 6 words). Pick specific, relevant collection URLs — never use /collections/all.
 
 Return JSON in this exact shape (fill in all fields):
 {
   "inline": {
     "body": "...",
     "buttonText": "...",
-    "url": "${siteBaseUrl}/collections/all"
+    "url": "${siteBaseUrl}/collections/anniversary-gifts"
   },
   "bottom": {
     "headline": "...",
     "body": "...",
     "primaryButtonText": "...",
-    "primaryUrl": "${siteBaseUrl}/collections/all",
-    "secondaryText": "View All Collections",
-    "secondaryUrl": "${siteBaseUrl}/a/articles"
+    "primaryUrl": "${siteBaseUrl}/collections/map-glasses",
+    "secondaryText": "Explore More Gifts",
+    "secondaryUrl": "${siteBaseUrl}/collections/constellation-glasses"
   }
 }`,
       }],
