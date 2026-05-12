@@ -715,16 +715,25 @@ Use Markdown hyperlink syntax: [link text](url). Do not bold product names that 
 - Do not write bullet-point product descriptions — use prose
 - Do end with exactly one CTA — not multiple competing calls to action
 - Do write in second person ("you", "your") for gift guides
-- HYPERLINKS: When referencing any Well Told product or collection, always use Markdown link syntax [text](url). Never bold a product name that should be a link. Every product mention should be a clickable hyperlink.`,
+- HYPERLINKS: When referencing any Well Told product or collection, always use Markdown link syntax [text](url). Never bold a product name that should be a link. Every product mention should be a clickable hyperlink.
+- AMERICAN ENGLISH ONLY: Use American spellings throughout — "specializing" not "specialising", "personalized" not "personalised", "recognizing" not "recognising", etc. The audience is US-based.
+
+ARTICLE STRUCTURE — CRITICAL:
+- NEVER open with a brand description or company bio paragraph. Do NOT write "Well Told Design is a [city]-based brand..." or any sentence that introduces the company at the top. This interrupts reader momentum and hurts SEO by placing off-topic content before the article body.
+- The article must open immediately with story, hook, or content that serves the reader's search intent. The person landing from search is in discovery or buying mode — earn their attention before mentioning the brand.
+- If brand context belongs anywhere, place a brief 2-sentence brand note AFTER the final CTA at the very end of the article, as a closing trust signal. Keep it factual and American English. Omit city/location references (do not say "Boston-based" or name a specific city).`,
 
     // Block 7: SEO Rules
     `[7. SEO RULES BLOCK]
+These articles are written for SEO. Follow SEO best practices for search-intent-matched content:
+- Match reader intent: someone arriving from search is looking for answers, recommendations, or inspiration — serve that need immediately in the opening paragraph
 - Include the primary keyword in: H1 and within the first 100 words of body copy
 - Include each supporting keyword at least once naturally in the body — spread them across different sections
 - NEVER write supporting keywords as a series or list in the same sentence or paragraph (e.g., do NOT write "whether you're looking for X, Y, or Z" or "gifts for mom for Christmas, Mother's Day, birthdays..."). Each keyword belongs in its own sentence, in a different section
 - Do not stuff keywords — if it doesn't read naturally, cut it
 - H1 should match or closely paraphrase the article title
 - Use ## for H2 section headers — each should naturally include a supporting keyword where possible
+- Keep the opening paragraph tightly relevant to the search query — Google uses it to confirm topical match
 - Return a single complete Markdown document starting with the # H1 title
 - Use standard Markdown: **bold**, *italic*, [hyperlinks](url), bullet lists, numbered lists, blockquotes (>)
 - Do NOT include JSON, code fences, or any non-Markdown formatting

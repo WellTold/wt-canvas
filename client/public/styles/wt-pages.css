@@ -34,12 +34,14 @@ body {
 /* Headings */
 .wt-heading { font-family: var(--wt-font-sans); font-weight: 700; line-height: 1.2; margin: 2.5rem 0 1rem; color: var(--wt-color-text); word-wrap: break-word; overflow-wrap: break-word; }
 .wt-h1 { font-size: 2.5rem; margin-top: 0; text-transform: uppercase; text-align: center; letter-spacing: 0.02em; }
-.wt-h2 { font-size: 1.75rem; }
-.wt-h3 { font-size: 1.35rem; }
+.wt-h2 { font-size: 1.75rem; text-transform: uppercase; letter-spacing: 0.02em; }
+.wt-h3 { font-size: 1.35rem; text-transform: uppercase; letter-spacing: 0.01em; }
 .wt-h4 { font-size: 1.1rem; }
 
-/* Article H1 (worker-rendered markdown — no class, bare <h1> inside .wt-content) */
+/* Article headings (worker-rendered markdown — no class, bare tags inside .wt-content) */
 .wt-content h1 { font-size: 2.5rem; font-weight: 700; line-height: 1.2; margin: 0 0 1rem; text-transform: uppercase; text-align: center; letter-spacing: 0.02em; word-wrap: break-word; overflow-wrap: break-word; }
+.wt-content h2 { font-size: 1.75rem; font-weight: 700; line-height: 1.2; margin: 2rem 0 0.75rem; text-transform: uppercase; letter-spacing: 0.02em; word-wrap: break-word; overflow-wrap: break-word; }
+.wt-content h3 { font-size: 1.35rem; font-weight: 700; line-height: 1.3; margin: 1.5rem 0 0.5rem; text-transform: uppercase; letter-spacing: 0.01em; word-wrap: break-word; overflow-wrap: break-word; }
 
 /* Paragraph */
 .wt-paragraph { margin: 0 0 1.5rem; word-wrap: break-word; overflow-wrap: break-word; }
