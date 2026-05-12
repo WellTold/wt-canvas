@@ -1477,7 +1477,9 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
             .map((p) => {
               const productUrl = `${siteBaseUrl}/products/${p.handle}`;
               const imageLine = p.imageUrl ? ` — image: ${p.imageUrl}` : "";
-              return `- [${p.title}](${productUrl})${imageLine}`;
+              const variantTitles = (p.variants ?? []).map((v: any) => v.title).filter((t: string) => t && t !== "Default Title");
+              const variantLine = variantTitles.length > 0 ? ` (available in: ${variantTitles.join(", ")})` : "";
+              return `- [${p.title}](${productUrl})${variantLine}${imageLine}`;
             })
             .join("\n");
         }
@@ -3859,7 +3861,9 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           productContext = productsForContext
             .map((p) => {
               const imageLine = p.imageUrl ? ` — image: ${p.imageUrl}` : "";
-              return `- [${p.title}](${siteBaseUrl}/products/${p.handle})${imageLine}`;
+              const variantTitles = (p.variants ?? []).map((v: any) => v.title).filter((t: string) => t && t !== "Default Title");
+              const variantLine = variantTitles.length > 0 ? ` (available in: ${variantTitles.join(", ")})` : "";
+              return `- [${p.title}](${siteBaseUrl}/products/${p.handle})${variantLine}${imageLine}`;
             })
             .join("\n");
         }
@@ -4253,7 +4257,9 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
               .map((p) => {
                 const productUrl = `${siteBaseUrl}/products/${p.handle}`;
                 const imageLine = p.imageUrl ? ` — image: ${p.imageUrl}` : "";
-                return `- [${p.title}](${productUrl})${imageLine}`;
+                const variantTitles = (p.variants ?? []).map((v: any) => v.title).filter((t: string) => t && t !== "Default Title");
+                const variantLine = variantTitles.length > 0 ? ` (available in: ${variantTitles.join(", ")})` : "";
+                return `- [${p.title}](${productUrl})${variantLine}${imageLine}`;
               })
               .join("\n")
           : undefined;
