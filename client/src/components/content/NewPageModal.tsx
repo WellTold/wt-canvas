@@ -159,15 +159,15 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
     }
   };
 
-  const handleAiPickForMe = async () => {
+  const handleAiPickForMe = async (opts: { keywordId?: number; topic?: string } = {}) => {
     setIsQuickCreating(true);
     try {
-      const response = await apiRequest("POST", "/api/pages/ai-quick-create", {});
+      const response = await apiRequest("POST", "/api/pages/ai-quick-create", opts);
       if (!response.ok) {
         const err = await response.json().catch(() => ({ message: "Unknown error" }));
         throw new Error(err.message || "Failed to create page");
       }
-      const { id, title, keyword } = await response.json();
+      const { id, title } = await response.json();
       queryClient.invalidateQueries({ queryKey: ["/api/content"] });
       queryClient.invalidateQueries({ queryKey: ["/api/keywords"] });
       toast({ title: "Page created!", description: `"${title}" is ready to review.` });
@@ -184,12 +184,6 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
     setSelectedKeyword(kw);
     setKeywordSearch(kw.keyword);
     setShowKeywordDropdown(false);
-    handleGetRecommendation({ keywordId: kw.id });
-  };
-
-  const handleTopicContinue = () => {
-    if (!topicText.trim()) return;
-    handleGetRecommendation({ topic: topicText.trim() });
   };
 
   const handleCreateBlank = async (isMarkdown: boolean) => {
@@ -457,7 +451,6 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
               setKeywordSearch(e.target.value);
               setShowKeywordDropdown(true);
               setSelectedKeyword(null);
-              setRecommendation(null);
             }}
             onFocus={() => setShowKeywordDropdown(true)}
           />
@@ -471,8 +464,8 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
                 >
                   <span>{kw.keyword}</span>
                   <div className="flex items-center gap-2">
-                    {kw.search_volume != null && (
-                      <span className="text-xs text-gray-400">{kw.search_volume.toLocaleString()}/mo</span>
+                    {(kw as any).search_volume != null && (
+                      <span className="text-xs text-gray-400">{(kw as any).search_volume.toLocaleString()}/mo</span>
                     )}
                     <Badge variant="outline" className="text-xs capitalize">{kw.status}</Badge>
                   </div>
@@ -481,13 +474,9 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
             </div>
           )}
         </div>
-        {keywordsLoading && (
-          <p className="text-xs text-gray-400 mt-1">Loading keywords...</p>
-        )}
+        {keywordsLoading && <p className="text-xs text-gray-400 mt-1">Loading keywords...</p>}
         {!keywordsLoading && keywords.length === 0 && (
-          <p className="text-xs text-gray-500 mt-1">
-            No keywords in your library yet. Add some from the keyword library page.
-          </p>
+          <p className="text-xs text-gray-500 mt-1">No keywords in your library yet.</p>
         )}
       </div>
 
@@ -495,21 +484,30 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
         <div className="flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-300 text-amber-800 text-xs">
           <span className="mt-0.5">⚠</span>
           <span>
-            <strong>{selectedKeyword.keyword}</strong> is marked as a <strong>supporting</strong> keyword. For best results, consider choosing a primary keyword to anchor your page.
+            <strong>{selectedKeyword.keyword}</strong> is a <strong>supporting</strong> keyword. Primary keywords usually produce better results.
           </span>
         </div>
       )}
 
-      {renderRecommendationPanel()}
-
-      {recommendation && recommendation.matchingTemplates.length === 0 && (
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">All templates</p>
-          <TemplateGrid
-            templates={allTemplates.filter((t) => t.type === recommendation.recommendedType)}
-            onSelect={(t) => openPrelaunch(t, recommendation?.keywordId)}
-            isLoading={templatesLoading}
-          />
+      {selectedKeyword && (
+        <div className="border border-black p-4 bg-[#f0ebe7] space-y-3">
+          <div className="text-sm">
+            <span className="text-gray-500">Selected:</span>{" "}
+            <span className="font-bold">{selectedKeyword.keyword}</span>
+          </div>
+          <p className="text-xs text-gray-500">
+            AI will pick the content type, write the full page, and drop you into the editor. This takes about 20 seconds.
+          </p>
+          <Button
+            className="w-full rounded-none bg-black hover:bg-gray-800 text-white"
+            onClick={() => handleAiPickForMe({ keywordId: selectedKeyword.id })}
+            disabled={isQuickCreating}
+          >
+            {isQuickCreating
+              ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Generating page…</>
+              : <><Sparkles className="h-4 w-4 mr-2" />Generate Full Page</>
+            }
+          </Button>
         </div>
       )}
     </div>
@@ -521,41 +519,32 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
         <Label className="text-sm font-bold uppercase tracking-wider mb-2 block">
           What's the topic or working title?
         </Label>
-        <div className="flex gap-2">
-          <Input
-            className="rounded-none border-black flex-1"
-            placeholder="e.g. How to pick the perfect birthday gift for a bookworm"
-            value={topicText}
-            onChange={(e) => {
-              setTopicText(e.target.value);
-              setRecommendation(null);
-            }}
-            onKeyDown={(e) => e.key === "Enter" && handleTopicContinue()}
-          />
-          <Button
-            className="rounded-none bg-black hover:bg-gray-800 text-white shrink-0"
-            onClick={handleTopicContinue}
-            disabled={!topicText.trim() || isRecommending}
-          >
-            {isRecommending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Suggest"}
-          </Button>
-        </div>
+        <Input
+          className="rounded-none border-black"
+          placeholder="e.g. How to pick the perfect birthday gift for a bookworm"
+          value={topicText}
+          onChange={(e) => setTopicText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && topicText.trim() && !isQuickCreating) {
+              handleAiPickForMe({ topic: topicText.trim() });
+            }
+          }}
+        />
+        <p className="text-xs text-gray-500 mt-2">
+          AI will determine the best content type, write the full page, and drop you into the editor. This takes about 20 seconds.
+        </p>
       </div>
 
-      {renderRecommendationPanel()}
-
-      {recommendation && (
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
-            {recommendation.matchingTemplates.length > 0 ? "Or browse all templates" : "Browse templates"}
-          </p>
-          <TemplateGrid
-            templates={allTemplates.filter((t) => t.type === recommendation.recommendedType)}
-            onSelect={(t) => openPrelaunch(t, recommendation?.keywordId)}
-            isLoading={templatesLoading}
-          />
-        </div>
-      )}
+      <Button
+        className="w-full rounded-none bg-black hover:bg-gray-800 text-white"
+        onClick={() => handleAiPickForMe({ topic: topicText.trim() })}
+        disabled={!topicText.trim() || isQuickCreating}
+      >
+        {isQuickCreating
+          ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Generating page…</>
+          : <><Sparkles className="h-4 w-4 mr-2" />Generate Full Page</>
+        }
+      </Button>
     </div>
   );
 

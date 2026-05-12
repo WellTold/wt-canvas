@@ -4140,35 +4140,45 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
   // creates a content item, links keyword → returns { id, title, keyword }.
   app.post("/api/pages/ai-quick-create", requireAuth, async (req, res) => {
     try {
-      // 1. Pick best untargeted PRIMARY keyword: primary priority first, then by volume desc
-      const untargeted = await storage.getKeywords({ status: "untargeted" });
-      if (untargeted.length === 0) {
-        return res.status(404).json({
-          message:
-            "No untargeted keywords found in your library. Add some keywords first.",
-        });
-      }
-      const primaryCandidates = untargeted.filter(
-        (k) => k.priority === "primary",
-      );
-      const pool =
-        primaryCandidates.length > 0 ? primaryCandidates : untargeted;
-      const sorted = [...pool].sort(
-        (a, b) => (b.volume ?? 0) - (a.volume ?? 0),
-      );
-      const kw = sorted[0];
+      const { keywordId: inputKeywordId, topic: inputTopic } = req.body;
 
-      // 2. Pull all untargeted supporting keywords from the same cluster (if cluster exists),
-      //    then filter down to the 6-8 most semantically similar to the primary keyword.
-      //    Hard cap: never pass more than 10 supporting keywords to the AI prompt.
-      const clusterSupportingKeywords = kw.cluster
-        ? untargeted.filter(
-            (k) =>
-              k.cluster === kw.cluster &&
-              k.id !== kw.id &&
-              k.priority === "supporting",
-          )
-        : [];
+      // 1. Resolve keyword — three paths: specific keyword, topic seed, or AI auto-pick
+      let kw: { id?: number; keyword: string; cluster?: string | null; contentTypeTarget?: string | null; articleAngle?: string | null; type?: string | null; priority?: string | null; volume?: number | null };
+      let clusterSupportingKeywords: any[] = [];
+
+      if (inputKeywordId) {
+        // Keyword-first: user picked a specific keyword from the library
+        const found = await storage.getKeyword(Number(inputKeywordId));
+        if (!found) {
+          return res.status(404).json({ message: "Keyword not found." });
+        }
+        kw = found;
+        const allUntargeted = await storage.getKeywords({ status: "untargeted" });
+        clusterSupportingKeywords = kw.cluster
+          ? allUntargeted.filter((k) => k.cluster === kw.cluster && k.id !== kw.id && k.priority === "supporting")
+          : [];
+      } else if (inputTopic) {
+        // Topic-first: use the topic as the content seed, no keyword object to link
+        kw = { keyword: inputTopic, cluster: null, contentTypeTarget: "blog_article", articleAngle: null, type: null };
+        clusterSupportingKeywords = [];
+      } else {
+        // AI Pick: auto-select the best untargeted keyword
+        const untargeted = await storage.getKeywords({ status: "untargeted" });
+        if (untargeted.length === 0) {
+          return res.status(404).json({
+            message: "No untargeted keywords found in your library. Add some keywords first.",
+          });
+        }
+        const primaryCandidates = untargeted.filter((k) => k.priority === "primary");
+        const pool = primaryCandidates.length > 0 ? primaryCandidates : untargeted;
+        const sorted = [...pool].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0));
+        kw = sorted[0];
+        clusterSupportingKeywords = kw.cluster
+          ? untargeted.filter((k) => k.cluster === kw.cluster && k.id !== kw.id && k.priority === "supporting")
+          : [];
+      }
+
+      // 2. Filter supporting keywords to the most semantically relevant (hard cap: 10)
       const filteredSupporting =
         clusterSupportingKeywords.length > 0
           ? filterSupportingKeywords(
@@ -4179,9 +4189,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
             )
           : [];
       const supportingKeywordsStr =
-        filteredSupporting.length > 0
-          ? filteredSupporting.join(", ")
-          : undefined;
+        filteredSupporting.length > 0 ? filteredSupporting.join(", ") : undefined;
       console.log(
         `[ai-quick-create] cluster "${kw.cluster}" has ${clusterSupportingKeywords.length} supporting keywords → filtered to ${filteredSupporting.length}: ${filteredSupporting.join(", ")}`,
       );
@@ -4357,30 +4365,29 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
 
       const contentItemId = String(newItem.id);
 
-      // 9. Mark primary keyword in_progress and link it
-      await storage.updateKeyword(kw.id, {
-        status: "in_progress",
-        contentItemId,
-      });
-
-      // 10. Only mark the FILTERED supporting keywords (the ones actually used in the AI prompt)
-      //     as in_progress. Do NOT mark all cluster keywords — a cluster can have hundreds.
+      // 9. Link keyword statuses only when a real keyword was used (not topic-only)
       const filteredSupportingObjects = clusterSupportingKeywords.filter((sk) =>
         filteredSupporting.includes(sk.keyword),
       );
-      if (filteredSupportingObjects.length > 0) {
-        await Promise.all(
-          filteredSupportingObjects.map((sk) =>
-            storage.updateKeyword(sk.id, {
-              status: "in_progress",
-              contentItemId,
-            }),
-          ),
+      if (kw.id) {
+        await storage.updateKeyword(kw.id, {
+          status: "in_progress",
+          contentItemId,
+        });
+        if (filteredSupportingObjects.length > 0) {
+          await Promise.all(
+            filteredSupportingObjects.map((sk) =>
+              storage.updateKeyword(sk.id, {
+                status: "in_progress",
+                contentItemId,
+              }),
+            ),
+          );
+        }
+        console.log(
+          `[ai-quick-create] linked ${filteredSupportingObjects.length} supporting keywords (of ${clusterSupportingKeywords.length} in cluster) to article ${contentItemId}`,
         );
       }
-      console.log(
-        `[ai-quick-create] linked ${filteredSupportingObjects.length} supporting keywords (of ${clusterSupportingKeywords.length} in cluster) to article ${contentItemId}`,
-      );
 
       res.json({
         id: newItem.id,
