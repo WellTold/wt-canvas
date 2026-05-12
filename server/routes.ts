@@ -666,9 +666,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Use SITE_BASE_URL if available, otherwise default to welltolddesign.com
         const baseUrl =
           process.env.SITE_BASE_URL || "https://welltolddesign.com";
-        const purgeUrl = `${baseUrl}/a/articles/${item.slug}`;
+        // Purge both URL layers: Framer-served (/a/articles/) and worker-served (/articles/)
+        const purgeUrls = [
+          `${baseUrl}/a/articles/${item.slug}`,
+          `${baseUrl}/articles/${item.slug}`,
+        ];
 
-        console.log(`Attempting Cloudflare cache purge for: ${purgeUrl}`);
+        console.log(`Attempting Cloudflare cache purge for: ${purgeUrls.join(", ")}`);
         try {
           const response = await fetch(
             `https://api.cloudflare.com/client/v4/zones/${process.env.CF_ZONE_ID}/purge_cache`,
@@ -678,12 +682,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 Authorization: `Bearer ${process.env.CF_API_TOKEN}`,
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({ files: [purgeUrl] }),
+              body: JSON.stringify({ files: purgeUrls }),
             },
           );
 
           if (response.ok) {
-            console.log(`✅ Cloudflare cache purged for: ${purgeUrl}`);
+            console.log(`✅ Cloudflare cache purged for: ${purgeUrls.join(", ")}`);
           } else {
             const errorText = await response.text();
             console.warn(
@@ -754,8 +758,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Purge Cloudflare edge cache so the article page stops being served
       if (slugToInvalidate && process.env.CF_ZONE_ID && process.env.CF_API_TOKEN) {
         const baseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
-        const purgeUrl = `${baseUrl}/a/articles/${slugToInvalidate}`;
-        console.log(`Purging CF cache after delete: ${purgeUrl}`);
+        const purgeUrls = [
+          `${baseUrl}/a/articles/${slugToInvalidate}`,
+          `${baseUrl}/articles/${slugToInvalidate}`,
+        ];
+        console.log(`Purging CF cache after delete: ${purgeUrls.join(", ")}`);
         fetch(
           `https://api.cloudflare.com/client/v4/zones/${process.env.CF_ZONE_ID}/purge_cache`,
           {
@@ -764,11 +771,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               Authorization: `Bearer ${process.env.CF_API_TOKEN}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ files: [purgeUrl] }),
+            body: JSON.stringify({ files: purgeUrls }),
           },
         )
           .then((r) => r.ok
-            ? console.log(`✅ CF cache purged for deleted article: ${purgeUrl}`)
+            ? console.log(`✅ CF cache purged for deleted article: ${purgeUrls.join(", ")}`)
             : r.text().then((t) => console.warn(`⚠️ CF purge failed ${r.status}: ${t}`))
           )
           .catch((e) => console.warn("⚠️ CF purge error (non-fatal):", e));
@@ -2095,8 +2102,11 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       // Purge Cloudflare edge cache so the article stops being served immediately
       if (contentItem.slug && process.env.CF_ZONE_ID && process.env.CF_API_TOKEN) {
         const baseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
-        const purgeUrl = `${baseUrl}/a/articles/${contentItem.slug}`;
-        console.log(`Purging CF cache after unpublish: ${purgeUrl}`);
+        const purgeUrls = [
+          `${baseUrl}/a/articles/${contentItem.slug}`,
+          `${baseUrl}/articles/${contentItem.slug}`,
+        ];
+        console.log(`Purging CF cache after unpublish: ${purgeUrls.join(", ")}`);
         fetch(
           `https://api.cloudflare.com/client/v4/zones/${process.env.CF_ZONE_ID}/purge_cache`,
           {
@@ -2105,11 +2115,11 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
               Authorization: `Bearer ${process.env.CF_API_TOKEN}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ files: [purgeUrl] }),
+            body: JSON.stringify({ files: purgeUrls }),
           },
         )
           .then((r) => r.ok
-            ? console.log(`✅ CF cache purged after unpublish: ${purgeUrl}`)
+            ? console.log(`✅ CF cache purged after unpublish: ${purgeUrls.join(", ")}`)
             : r.text().then((t) => console.warn(`⚠️ CF purge failed ${r.status}: ${t}`))
           )
           .catch((e) => console.warn("⚠️ CF purge error (non-fatal):", e));
