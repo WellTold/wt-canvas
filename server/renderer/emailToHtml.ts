@@ -427,9 +427,11 @@ function renderHero(c: any, bg?: BlockBg): string {
   const headlineHtml = headline
     ? `<h1 style="margin:0 0 ${subtext ? "10px" : "0"};${headlineStyleStr}">${esc(headline)}</h1>`
     : "";
-  const subtextHtml = subtext
-    ? `<p style="margin:0;${subtextStyleStr}">${esc(subtext)}</p>`
-    : "";
+  const subtextHtml = c.subtextHtml
+    ? `<div style="margin:0;${subtextStyleStr}">${c.subtextHtml}</div>`
+    : subtext
+      ? `<p style="margin:0;${subtextStyleStr}">${esc(subtext)}</p>`
+      : "";
 
   // Text section background and padding — _bg padding applies here
   const textBg = hs.backgroundColor || ss.backgroundColor || "#ffffff";
@@ -532,8 +534,8 @@ function renderQuote(c: any, bg?: BlockBg): string {
     ? `<p style="margin:10px 0 0;font-size:13px;color:#888888;font-family:'Plus Jakarta Sans',Arial,sans-serif;">— ${esc(author)}</p>`
     : "";
   const bgColor = c.backgroundColor || "#fdf8f4";
-  const quoteBody = c.html
-    ? `<div style="margin:0;font-style:italic;${quoteStyle}">${c.html}</div>`
+  const quoteBody = (c.html || c.htmlContent)
+    ? `<div style="margin:0;font-style:italic;${quoteStyle}">${c.html || c.htmlContent}</div>`
     : `<p style="margin:0;font-style:italic;${quoteStyle}">${esc(c.text)}</p>`;
   return row(
     `<blockquote style="margin:0;padding:16px 20px;border-left:4px solid #c9b99a;background-color:${bgColor};">
@@ -608,10 +610,10 @@ function renderCta(c: any, bg?: BlockBg): string {
     color: "#333333", fontSize: "15px", fontWeight: "normal",
     fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.7",
   });
-  const bodyText = c.bodyText
+  const bodyText = (c.bodyTextHtml || c.bodyText)
     ? bodyTextPosition === "below"
-      ? `<p style="margin:16px 0 0;${bodyStyle}">${esc(c.bodyText)}</p>`
-      : `<p style="margin:0 0 16px;${bodyStyle}">${esc(c.bodyText)}</p>`
+      ? `<div style="margin:16px 0 0;${bodyStyle}">${c.bodyTextHtml || esc(c.bodyText)}</div>`
+      : `<div style="margin:0 0 16px;${bodyStyle}">${c.bodyTextHtml || esc(c.bodyText)}</div>`
     : "";
 
   // Button label typography — use text style fields from the editor, with sensible defaults
@@ -698,9 +700,11 @@ function renderProductFeature(c: any, bg?: BlockBg): string {
   const price = c.price
     ? `<p style="margin:6px 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:16px;font-weight:bold;color:#1a1a1a;">${esc(c.price)}</p>`
     : "";
-  const desc = c.description
-    ? `<p style="margin:4px 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;line-height:1.6;color:#555555;">${esc(c.description)}</p>`
-    : "";
+  const desc = c.descriptionHtml
+    ? `<div style="margin:4px 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;line-height:1.6;color:#555555;">${c.descriptionHtml}</div>`
+    : c.description
+      ? `<p style="margin:4px 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;line-height:1.6;color:#555555;">${esc(c.description)}</p>`
+      : "";
   const cta = (c.ctaText && c.ctaLink)
     ? `<a href="${esc(c.ctaLink)}" target="_blank" style="display:inline-block;padding:12px 28px;background-color:#1a1a1a;color:#ffffff;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;font-weight:bold;text-decoration:none;">${esc(c.ctaText)}</a>`
     : "";
@@ -773,12 +777,16 @@ function renderReview(c: any, bg?: BlockBg): string {
   const rating = c.rating ? `<p style="margin:0 0 8px;font-size:20px;color:#c9a227;">${stars(c.rating)}</p>` : "";
   const author = c.author || "";
   const quote = c.quote || "";
+  const quoteHtml = c.quoteHtml;
   const avatar = c.avatarUrl
     ? `<img src="${esc(c.avatarUrl)}" alt="${esc(author)}" width="40" height="40" style="border-radius:50%;width:40px;height:40px;object-fit:cover;display:inline-block;vertical-align:middle;margin-right:10px;" />`
     : "";
+  const quoteBody = quoteHtml
+    ? `<div style="margin:0 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:16px;line-height:1.6;color:#333333;font-style:italic;">${quoteHtml}</div>`
+    : `<p style="margin:0 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:16px;line-height:1.6;color:#333333;font-style:italic;">"${esc(quote)}"</p>`;
   return row(
     `${rating}
-     <p style="margin:0 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:16px;line-height:1.6;color:#333333;font-style:italic;">"${esc(quote)}"</p>
+     ${quoteBody}
      <p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;color:#888888;">${avatar}${esc(author)}</p>`,
     "#fdf8f4",
     "20px 24px",
@@ -939,7 +947,9 @@ function renderShopifyCollectionFeature(c: any, collection: any, siteBaseUrl?: s
     `${imgHtml}
      <div style="text-align:center;">
        <h2 style="margin:0 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:26px;line-height:1.2;color:${txtColor};">${esc(headline)}</h2>
-       ${subtext ? `<p style="margin:0 0 20px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;line-height:1.6;color:${mutColor};">${esc(subtext)}</p>` : ""}
+       ${c.subtextHtml
+    ? `<div style="margin:0 0 20px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;line-height:1.6;color:${mutColor};">${c.subtextHtml}</div>`
+    : subtext ? `<p style="margin:0 0 20px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;line-height:1.6;color:${mutColor};">${esc(subtext)}</p>` : ""}
        <a href="${esc(ctaLink)}" style="display:inline-block;padding:14px 32px;background-color:${style === "dark" ? "#ffffff" : "#1a1a1a"};color:${style === "dark" ? "#1a1a1a" : "#ffffff"};font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.03em;">${esc(ctaText)}</a>
      </div>`,
     blockBgColor,

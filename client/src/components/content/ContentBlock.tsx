@@ -1083,11 +1083,11 @@ export function ContentBlock({
                   >Below</button>
                 </div>
               </div>
-              <Textarea
-                value={o.bodyText || ''}
-                onChange={(e) => onUpdate({ ...o, bodyText: e.target.value })}
+              <RichTextEditor
+                value={o.bodyTextHtml || (o.bodyText ? `<p>${o.bodyText}</p>` : '')}
+                onChange={(html) => onUpdate({ ...o, bodyTextHtml: html, bodyText: html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() })}
                 placeholder="Optional paragraph…"
-                className="min-h-[60px] resize-none text-sm"
+                minHeight="60px"
               />
             </div>
             <div className="space-y-1">
@@ -1316,11 +1316,11 @@ export function ContentBlock({
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium">Quote</Label>
-              <Textarea
-                value={safeContent?.quote || ''}
-                onChange={(e) => onUpdate({ ...safeContent, quote: e.target.value })}
+              <RichTextEditor
+                value={safeContent?.quoteHtml || (safeContent?.quote ? `<p>${safeContent.quote}</p>` : '')}
+                onChange={(html) => onUpdate({ ...safeContent, quoteHtml: html, quote: html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() })}
                 placeholder="Best product ever!"
-                className="italic"
+                minHeight="60px"
               />
             </div>
             <div className="space-y-2">
@@ -1441,11 +1441,11 @@ export function ContentBlock({
             {/* Subtext */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Subtext</Label>
-              <Textarea
-                value={safeContent?.subtext || ''}
-                onChange={(e) => onUpdate({ ...safeContent, subtext: e.target.value })}
+              <RichTextEditor
+                value={safeContent?.subtextHtml || (safeContent?.subtext ? `<p>${safeContent.subtext}</p>` : '')}
+                onChange={(html) => onUpdate({ ...safeContent, subtextHtml: html, subtext: html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() })}
                 placeholder="Short supporting text…"
-                rows={2}
+                minHeight="60px"
               />
               {renderTextStyleFields(ss, (updated) => onUpdate({ ...safeContent, subtextStyle: updated }), 'text')}
             </div>
@@ -1508,7 +1508,11 @@ export function ContentBlock({
                 <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={remove}><X className="h-3 w-3" /></Button>
               </div>
               {(subBlock.type === 'heading' || subBlock.type === 'paragraph') && (
-                <Textarea value={subBlock.content?.text || ''} onChange={(e) => update({ ...subBlock.content, text: e.target.value })} rows={2} className="text-sm" />
+                <RichTextEditor
+                  value={subBlock.content?.html || (subBlock.content?.text ? `<p>${subBlock.content.text}</p>` : '')}
+                  onChange={(html) => update({ ...subBlock.content, html, text: html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() })}
+                  minHeight="48px"
+                />
               )}
               {subBlock.type === 'image' && (
                 <Input value={subBlock.content?.url || ''} onChange={(e) => update({ ...subBlock.content, url: e.target.value })} placeholder="Image URL" className="text-sm" />
@@ -1557,7 +1561,12 @@ export function ContentBlock({
                 <div className="flex items-start gap-2">
                   <div className="flex-1 space-y-1">
                     <Input value={item.question} onChange={(e) => { const arr = [...items]; arr[i] = { ...arr[i], question: e.target.value }; onUpdate({ ...safeContent, items: arr }); }} placeholder="Question…" className="text-sm font-medium" />
-                    <Textarea value={item.answer} onChange={(e) => { const arr = [...items]; arr[i] = { ...arr[i], answer: e.target.value }; onUpdate({ ...safeContent, items: arr }); }} placeholder="Answer…" rows={2} className="text-sm" />
+                    <RichTextEditor
+                      value={item.answerHtml || (item.answer ? `<p>${item.answer}</p>` : '')}
+                      onChange={(html) => { const arr = [...items]; arr[i] = { ...arr[i], answerHtml: html, answer: html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() }; onUpdate({ ...safeContent, items: arr }); }}
+                      placeholder="Answer…"
+                      minHeight="60px"
+                    />
                   </div>
                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 mt-1" onClick={() => { const arr = items.filter((_, j) => j !== i); onUpdate({ ...safeContent, items: arr }); }}><X className="h-3 w-3" /></Button>
                 </div>
@@ -1698,7 +1707,12 @@ export function ContentBlock({
                   <div className="flex-1 space-y-1">
                     <Input value={item.icon} onChange={(e) => { const arr = [...iconItems]; arr[i] = { ...arr[i], icon: e.target.value }; onUpdate({ ...safeContent, items: arr }); }} placeholder="Icon URL or emoji" className="text-sm" />
                     <Input value={item.headline} onChange={(e) => { const arr = [...iconItems]; arr[i] = { ...arr[i], headline: e.target.value }; onUpdate({ ...safeContent, items: arr }); }} placeholder="Headline" className="text-sm font-medium" />
-                    <Textarea value={item.body} onChange={(e) => { const arr = [...iconItems]; arr[i] = { ...arr[i], body: e.target.value }; onUpdate({ ...safeContent, items: arr }); }} placeholder="Body text" rows={2} className="text-sm" />
+                    <RichTextEditor
+                      value={item.bodyHtml || (item.body ? `<p>${item.body}</p>` : '')}
+                      onChange={(html) => { const arr = [...iconItems]; arr[i] = { ...arr[i], bodyHtml: html, body: html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() }; onUpdate({ ...safeContent, items: arr }); }}
+                      placeholder="Body text"
+                      minHeight="60px"
+                    />
                   </div>
                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 mt-1" onClick={() => onUpdate({ ...safeContent, items: iconItems.filter((_, j) => j !== i) })}><X className="h-3 w-3" /></Button>
                 </div>
@@ -1730,7 +1744,13 @@ export function ContentBlock({
             </div>
             <div>
               <Label className="text-xs">Bio</Label>
-              <Textarea value={safeContent?.bio || ''} onChange={(e) => onUpdate({ ...safeContent, bio: e.target.value })} placeholder="Short author bio…" rows={3} className="mt-1" />
+              <RichTextEditor
+                value={safeContent?.bioHtml || (safeContent?.bio ? `<p>${safeContent.bio}</p>` : '')}
+                onChange={(html) => onUpdate({ ...safeContent, bioHtml: html, bio: html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() })}
+                placeholder="Short author bio…"
+                minHeight="80px"
+                className="mt-1"
+              />
             </div>
             <div className="space-y-2">
               <Label className="text-xs">Links</Label>
@@ -1822,7 +1842,13 @@ export function ContentBlock({
             )}
             <div>
               <Label className="text-xs">Description</Label>
-              <Textarea value={safeContent?.description || ''} onChange={(e) => onUpdate({ ...safeContent, description: e.target.value })} placeholder="Short product description…" rows={2} className="mt-1" />
+              <RichTextEditor
+                value={safeContent?.descriptionHtml || (safeContent?.description ? `<p>${safeContent.description}</p>` : '')}
+                onChange={(html) => onUpdate({ ...safeContent, descriptionHtml: html, description: html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() })}
+                placeholder="Short product description…"
+                minHeight="60px"
+                className="mt-1"
+              />
             </div>
             <div>
               <Label className="text-xs">Price</Label>
@@ -2155,7 +2181,13 @@ export function ContentBlock({
             </div>
             <div>
               <Label className="text-xs">Subtext Override (optional)</Label>
-              <Textarea value={safeContent?.subtext || ''} onChange={(e) => onUpdate({ ...safeContent, subtext: e.target.value })} placeholder="Defaults to collection description" className="mt-1 text-sm" rows={2} />
+              <RichTextEditor
+                value={safeContent?.subtextHtml || (safeContent?.subtext ? `<p>${safeContent.subtext}</p>` : '')}
+                onChange={(html) => onUpdate({ ...safeContent, subtextHtml: html, subtext: html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() })}
+                placeholder="Defaults to collection description"
+                minHeight="60px"
+                className="mt-1"
+              />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -2279,7 +2311,13 @@ export function ContentBlock({
             </div>
             <div>
               <Label className="text-xs">Excerpt Override (optional)</Label>
-              <Textarea value={safeContent?.excerptOverride || ''} onChange={(e) => onUpdate({ ...safeContent, excerptOverride: e.target.value })} placeholder="Defaults to page body summary" rows={2} className="mt-1 text-sm" />
+              <RichTextEditor
+                value={safeContent?.excerptOverrideHtml || (safeContent?.excerptOverride ? `<p>${safeContent.excerptOverride}</p>` : '')}
+                onChange={(html) => onUpdate({ ...safeContent, excerptOverrideHtml: html, excerptOverride: html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() })}
+                placeholder="Defaults to page body summary"
+                minHeight="60px"
+                className="mt-1"
+              />
             </div>
             <div>
               <Label className="text-xs">CTA Text</Label>
