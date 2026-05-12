@@ -729,6 +729,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`Deleting content item ${id}...`);
 
+      // Grab slug BEFORE deleting so we can purge the CF cache after
+      let slugToInvalidate: string | null = null;
+      try {
+        const existing = await storage.getContentItem(id);
+        if (existing?.slug) slugToInvalidate = existing.slug;
+      } catch { /* non-fatal */ }
+
       // For integer IDs (local email content), also delete associated blocks
       if (typeof id === "number") {
         const blocks = await storage.getContentBlocks(id);
@@ -743,6 +750,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.deleteContentItem(id);
       console.log(`Successfully deleted content item ${id}`);
+
+      // Purge Cloudflare edge cache so the article page stops being served
+      if (slugToInvalidate && process.env.CF_ZONE_ID && process.env.CF_API_TOKEN) {
+        const baseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
+        const purgeUrl = `${baseUrl}/a/articles/${slugToInvalidate}`;
+        console.log(`Purging CF cache after delete: ${purgeUrl}`);
+        fetch(
+          `https://api.cloudflare.com/client/v4/zones/${process.env.CF_ZONE_ID}/purge_cache`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.CF_API_TOKEN}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ files: [purgeUrl] }),
+          },
+        )
+          .then((r) => r.ok
+            ? console.log(`✅ CF cache purged for deleted article: ${purgeUrl}`)
+            : r.text().then((t) => console.warn(`⚠️ CF purge failed ${r.status}: ${t}`))
+          )
+          .catch((e) => console.warn("⚠️ CF purge error (non-fatal):", e));
+      }
 
       // Reset any keywords that were linked solely to this content item
       try {
@@ -2061,6 +2091,30 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       }
 
       const result = await supabaseLegacyPublisher.unpublish(contentItem);
+
+      // Purge Cloudflare edge cache so the article stops being served immediately
+      if (contentItem.slug && process.env.CF_ZONE_ID && process.env.CF_API_TOKEN) {
+        const baseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
+        const purgeUrl = `${baseUrl}/a/articles/${contentItem.slug}`;
+        console.log(`Purging CF cache after unpublish: ${purgeUrl}`);
+        fetch(
+          `https://api.cloudflare.com/client/v4/zones/${process.env.CF_ZONE_ID}/purge_cache`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.CF_API_TOKEN}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ files: [purgeUrl] }),
+          },
+        )
+          .then((r) => r.ok
+            ? console.log(`✅ CF cache purged after unpublish: ${purgeUrl}`)
+            : r.text().then((t) => console.warn(`⚠️ CF purge failed ${r.status}: ${t}`))
+          )
+          .catch((e) => console.warn("⚠️ CF purge error (non-fatal):", e));
+      }
+
       res.json(result);
     } catch (error) {
       console.error("Supabase unpublish error:", error);
