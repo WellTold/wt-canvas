@@ -1,33 +1,37 @@
 /**
  * PRODUCT CATALOG
  * ───────────────
- * Maps gift-buying occasions and article topics to specific Shopify product handles.
- * When an article title or primary keyword matches an entry's `match` phrases, the
- * AI will receive those exact products as its product context — guaranteeing relevance.
+ * Maps gift-buying occasions and article topics to specific Shopify handles,
+ * collections, and pages. When an article title or primary keyword matches an
+ * entry's `match` phrases, the AI receives those exact resources as context.
  *
  * HOW TO ADD AN ENTRY
  * ───────────────────
- * 1. Find the product handle on Shopify (Admin → Products → the handle is in the URL
- *    or listed under the product title).
- * 2. Add or extend a CatalogEntry below with the keyword patterns you want to match.
- * 3. List handles in order of preference — the AI will use the first 5–8.
- * 4. Redeploy the app for changes to take effect.
+ * 1. Find handles in Shopify Admin → Products (handle = last segment of URL).
+ * 2. Find collection handles in Shopify Admin → Collections.
+ * 3. Find page handles in Shopify Admin → Online Store → Pages.
+ * 4. Add or extend a CatalogEntry below.
+ * 5. Restart the app for changes to take effect.
+ *
+ * FIELD GUIDE
+ * ───────────
+ * handles     → individual products, fetched with real prices + images
+ * collections → collection pages (e.g. /collections/map-glasses) — passed to AI as "see more" links
+ * pages       → Shopify CMS pages (e.g. /pages/gift-guide) — passed to AI as supplementary links
  *
  * MATCHING RULES
  * ──────────────
- * - Matching is case-insensitive and looks for any `match` phrase appearing anywhere
- *   in the article title OR primary keyword.
- * - The first catalog entry that matches wins; order matters.
- * - If no catalog entry matches, the system falls back to a live Shopify keyword search.
+ * - Case-insensitive substring match on article title + primary keyword combined.
+ * - First matching entry wins — order matters.
+ * - No match → falls back to live Shopify keyword search.
  */
 
 export interface CatalogEntry {
-  /** Human-readable label for this occasion — not used in matching. */
   label: string;
-  /** Phrases to match against article title + primary keyword (case-insensitive substring). */
   match: string[];
-  /** Shopify product handles to fetch, in priority order. */
   handles: string[];
+  collections?: string[];
+  pages?: string[];
 }
 
 export const PRODUCT_CATALOG: CatalogEntry[] = [
@@ -48,6 +52,12 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
       "acadia-pint",
       "12-oz-insulated-wine-tumbler",
     ],
+    collections: [
+      "all",
+    ],
+    pages: [
+      "gift-guide",
+    ],
   },
 
   // ─── GIFTING FOR DAD ──────────────────────────────────────────────────────
@@ -66,6 +76,12 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
       "21-oz-insulated-hydration-bottle",
       "acadia-fleece-blanket",
     ],
+    collections: [
+      "all",
+    ],
+    pages: [
+      "gift-guide",
+    ],
   },
 
   // ─── HOUSEWARMING ─────────────────────────────────────────────────────────
@@ -82,6 +98,12 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
       "acadia-fleece-blanket",
       "acadia-15oz-ceramic-mug",
       "acadia-12oz-insulated-wine-tumbler",
+    ],
+    collections: [
+      "all",
+    ],
+    pages: [
+      "gift-guide",
     ],
   },
 
@@ -102,6 +124,12 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
       "acadia-fleece-blanket",
       "acadia-insulated-16oz-tall-can-cooler",
     ],
+    collections: [
+      "all",
+    ],
+    pages: [
+      "gift-guide",
+    ],
   },
 
   // ─── WEDDING / COUPLE ─────────────────────────────────────────────────────
@@ -118,6 +146,13 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
       "acadia-12oz-insulated-wine-tumbler",
       "acadia-fleece-blanket",
       "acadia-15oz-ceramic-mug",
+    ],
+    collections: [
+      "all",
+    ],
+    pages: [
+      "gift-guide",
+      "custom-products",
     ],
   },
 
@@ -137,6 +172,12 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
       "acadia-pint",
       "acadia-15oz-ceramic-mug",
     ],
+    collections: [
+      "all",
+    ],
+    pages: [
+      "gift-guide",
+    ],
   },
 
   // ─── WINE LOVER ───────────────────────────────────────────────────────────
@@ -152,6 +193,9 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
       "12-oz-insulated-wine-tumbler",
       "acadia-rocks",
       "acadia-pint",
+    ],
+    collections: [
+      "all",
     ],
   },
 
@@ -170,6 +214,9 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
       "16oz-tall-can-cooler-ice-puck-adapter",
       "6-pack-stainless-cups-16oz-well-told-brand",
     ],
+    collections: [
+      "all",
+    ],
   },
 
   // ─── TRAVELER ─────────────────────────────────────────────────────────────
@@ -187,6 +234,13 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
       "acadia-rocks",
       "acadia-fleece-blanket",
     ],
+    collections: [
+      "all",
+    ],
+    pages: [
+      "us-city-maps",
+      "world-topography",
+    ],
   },
 
   // ─── BOOK LOVER ───────────────────────────────────────────────────────────
@@ -202,6 +256,12 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
       "a-christmas-carol-and-other-writings",
       "acadia-15oz-ceramic-mug",
       "acadia-stemless-wine",
+    ],
+    collections: [
+      "all",
+    ],
+    pages: [
+      "history",
     ],
   },
 
@@ -220,6 +280,52 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
       "acadia-15oz-ceramic-mug",
       "acadia-21oz-insulated-hydration-bottle",
     ],
+    collections: [
+      "all",
+    ],
+  },
+
+  // ─── MAP / GEOGRAPHY LOVER ────────────────────────────────────────────────
+  {
+    label: "Map / Geography Gifts",
+    match: [
+      "map gift", "gifts for map lovers", "geography gift", "city map",
+      "map lover", "map glass", "map glassware",
+    ],
+    handles: [
+      "acadia-rocks",
+      "acadia-pint",
+      "acadia-stemless-wine",
+      "akron-oh-map-rocks-glass",
+    ],
+    collections: [
+      "map-glasses",
+    ],
+    pages: [
+      "us-city-maps",
+      "world-topography",
+    ],
+  },
+
+  // ─── NIGHT SKY / CONSTELLATION ────────────────────────────────────────────
+  {
+    label: "Night Sky / Constellation Gifts",
+    match: [
+      "constellation", "night sky", "astronomy gift", "star gift",
+      "stargazer", "gifts for astronomy",
+    ],
+    handles: [
+      "acadia-rocks",
+      "acadia-pint",
+      "acadia-stemless-wine",
+    ],
+    collections: [
+      "constellation-glasses",
+    ],
+    pages: [
+      "night-sky-gifts",
+      "night-sky",
+    ],
   },
 
   // ─── CORPORATE / BULK ─────────────────────────────────────────────────────
@@ -237,21 +343,27 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
       "8-pack-stainless-cups-16oz-well-told-brand",
       "acadia-12oz-insulated-wine-tumbler",
     ],
+    collections: [
+      "all",
+    ],
+    pages: [
+      "custom-products",
+    ],
   },
 
 ];
 
 /**
  * Match a title + primary keyword against the catalog.
- * Returns the curated product handles for the first matching entry,
+ * Returns the full matched CatalogEntry (handles + collections + pages),
  * or null if no entry matches (caller should fall back to Shopify search).
  */
-export function matchProductCatalog(title: string, primaryKeyword?: string): string[] | null {
+export function matchProductCatalog(title: string, primaryKeyword?: string): CatalogEntry | null {
   const haystack = `${title} ${primaryKeyword ?? ""}`.toLowerCase();
   for (const entry of PRODUCT_CATALOG) {
     if (entry.match.some(term => haystack.includes(term.toLowerCase()))) {
       console.log(`[productCatalog] Matched "${entry.label}" for: "${title}"`);
-      return entry.handles;
+      return entry;
     }
   }
   return null;

@@ -1394,9 +1394,9 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         const faqSearchTerm = primaryKeyword || title;
 
         // Check product catalog first — curated handles take priority over search
-        const catalogHandles = matchProductCatalog(title, primaryKeyword);
-        const shopifyFetch = catalogHandles
-          ? fetchProductsByHandles(catalogHandles).then(items => ({ items })).catch(() => ({ items: [] as ShopifyProductItem[] }))
+        const catalogEntry = matchProductCatalog(title, primaryKeyword);
+        const shopifyFetch = catalogEntry
+          ? fetchProductsByHandles(catalogEntry.handles).then(items => ({ items })).catch(() => ({ items: [] as ShopifyProductItem[] }))
           : fetchProductList(8, faqSearchTerm).catch((e) => {
               console.error("[generate-webpage-markdown] Shopify fetch failed:", e?.message);
               return { items: [] as ShopifyProductItem[] };
@@ -1438,6 +1438,19 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
               return `- [${p.title}](${productUrl})${imageLine}`;
             })
             .join("\n");
+        }
+        // Append catalog-matched collections and pages as supplementary links
+        if (catalogEntry) {
+          const supplementary: string[] = [];
+          (catalogEntry.collections ?? []).forEach(c =>
+            supplementary.push(`- [Browse collection](${siteBaseUrl}/collections/${c})`)
+          );
+          (catalogEntry.pages ?? []).forEach(p =>
+            supplementary.push(`- [Related page](${siteBaseUrl}/pages/${p})`)
+          );
+          if (supplementary.length > 0) {
+            productContext = (productContext ? productContext + "\n" : "") + supplementary.join("\n");
+          }
         }
 
         const markdown = await generateWebPageMarkdownContent({
@@ -3739,9 +3752,9 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           ? `${kw.keyword} ${kw.cluster}`
           : kw.keyword;
         const faqSearchTerm = kw.keyword || title;
-        const catalogHandlesBatch = matchProductCatalog(title, kw.keyword);
-        const shopifyFetchBatch = catalogHandlesBatch
-          ? fetchProductsByHandles(catalogHandlesBatch).then(items => ({ items })).catch(() => ({ items: [] as BatchShopifyItem[] }))
+        const catalogEntryBatch = matchProductCatalog(title, kw.keyword);
+        const shopifyFetchBatch = catalogEntryBatch
+          ? fetchProductsByHandles(catalogEntryBatch.handles).then(items => ({ items })).catch(() => ({ items: [] as BatchShopifyItem[] }))
           : fetchProductList(8, searchQuery).catch(() => ({ items: [] as BatchShopifyItem[] }));
         const [shopifyResult, faqItems, ctaData, internalLinks] =
           await Promise.all([
@@ -3770,6 +3783,19 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
               return `- [${p.title}](${siteBaseUrl}/products/${p.handle})${imageLine}`;
             })
             .join("\n");
+        }
+        // Append catalog-matched collections and pages as supplementary links
+        if (catalogEntryBatch) {
+          const supplementary: string[] = [];
+          (catalogEntryBatch.collections ?? []).forEach(c =>
+            supplementary.push(`- [Browse collection](${siteBaseUrl}/collections/${c})`)
+          );
+          (catalogEntryBatch.pages ?? []).forEach(p =>
+            supplementary.push(`- [Related page](${siteBaseUrl}/pages/${p})`)
+          );
+          if (supplementary.length > 0) {
+            productContext = (productContext ? productContext + "\n" : "") + supplementary.join("\n");
+          }
         }
 
         // Generate full markdown content
@@ -4104,9 +4130,9 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       const faqSearchTerm = kw.keyword || title;
 
       // Check product catalog first — curated handles take priority over keyword search
-      const catalogHandlesQC = matchProductCatalog(title, kw.keyword);
-      const shopifyFetchQC = catalogHandlesQC
-        ? fetchProductsByHandles(catalogHandlesQC).then(items => ({ items })).catch(() => ({ items: [] as ShopifyProductItem[] }))
+      const catalogEntryQC = matchProductCatalog(title, kw.keyword);
+      const shopifyFetchQC = catalogEntryQC
+        ? fetchProductsByHandles(catalogEntryQC.handles).then(items => ({ items })).catch(() => ({ items: [] as ShopifyProductItem[] }))
         : fetchProductList(8, faqSearchTerm).catch((e) => {
             console.error("[ai-quick-create] Shopify fetch failed:", e?.message);
             return { items: [] as ShopifyProductItem[] };
@@ -4134,7 +4160,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         shopifyProducts.length > 0
           ? shopifyProducts
           : (shopifyResult.items as ShopifyProductItem[]);
-      const productContext =
+      let productContext: string | undefined =
         allProducts.length > 0
           ? allProducts
               .map((p) => {
@@ -4144,6 +4170,19 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
               })
               .join("\n")
           : undefined;
+      // Append catalog-matched collections and pages as supplementary links
+      if (catalogEntryQC) {
+        const supplementary: string[] = [];
+        (catalogEntryQC.collections ?? []).forEach(c =>
+          supplementary.push(`- [Browse collection](${siteBaseUrl}/collections/${c})`)
+        );
+        (catalogEntryQC.pages ?? []).forEach(p =>
+          supplementary.push(`- [Related page](${siteBaseUrl}/pages/${p})`)
+        );
+        if (supplementary.length > 0) {
+          productContext = (productContext ? productContext + "\n" : "") + supplementary.join("\n");
+        }
+      }
 
       // 6. Run markdown generation + FAQ + CTAs all in parallel — FAQ/CTAs no longer block markdown
       const [markdown, faqItems, ctaData] = await Promise.all([
