@@ -29,7 +29,8 @@ import {
   generateCTAs,
 } from "./services/claude";
 import { marked } from "marked";
-import { fetchProductList, isShopifyConfigured } from "./services/shopify";
+import { fetchProductList, fetchProductsByHandles, isShopifyConfigured } from "./services/shopify";
+import { matchProductCatalog } from "./config/productCatalog";
 import { supabaseLegacyPublisher } from "./services/supabase-legacy";
 import { markdownToHtml } from "./utils/markdown";
 import { COMPONENT_REGISTRY } from "./config/componentRegistry";
@@ -1391,14 +1392,18 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
 
         // Use primaryKeyword if available, fall back to title so FAQ/CTAs always generate
         const faqSearchTerm = primaryKeyword || title;
+
+        // Check product catalog first — curated handles take priority over search
+        const catalogHandles = matchProductCatalog(title, primaryKeyword);
+        const shopifyFetch = catalogHandles
+          ? fetchProductsByHandles(catalogHandles).then(items => ({ items })).catch(() => ({ items: [] as ShopifyProductItem[] }))
+          : fetchProductList(8, faqSearchTerm).catch((e) => {
+              console.error("[generate-webpage-markdown] Shopify fetch failed:", e?.message);
+              return { items: [] as ShopifyProductItem[] };
+            });
+
         const [shopifyResult, faqItems, ctaData] = await Promise.all([
-          fetchProductList(8, faqSearchTerm).catch((e) => {
-            console.error(
-              "[generate-webpage-markdown] Shopify fetch failed:",
-              e?.message,
-            );
-            return { items: [] as ShopifyProductItem[] };
-          }),
+          shopifyFetch,
           generateFAQ(faqSearchTerm, filteredSupportingKeywords).catch((e) => {
             console.error(
               "[generate-webpage-markdown] FAQ generation failed:",
@@ -3734,11 +3739,13 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           ? `${kw.keyword} ${kw.cluster}`
           : kw.keyword;
         const faqSearchTerm = kw.keyword || title;
+        const catalogHandlesBatch = matchProductCatalog(title, kw.keyword);
+        const shopifyFetchBatch = catalogHandlesBatch
+          ? fetchProductsByHandles(catalogHandlesBatch).then(items => ({ items })).catch(() => ({ items: [] as BatchShopifyItem[] }))
+          : fetchProductList(8, searchQuery).catch(() => ({ items: [] as BatchShopifyItem[] }));
         const [shopifyResult, faqItems, ctaData, internalLinks] =
           await Promise.all([
-            fetchProductList(8, searchQuery).catch(() => ({
-              items: [] as BatchShopifyItem[],
-            })),
+            shopifyFetchBatch,
             generateFAQ(faqSearchTerm).catch(() => []),
             generateCTAs(faqSearchTerm, siteBaseUrl).catch(() => null),
             getClusterInternalLinks(kw.cluster ?? null),
@@ -3758,7 +3765,10 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         let productContext: string | undefined;
         if (productsForContext.length > 0) {
           productContext = productsForContext
-            .map((p) => `- [${p.title}](${siteBaseUrl}/products/${p.handle})`)
+            .map((p) => {
+              const imageLine = p.imageUrl ? ` — image: ${p.imageUrl}` : "";
+              return `- [${p.title}](${siteBaseUrl}/products/${p.handle})${imageLine}`;
+            })
             .join("\n");
         }
 
@@ -4093,12 +4103,18 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       };
       const faqSearchTerm = kw.keyword || title;
 
+      // Check product catalog first — curated handles take priority over keyword search
+      const catalogHandlesQC = matchProductCatalog(title, kw.keyword);
+      const shopifyFetchQC = catalogHandlesQC
+        ? fetchProductsByHandles(catalogHandlesQC).then(items => ({ items })).catch(() => ({ items: [] as ShopifyProductItem[] }))
+        : fetchProductList(8, faqSearchTerm).catch((e) => {
+            console.error("[ai-quick-create] Shopify fetch failed:", e?.message);
+            return { items: [] as ShopifyProductItem[] };
+          });
+
       const [brandContextRaw, shopifyResult] = await Promise.all([
         storage.getBrandContext().catch(() => null),
-        fetchProductList(8, faqSearchTerm).catch((e) => {
-          console.error("[ai-quick-create] Shopify fetch failed:", e?.message);
-          return { items: [] as ShopifyProductItem[] };
-        }),
+        shopifyFetchQC,
       ]);
 
       const brandContext = brandContextRaw

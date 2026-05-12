@@ -676,6 +676,37 @@ export async function fetchImages(count = 20): Promise<ShopifyImage[]> {
   }
 }
 
+/** Fetch a curated list of products by their exact Shopify handles.
+ *  Used by the product catalog to guarantee specific products are returned,
+ *  regardless of how the Shopify search algorithm would rank them. */
+export async function fetchProductsByHandles(handles: string[]): Promise<ShopifyProductSummary[]> {
+  if (handles.length === 0) return [];
+  const creds = await resolveCredentials();
+  if (!creds) return [];
+
+  let adminToken: string;
+  try {
+    adminToken = isAdmin(creds) ? creds.adminToken : await getAdminToken(creds.storeDomain);
+  } catch {
+    return [];
+  }
+
+  const domain = creds.storeDomain;
+  // Fetch each handle in parallel — Admin REST supports ?handle=<handle>
+  const results = await Promise.allSettled(
+    handles.map(handle =>
+      adminRest(`products.json?handle=${encodeURIComponent(handle)}&limit=1&status=active`, adminToken, domain)
+        .then((j: any) => j?.products?.[0] ?? null)
+        .catch(() => null)
+    )
+  );
+
+  return results
+    .filter(r => r.status === "fulfilled" && r.value)
+    .map(r => normaliseProduct((r as PromiseFulfilledResult<any>).value))
+    .filter(p => p.handle);
+}
+
 export async function fetchCollection(rawId: string, count = 12): Promise<ShopifyCollection> {
   const id = toCollectionGid(rawId);
   const data = await gql(COLLECTION_QUERY, { id, count: Math.min(Math.max(count, 1), 24) });
