@@ -47,6 +47,11 @@ function isValidImageUrl(url: string | undefined | null): boolean {
   return url.startsWith("http://") || url.startsWith("https://");
 }
 
+/** Convert a Shopify slug (e.g. "home-town-maps-barware") to a readable label ("Home Town Maps Barware"). */
+function slugToLabel(slug: string): string {
+  return slug.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
 async function resolveImageSuggestions(params: {
   description?: string;
   title?: string;
@@ -1443,10 +1448,10 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         if (catalogEntry) {
           const supplementary: string[] = [];
           (catalogEntry.collections ?? []).forEach(c =>
-            supplementary.push(`- [Browse collection](${siteBaseUrl}/collections/${c})`)
+            supplementary.push(`- [${slugToLabel(c)}](${siteBaseUrl}/collections/${c})`)
           );
           (catalogEntry.pages ?? []).forEach(p =>
-            supplementary.push(`- [Related page](${siteBaseUrl}/pages/${p})`)
+            supplementary.push(`- [${slugToLabel(p)}](${siteBaseUrl}/pages/${p})`)
           );
           if (supplementary.length > 0) {
             productContext = (productContext ? productContext + "\n" : "") + supplementary.join("\n");
@@ -3788,10 +3793,10 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         if (catalogEntryBatch) {
           const supplementary: string[] = [];
           (catalogEntryBatch.collections ?? []).forEach(c =>
-            supplementary.push(`- [Browse collection](${siteBaseUrl}/collections/${c})`)
+            supplementary.push(`- [${slugToLabel(c)}](${siteBaseUrl}/collections/${c})`)
           );
           (catalogEntryBatch.pages ?? []).forEach(p =>
-            supplementary.push(`- [Related page](${siteBaseUrl}/pages/${p})`)
+            supplementary.push(`- [${slugToLabel(p)}](${siteBaseUrl}/pages/${p})`)
           );
           if (supplementary.length > 0) {
             productContext = (productContext ? productContext + "\n" : "") + supplementary.join("\n");
@@ -4174,10 +4179,10 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       if (catalogEntryQC) {
         const supplementary: string[] = [];
         (catalogEntryQC.collections ?? []).forEach(c =>
-          supplementary.push(`- [Browse collection](${siteBaseUrl}/collections/${c})`)
+          supplementary.push(`- [${slugToLabel(c)}](${siteBaseUrl}/collections/${c})`)
         );
         (catalogEntryQC.pages ?? []).forEach(p =>
-          supplementary.push(`- [Related page](${siteBaseUrl}/pages/${p})`)
+          supplementary.push(`- [${slugToLabel(p)}](${siteBaseUrl}/pages/${p})`)
         );
         if (supplementary.length > 0) {
           productContext = (productContext ? productContext + "\n" : "") + supplementary.join("\n");
