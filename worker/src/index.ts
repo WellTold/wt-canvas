@@ -723,6 +723,10 @@ a { color: inherit; }
 .wt-accordion-item[open] .wt-accordion-question::after { content: "−"; }
 .wt-accordion-answer { padding: 1rem 1.25rem 1.25rem; border-top: 1px solid var(--wt-color-border); }
 
+/* ── Brand Context ──────────────────────────────────────────────────────── */
+.wt-brand-context { max-width: 860px; margin: 3rem auto 0; padding: 1.5rem 2rem; border-top: 1px solid var(--wt-color-border); }
+.wt-brand-context p { margin: 0; font-size: 0.9rem; color: var(--wt-color-muted); line-height: 1.6; }
+
 /* ── Banner / Alert ─────────────────────────────────────────────────────── */
 .wt-banner { display: flex; align-items: center; justify-content: center; gap: 1.25rem; padding: 0.9rem 1.5rem; margin: 2rem 0; border: 2px solid var(--wt-color-border); flex-wrap: wrap; }
 .wt-banner-text { margin: 0; font-weight: 600; font-size: 0.95rem; }

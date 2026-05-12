@@ -1041,6 +1041,9 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
     ${productsHtml}
     ${faqHtml}
   </main>
+  <div class="wt-brand-context">
+    <p><strong>Well Told Design</strong> is a Boston-based gift brand specialising in story-driven objects — glassware, drinkware, and textiles engraved with maps, constellations, and topographic designs. Every piece is personalised to a specific place, date, or memory.</p>
+  </div>
   ${renderSiteFooter(siteSettings)}
 </body>
 </html>`;
@@ -1138,6 +1141,9 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
   <main class="wt-content">
     ${body}
   </main>
+  <div class="wt-brand-context">
+    <p><strong>Well Told Design</strong> is a Boston-based gift brand specialising in story-driven objects — glassware, drinkware, and textiles engraved with maps, constellations, and topographic designs. Every piece is personalised to a specific place, date, or memory.</p>
+  </div>
   ${renderSiteFooter(siteSettings)}
 </body>
 </html>`;
