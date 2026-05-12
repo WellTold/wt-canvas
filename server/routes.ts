@@ -29,7 +29,7 @@ import {
   generateCTAs,
 } from "./services/claude";
 import { marked } from "marked";
-import { fetchProductList, fetchProductsByHandles, isShopifyConfigured } from "./services/shopify";
+import { fetchProductList, fetchProductsByHandles, fetchProductAllImages, isShopifyConfigured } from "./services/shopify";
 import { matchProductCatalog } from "./config/productCatalog";
 import { supabaseLegacyPublisher } from "./services/supabase-legacy";
 import { markdownToHtml } from "./utils/markdown";
@@ -1629,6 +1629,16 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       );
       const images = await fetchImages(count);
       res.json(images);
+    } catch (err) {
+      res.status(502).json({ message: (err as Error).message });
+    }
+  });
+
+  // Fetch all images for a specific product by handle — used by the product image picker in the editor
+  app.get("/api/shopify/product-images/:handle", requireAuth, async (req, res) => {
+    try {
+      const images = await fetchProductAllImages(req.params.handle);
+      res.json({ images });
     } catch (err) {
       res.status(502).json({ message: (err as Error).message });
     }

@@ -33,10 +33,13 @@ body {
 
 /* Headings */
 .wt-heading { font-family: var(--wt-font-sans); font-weight: 700; line-height: 1.2; margin: 2.5rem 0 1rem; color: var(--wt-color-text); word-wrap: break-word; overflow-wrap: break-word; }
-.wt-h1 { font-size: 2.5rem; margin-top: 0; }
+.wt-h1 { font-size: 2.5rem; margin-top: 0; text-transform: uppercase; text-align: center; letter-spacing: 0.02em; }
 .wt-h2 { font-size: 1.75rem; }
 .wt-h3 { font-size: 1.35rem; }
 .wt-h4 { font-size: 1.1rem; }
+
+/* Article H1 (worker-rendered markdown — no class, bare <h1> inside .wt-content) */
+.wt-content h1 { font-size: 2.5rem; font-weight: 700; line-height: 1.2; margin: 0 0 1rem; text-transform: uppercase; text-align: center; letter-spacing: 0.02em; word-wrap: break-word; overflow-wrap: break-word; }
 
 /* Paragraph */
 .wt-paragraph { margin: 0 0 1.5rem; word-wrap: break-word; overflow-wrap: break-word; }
@@ -71,9 +74,10 @@ body {
   height: auto;
   margin: 2rem auto;
   border: 1px solid var(--wt-color-border);
-  object-fit: cover;
-  aspect-ratio: 4/3;
 }
+
+/* Ensure all imgs inside wt-content never bleed (catches worker-rendered markdown imgs) */
+.wt-content img { max-width: 100%; height: auto; }
 
 /* CTA */
 .wt-cta {
@@ -538,6 +542,7 @@ body {
   :root { --wt-gutter: 1.25rem; }
   body { font-size: 17px; }
   .wt-h1 { font-size: 2rem; }
+  .wt-content h1 { font-size: 2rem; }
   .wt-h2 { font-size: 1.5rem; }
   .wt-hero-headline { font-size: 2rem; }
   .wt-two-col { grid-template-columns: 1fr; }
@@ -545,4 +550,7 @@ body {
   .wt-icon-row--4 { grid-template-columns: 1fr; }
   .wt-author { flex-direction: column; }
   .wt-shopify-grid { grid-template-columns: repeat(2, 1fr); }
+  .wt-products-grid__cards { grid-template-columns: 1fr; }
+  .wt-content > img,
+  .wt-article-body img { max-width: 100%; }
 }

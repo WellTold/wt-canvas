@@ -93,6 +93,9 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const [imageSuggestions, setImageSuggestions] = useState<Record<string, ImageSuggestion>>({});
   const [activeMood, setActiveMood] = useState("conversational");
   const [contentDescription, setContentDescription] = useState("");
+  const [pickerProduct, setPickerProduct] = useState<{ handle: string; title: string; currentImageUrl: string } | null>(null);
+  const [pickerImages, setPickerImages] = useState<{ src: string; alt: string }[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1895,6 +1898,107 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                     dangerouslySetInnerHTML={{ __html: markdownPreviewHtml || '<p class="text-muted-foreground italic">Preview will appear here as you type…</p>' }}
                   />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Product Image Picker — shown when article has _wt_products */}
+        {isMarkdownMode && generatedStructuredData && (generatedStructuredData as any)._wt_products?.length > 0 && (
+          <Card>
+            <CardContent className="pt-4">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Product Images</h3>
+              <div className="flex flex-col gap-3">
+                {((generatedStructuredData as any)._wt_products as any[]).map((product: any) => {
+                  const isOpen = pickerProduct?.handle === product.handle;
+                  return (
+                    <div key={product.handle} className="border border-black/20">
+                      <div className="flex items-center gap-3 p-2">
+                        {product.imageUrl && (
+                          <img src={product.imageUrl} alt={product.title} className="w-12 h-12 object-cover border border-black/10 flex-shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{product.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{product.handle}</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-none border-black text-xs flex-shrink-0"
+                          onClick={async () => {
+                            if (isOpen) { setPickerProduct(null); setPickerImages([]); return; }
+                            setPickerProduct({ handle: product.handle, title: product.title, currentImageUrl: product.imageUrl });
+                            setPickerImages([]);
+                            setPickerLoading(true);
+                            try {
+                              const res = await apiRequest("GET", `/api/shopify/product-images/${product.handle}`);
+                              const data = await res.json();
+                              setPickerImages(data.images ?? []);
+                            } catch {
+                              toast({ title: "Couldn't load images", variant: "destructive" });
+                            } finally {
+                              setPickerLoading(false);
+                            }
+                          }}
+                        >
+                          {isOpen ? "Close" : "Change Image"}
+                        </Button>
+                      </div>
+                      {isOpen && (
+                        <div className="border-t border-black/10 p-3">
+                          {pickerLoading ? (
+                            <p className="text-xs text-muted-foreground">Loading images…</p>
+                          ) : pickerImages.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">No alternate images found.</p>
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              {pickerImages.map((img) => {
+                                const isCurrent = img.src === pickerProduct?.currentImageUrl;
+                                return (
+                                  <button
+                                    key={img.src}
+                                    title={img.alt || img.src}
+                                    onClick={() => {
+                                      if (isCurrent) return;
+                                      // Replace old image URL with new one in markdown
+                                      const oldUrl = pickerProduct!.currentImageUrl;
+                                      const newUrl = img.src;
+                                      const updated = markdownContent.replace(
+                                        new RegExp(`!\\[([^\\]]*)\\]\\(${oldUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)`, "g"),
+                                        `![$1](${newUrl})`
+                                      );
+                                      setMarkdownContent(updated);
+                                      setHasUnsavedChanges(true);
+                                      // Update preview
+                                      import("marked").then(async ({ marked }) => {
+                                        const html = await Promise.resolve(marked(updated));
+                                        setMarkdownPreviewHtml(html as string);
+                                      });
+                                      // Update the product's imageUrl in structured data so picker reflects new selection
+                                      const updatedSD = JSON.parse(JSON.stringify(generatedStructuredData));
+                                      const p = updatedSD._wt_products?.find((p: any) => p.handle === product.handle);
+                                      if (p) p.imageUrl = newUrl;
+                                      setGeneratedStructuredData(updatedSD);
+                                      setPickerProduct(prev => prev ? { ...prev, currentImageUrl: newUrl } : null);
+                                      toast({ title: "Image updated", description: "Save the article to keep this change." });
+                                    }}
+                                    className={`relative border-2 ${isCurrent ? "border-black" : "border-transparent hover:border-black/40"} transition-colors`}
+                                    style={{ padding: 0, background: "none", cursor: isCurrent ? "default" : "pointer" }}
+                                  >
+                                    <img src={img.src} alt={img.alt} className="w-20 h-20 object-cover display-block" />
+                                    {isCurrent && (
+                                      <span className="absolute bottom-0 left-0 right-0 bg-black text-white text-[9px] text-center py-0.5 font-medium">CURRENT</span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

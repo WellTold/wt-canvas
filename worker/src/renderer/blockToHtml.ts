@@ -74,7 +74,7 @@ function markdownToHtmlSafe(md: string): string {
   // 3. Inline patterns (images before links so ![...](...) is matched first)
   s = s
     .replace(/!\[([^\]]*)\]\((https?:\/\/[^\)]+)\)/g, (_m, alt, url) =>
-      `<img src="${safeHref(url)}" alt="${esc(alt)}" loading="lazy" />`)
+      `<img src="${safeHref(url)}" alt="${esc(alt)}" loading="lazy" style="max-width:100%;width:100%;height:auto;display:block;margin:2rem auto;border:1px solid #1a1a1a;" />`)
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, (_m, text, url) =>
       `<a href="${safeHref(url)}" rel="noopener">${esc(text)}</a>`)
     .replace(/\*\*(.+?)\*\*/g, (_m, t) => `<strong>${esc(t)}</strong>`)

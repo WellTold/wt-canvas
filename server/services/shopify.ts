@@ -676,9 +676,30 @@ export async function fetchImages(count = 20): Promise<ShopifyImage[]> {
   }
 }
 
-/** Fetch a curated list of products by their exact Shopify handles.
- *  Used by the product catalog to guarantee specific products are returned,
- *  regardless of how the Shopify search algorithm would rank them. */
+/** Fetch all images for a single product by handle. Returns array of {src, alt}. */
+export async function fetchProductAllImages(handle: string): Promise<{ src: string; alt: string }[]> {
+  const creds = await resolveCredentials();
+  if (!creds) return [];
+  let adminToken: string;
+  try {
+    adminToken = isAdmin(creds) ? creds.adminToken : await getAdminToken(creds.storeDomain);
+  } catch {
+    return [];
+  }
+  const domain = creds.storeDomain;
+  const json = await adminRest(
+    `products.json?handle=${encodeURIComponent(handle)}&limit=1&status=active`,
+    adminToken,
+    domain
+  ).catch(() => null);
+  const product = json?.products?.[0];
+  if (!product) return [];
+  return (product.images ?? []).map((img: any) => ({
+    src: img.src ?? "",
+    alt: img.alt ?? product.title ?? "",
+  })).filter((img: { src: string }) => img.src);
+}
+
 export async function fetchProductsByHandles(handles: string[]): Promise<ShopifyProductSummary[]> {
   if (handles.length === 0) return [];
   const creds = await resolveCredentials();
