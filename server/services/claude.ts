@@ -1040,6 +1040,39 @@ Return JSON in this exact shape (fill in all fields):
   }
 }
 
+/**
+ * Given a free-form topic/title and a list of keyword strings from the
+ * keyword library, asks Claude to identify the single best primary keyword
+ * and up to 5 supporting keywords from the list.
+ * Returns nulls/empty if no good match is found or the library is empty.
+ */
+export async function selectKeywordsForTopic(
+  topic: string,
+  availableKeywords: string[],
+): Promise<{ primaryKeyword: string | null; supportingKeywords: string[] }> {
+  if (availableKeywords.length === 0) return { primaryKeyword: null, supportingKeywords: [] };
+  try {
+    // Cap list to avoid oversized prompts; prioritise shorter/more specific keywords
+    const kwList = availableKeywords.slice(0, 250).join("\n");
+    const response = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 256,
+      system: `You are an SEO strategist. Given a content topic and a list of available target keywords, select the single best primary keyword and up to 5 supporting keywords that are semantically relevant to the topic. Only choose keywords that genuinely appear in the provided list — do not invent or paraphrase. If no keyword is a good match, return null for primary. Respond with JSON only, no explanation:\n{"primary": "exact keyword from list or null", "supporting": ["kw1", "kw2"]}`,
+      messages: [{ role: "user", content: `Topic: "${topic}"\n\nAvailable keywords:\n${kwList}` }],
+    });
+    const raw = response.content[0].type === "text" ? response.content[0].text : "";
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return { primaryKeyword: null, supportingKeywords: [] };
+    const parsed = JSON.parse(jsonMatch[0]);
+    return {
+      primaryKeyword: typeof parsed.primary === "string" ? parsed.primary : null,
+      supportingKeywords: Array.isArray(parsed.supporting) ? parsed.supporting.filter((s: any) => typeof s === "string") : [],
+    };
+  } catch {
+    return { primaryKeyword: null, supportingKeywords: [] };
+  }
+}
+
 export async function generateSection(topic: string, sectionType: string, context?: string): Promise<string> {
   const contextText = context ? ` Additional context: ${context}.` : "";
   const response = await anthropic.messages.create({

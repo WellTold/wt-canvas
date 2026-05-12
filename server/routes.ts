@@ -27,6 +27,7 @@ import {
   generateWebPageMarkdownContent,
   generateFAQ,
   generateCTAs,
+  selectKeywordsForTopic,
 } from "./services/claude";
 import { marked } from "marked";
 import { fetchProductList, fetchProductsByHandles, fetchProductAllImages, isShopifyConfigured } from "./services/shopify";
@@ -4162,9 +4163,55 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           ? allUntargeted.filter((k) => k.cluster === kw.cluster && k.id !== kw.id && k.priority === "supporting")
           : [];
       } else if (inputTopic) {
-        // Topic-first: use the topic as the content seed, no keyword object to link
-        kw = { keyword: inputTopic, cluster: null, contentTypeTarget: "blog_article", articleAngle: null, type: null };
-        clusterSupportingKeywords = [];
+        // Topic-first: use AI to match the topic against the keyword library.
+        // If a match is found, use that keyword (+ its cluster siblings) so the
+        // page gets properly linked and the AI gets real SEO keyword context.
+        // Falls back to using the topic string directly only if no match found.
+        const allKwsForTopic = await storage.getKeywords({});
+        const untargetedForTopic = allKwsForTopic.filter((k) => k.status === "untargeted");
+        let topicMatched = false;
+
+        if (untargetedForTopic.length > 0) {
+          const { primaryKeyword: matchedPrimary, supportingKeywords: matchedSupporting } =
+            await selectKeywordsForTopic(inputTopic, untargetedForTopic.map((k) => k.keyword)).catch(() => ({
+              primaryKeyword: null,
+              supportingKeywords: [],
+            }));
+
+          if (matchedPrimary) {
+            const primaryKwObj = untargetedForTopic.find(
+              (k) => k.keyword.toLowerCase() === matchedPrimary.toLowerCase(),
+            );
+            if (primaryKwObj) {
+              kw = primaryKwObj;
+              topicMatched = true;
+              // Use AI-selected supporting keywords, then fall back to cluster siblings
+              if (matchedSupporting.length > 0) {
+                clusterSupportingKeywords = untargetedForTopic.filter(
+                  (k) =>
+                    matchedSupporting.some((s) => k.keyword.toLowerCase() === s.toLowerCase()) &&
+                    k.id !== primaryKwObj.id,
+                );
+              } else if (primaryKwObj.cluster) {
+                clusterSupportingKeywords = untargetedForTopic.filter(
+                  (k) =>
+                    k.cluster === primaryKwObj.cluster &&
+                    k.id !== primaryKwObj.id &&
+                    k.priority === "supporting",
+                );
+              }
+              console.log(
+                `[ai-quick-create] topic "${inputTopic}" → matched keyword "${kw.keyword}" with ${clusterSupportingKeywords.length} supporting`,
+              );
+            }
+          }
+        }
+
+        if (!topicMatched) {
+          console.log(`[ai-quick-create] topic "${inputTopic}" → no keyword match, using topic as seed`);
+          kw = { keyword: inputTopic, cluster: null, contentTypeTarget: "blog_article", articleAngle: null, type: null };
+          clusterSupportingKeywords = [];
+        }
       } else {
         // AI Pick: auto-select the best untargeted keyword
         const untargeted = await storage.getKeywords({ status: "untargeted" });

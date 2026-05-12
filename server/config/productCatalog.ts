@@ -1227,13 +1227,13 @@ export const DEFAULT_CATALOG_ENTRY: CatalogEntry = {
     "home-town-maps-stemless-wine-glass",
     "home-town-maps-pint-glass",
     "home-town-map-20-oz-insulated-pint-tumbler",
-    "anywhere-maps-rocks-glass",
     "custom-night-sky-rocks-glass",
     "custom-quote-glassware",
-    "world-map-coffee-mug",
     "topography-maps-rocks-glass",
+    "home-town-map-riedel-crystal-rocks-glass",
+    "home-town-maps-coffee-mug",
   ],
-  collections: ["home-town-maps-barware", "custom", "maps"],
+  collections: ["home-town-maps-barware", "custom"],
   pages: ["gift-guide"],
 };
 
