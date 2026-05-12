@@ -1995,6 +1995,112 @@ export function ContentBlock({
           </div>
         );
 
+      case 'ugc_review':
+        return (
+          <div className="space-y-4">
+            {/* Live preview */}
+            <div
+              style={{
+                background: safeContent?.backgroundColor || "#e8643a",
+                borderRadius: 0,
+                padding: "16px 20px",
+              }}
+            >
+              {(safeContent?.layout === "center") ? (
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 24, color: safeContent?.textColor || "#ffffff", marginBottom: 8, letterSpacing: 3 }}>
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <span key={i} style={{ opacity: i < (safeContent?.rating || 5) ? 1 : 0.35 }}>★</span>
+                    ))}
+                  </div>
+                  {safeContent?.title && <p style={{ margin: "0 0 4px", fontWeight: 700, textTransform: "uppercase", color: safeContent?.textColor || "#ffffff", fontSize: 13 }}>{safeContent.title}</p>}
+                  {safeContent?.body && <p style={{ margin: 0, color: safeContent?.textColor || "#ffffff", fontSize: 12 }}>{safeContent.body}</p>}
+                  {safeContent?.attribution && <p style={{ margin: "6px 0 0", fontStyle: "italic", color: safeContent?.textColor || "#ffffff", fontSize: 11 }}>— {safeContent.attribution}</p>}
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                  {safeContent?.layout !== "right" && (
+                    <div style={{ minWidth: 100, textAlign: "center", borderRight: "1px solid rgba(255,255,255,0.35)", paddingRight: 16 }}>
+                      <div style={{ fontSize: 22, color: safeContent?.textColor || "#ffffff", letterSpacing: 2 }}>
+                        {Array.from({ length: 5 }, (_, i) => <span key={i} style={{ opacity: i < (safeContent?.rating || 5) ? 1 : 0.35 }}>★</span>)}
+                      </div>
+                      {safeContent?.attribution && <p style={{ margin: "4px 0 0", fontStyle: "italic", color: safeContent?.textColor || "#ffffff", fontSize: 11 }}>— {safeContent.attribution}</p>}
+                    </div>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    {safeContent?.title && <p style={{ margin: "0 0 4px", fontWeight: 700, textTransform: "uppercase", color: safeContent?.textColor || "#ffffff", fontSize: 13 }}>{safeContent.title}</p>}
+                    {safeContent?.body && <p style={{ margin: 0, color: safeContent?.textColor || "#ffffff", fontSize: 12 }}>{safeContent.body}</p>}
+                  </div>
+                  {safeContent?.layout === "right" && (
+                    <div style={{ minWidth: 100, textAlign: "center", borderLeft: "1px solid rgba(255,255,255,0.35)", paddingLeft: 16 }}>
+                      <div style={{ fontSize: 22, color: safeContent?.textColor || "#ffffff", letterSpacing: 2 }}>
+                        {Array.from({ length: 5 }, (_, i) => <span key={i} style={{ opacity: i < (safeContent?.rating || 5) ? 1 : 0.35 }}>★</span>)}
+                      </div>
+                      {safeContent?.attribution && <p style={{ margin: "4px 0 0", fontStyle: "italic", color: safeContent?.textColor || "#ffffff", fontSize: 11 }}>— {safeContent.attribution}</p>}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Fields */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Layout</Label>
+                <Select value={safeContent?.layout || "left"} onValueChange={(v) => onUpdate({ ...safeContent, layout: v })}>
+                  <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="left">Left (stars | content)</SelectItem>
+                    <SelectItem value="right">Right (content | stars)</SelectItem>
+                    <SelectItem value="center">Centered</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Rating (stars shown)</Label>
+                <Select value={String(safeContent?.rating ?? 5)} onValueChange={(v) => onUpdate({ ...safeContent, rating: Number(v) })}>
+                  <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">★★★★★ (5)</SelectItem>
+                    <SelectItem value="4">★★★★☆ (4)</SelectItem>
+                    <SelectItem value="3">★★★☆☆ (3)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Background colour</Label>
+                <div className="flex gap-2 mt-1 items-center">
+                  <input type="color" value={safeContent?.backgroundColor || "#e8643a"} onChange={(e) => onUpdate({ ...safeContent, backgroundColor: e.target.value })} className="h-8 w-8 cursor-pointer rounded border" />
+                  <Input value={safeContent?.backgroundColor || "#e8643a"} onChange={(e) => onUpdate({ ...safeContent, backgroundColor: e.target.value })} placeholder="#e8643a" className="text-xs h-8 flex-1" />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Text &amp; icon colour</Label>
+                <div className="flex gap-2 mt-1 items-center">
+                  <input type="color" value={safeContent?.textColor || "#ffffff"} onChange={(e) => onUpdate({ ...safeContent, textColor: e.target.value })} className="h-8 w-8 cursor-pointer rounded border" />
+                  <Input value={safeContent?.textColor || "#ffffff"} onChange={(e) => onUpdate({ ...safeContent, textColor: e.target.value })} placeholder="#ffffff" className="text-xs h-8 flex-1" />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs">Title (displayed in bold caps)</Label>
+              <Input value={safeContent?.title || ""} onChange={(e) => onUpdate({ ...safeContent, title: e.target.value })} placeholder="SUCH A PERFECT GIFT!" className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Description</Label>
+              <Textarea value={safeContent?.body || ""} onChange={(e) => onUpdate({ ...safeContent, body: e.target.value })} placeholder="This was so sentimental to my mom. Perfect look, delivery was on time, everything is PERFECT" className="mt-1 text-sm" rows={3} />
+            </div>
+            <div>
+              <Label className="text-xs">Attribution</Label>
+              <Input value={safeContent?.attribution || ""} onChange={(e) => onUpdate({ ...safeContent, attribution: e.target.value })} placeholder="Margaret P." className="mt-1" />
+            </div>
+          </div>
+        );
+
       // ── Shopify blocks (Tier 4) ──────────────────────────────────────────
       case 'shopify_product_card':
         return (

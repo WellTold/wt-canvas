@@ -937,6 +937,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       product_row:      { products: [] },
       email_promo_code:       { code: "", headline: "", expiry: "", instructions: "" },
       review:           { quote: "", author: "", rating: 5 },
+      ugc_review:       { layout: "left", backgroundColor: "#e8643a", textColor: "#ffffff", rating: 5, title: "", body: "", attribution: "" },
       gif_image:        { url: "", fallbackUrl: "", alt: "", width: 552 },
       email_countdown_timer:  { endDatetime: "", label: "", style: "light" },
       progress_loyalty: { label: "", current: 0, goal: 100, unit: "", color: "#c9a227" },
@@ -1044,7 +1045,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
 
           // Safely copy content properties
           const EMAIL_COMPLEX_TYPES = new Set([
-            'product_feature', 'product_row', 'promo_code', 'review',
+            'product_feature', 'product_row', 'promo_code', 'review', 'ugc_review',
             'gif_image', 'countdown_timer', 'progress_loyalty',
             'hero', 'two_column', 'accordion', 'banner', 'icon_text_row',
             'author_bio', 'breadcrumb', 'related_content',
@@ -2140,6 +2141,9 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => addBlock("review")}>
                         <Plus className="h-3 w-3 mr-1" />Review
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => addBlock("ugc_review")}>
+                        <Plus className="h-3 w-3 mr-1" />UGC / Review
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => addBlock("gif_image")}>
                         <Plus className="h-3 w-3 mr-1" />GIF Image

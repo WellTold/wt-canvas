@@ -773,6 +773,50 @@ function renderPromoCode(c: any, bg?: BlockBg): string {
   );
 }
 
+function renderUgcReview(c: any, bg?: BlockBg): string {
+  const bgColor   = c.backgroundColor || "#e8643a";
+  const textColor = c.textColor       || "#ffffff";
+  const layout    = (c.layout || "left") as "left" | "right" | "center";
+  const rating    = Math.max(1, Math.min(5, Number(c.rating) || 5));
+  const title       = c.title       || "";
+  const body        = c.body        || "";
+  const attribution = c.attribution || "";
+
+  // Stars — filled up to rating, dimmed remainder
+  const starsHtml = Array.from({ length: 5 }, (_, i) =>
+    `<span style="font-size:28px;color:${esc(textColor)};${i >= rating ? "opacity:0.35;" : ""}line-height:1;">&#9733;</span>`
+  ).join("");
+
+  const titleHtml = title
+    ? `<p style="margin:0 0 6px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;font-weight:700;line-height:1.3;color:${esc(textColor)};text-transform:uppercase;letter-spacing:0.5px;">${esc(title)}</p>`
+    : "";
+  const bodyHtml = body
+    ? `<p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;line-height:1.55;color:${esc(textColor)};">${esc(body)}</p>`
+    : "";
+  const attributionHtml = attribution
+    ? `<p style="margin:8px 0 0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-style:italic;color:${esc(textColor)};">&#8212; ${esc(attribution)}</p>`
+    : "";
+
+  if (layout === "center") {
+    const inner = `<div style="text-align:center;"><div style="margin-bottom:10px;">${starsHtml}</div>${titleHtml ? `<div style="margin-bottom:4px;">${titleHtml}</div>` : ""}${bodyHtml}${attributionHtml}</div>`;
+    return row(inner, bgColor, "28px 24px", bg);
+  }
+
+  // Two-column: stars+attribution | content  (or reversed for "right")
+  const dividerSide  = layout === "left" ? "border-right" : "border-left";
+  const starsCell = `<td width="150" valign="middle" style="text-align:center;${dividerSide}:1px solid rgba(255,255,255,0.35);${layout === "left" ? "padding-right:22px;" : "padding-left:22px;"}">
+    <div>${starsHtml}</div>
+    ${attributionHtml}
+  </td>`;
+  const contentCell = `<td valign="middle" style="${layout === "left" ? "padding-left:22px;" : "padding-right:22px;"}">
+    ${titleHtml}${bodyHtml}
+  </td>`;
+
+  const cols  = layout === "right" ? `${contentCell}${starsCell}` : `${starsCell}${contentCell}`;
+  const inner = `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${cols}</tr></table>`;
+  return row(inner, bgColor, "20px 24px", bg);
+}
+
 function renderReview(c: any, bg?: BlockBg): string {
   const rating = c.rating ? `<p style="margin:0 0 8px;font-size:20px;color:#c9a227;">${stars(c.rating)}</p>` : "";
   const author = c.author || "";
@@ -1013,6 +1057,7 @@ export function renderBlockToEmailHtml(
     case "product_row":       return renderProductRow(c, bg);
     case "promo_code":        return renderPromoCode(c, bg);
     case "review":            return renderReview(c, bg);
+    case "ugc_review":        return renderUgcReview(c, bg);
     case "gif_image":         return renderGifImage(c, bg);
     case "countdown_timer":   return renderCountdownTimer(c, bg);
     case "progress_loyalty":  return renderProgressLoyalty(c, bg);
