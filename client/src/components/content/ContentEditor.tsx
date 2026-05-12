@@ -92,6 +92,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const [presetName, setPresetName] = useState("");
   const [blockStates, setBlockStates] = useState<Record<string, BlockState>>({});
   const [imageSuggestions, setImageSuggestions] = useState<Record<string, ImageSuggestion>>({});
+  const [allCollapsed, setAllCollapsed] = useState(false);
   const [activeMood, setActiveMood] = useState("conversational");
   const [contentDescription, setContentDescription] = useState("");
   const [pickerProduct, setPickerProduct] = useState<{ handle: string; title: string; currentImageUrl: string } | null>(null);
@@ -2228,6 +2229,28 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                     </div>
                   )}
 
+                  {localBlocks.length > 0 && (
+                    <div className="flex justify-end mb-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-7 px-2 gap-1"
+                        onClick={() => setAllCollapsed((v) => !v)}
+                      >
+                        {allCollapsed ? (
+                          <>
+                            <ChevronDown className="h-3 w-3" />
+                            Expand All
+                          </>
+                        ) : (
+                          <>
+                            <ChevronUp className="h-3 w-3" />
+                            Collapse All
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                   <div className="space-y-3">
                     {(() => {
                       const sorted = [...localBlocks].sort((a: any, b: any) => a.order - b.order);
@@ -2268,6 +2291,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                               activeMood={activeMood}
                               contentDescription={contentDescription}
                               templateType={type || currentContentItem?.type || "email"}
+                              collapsed={allCollapsed}
                               siblingContext={localBlocks.reduce((acc, b) => {
                                 if (b.id !== block.id) {
                                   const text = typeof b.content === 'object' ? b.content?.text || b.content?.html : String(b.content);

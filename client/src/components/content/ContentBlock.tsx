@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useImproveContent, useRefineContent } from "@/lib/ai";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { GripVertical, Trash2, Wand2, Edit3, Plus, X, Bookmark, ShoppingBag, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight } from "lucide-react";
+import { GripVertical, Trash2, Wand2, Edit3, Plus, X, Bookmark, ShoppingBag, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ContentBlock as ContentBlockType } from "@shared/schema";
 import { CloudinaryAssetSelector } from "@/components/CloudinaryAssetSelector";
@@ -197,6 +197,7 @@ interface ContentBlockProps {
   templateType?: string;
   imageSuggestion?: ImageSuggestion;
   onAcceptSuggestion?: (blockId: string, url: string, displayName: string) => void;
+  collapsed?: boolean;
 }
 
 export function ContentBlock({
@@ -215,9 +216,11 @@ export function ContentBlock({
   templateType,
   imageSuggestion,
   onAcceptSuggestion,
+  collapsed,
 }: ContentBlockProps): React.ReactElement {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isCollapsed, setIsCollapsed] = useState(collapsed ?? false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [content, setContent] = useState(() => {
     // Clean content extraction to avoid prototype pollution
@@ -252,6 +255,11 @@ export function ContentBlock({
   const [shopifyData, setShopifyData] = useState<ShopifyProductPreview | ShopifyCollectionPreview | null>(null);
   const [shopifyLoading, setShopifyLoading] = useState(false);
   const [shopifyError, setShopifyError] = useState<string | null>(null);
+
+  // Sync when parent toggles "Collapse All / Expand All"
+  React.useEffect(() => {
+    if (collapsed !== undefined) setIsCollapsed(collapsed);
+  }, [collapsed]);
 
   const fetchShopifyProduct = async (productId: string) => {
     if (!productId?.trim()) return;
@@ -2666,15 +2674,31 @@ export function ContentBlock({
       )}
 
       <Card className="wt-content-block">
-        <div className="wt-content-block-header">
-          <div className="wt-content-block-type">
+        <div
+          className="wt-content-block-header cursor-pointer select-none"
+          onClick={() => setIsCollapsed((v) => !v)}
+        >
+          <div className="wt-content-block-type flex-1 min-w-0">
             <span className="flex items-center gap-2">
-              {block.type.charAt(0).toUpperCase() + block.type.slice(1)} Block
+              {isCollapsed
+                ? <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                : <ChevronUp className="h-3 w-3 shrink-0 text-muted-foreground" />}
+              {block.type.replace(/_/g, ' ').charAt(0).toUpperCase() + block.type.replace(/_/g, ' ').slice(1)} Block
               {block.notes && (
                 <span className="text-[10px] italic text-muted-foreground font-normal">
                   ({block.notes})
                 </span>
               )}
+              {isCollapsed && (() => {
+                const c = content as any;
+                const preview = c?.text || c?.heading || c?.title || c?.body || c?.quote || c?.name || c?.code || c?.html || '';
+                const clean = typeof preview === 'string' ? preview.replace(/<[^>]*>/g, '').trim().slice(0, 80) : '';
+                return clean ? (
+                  <span className="text-[11px] text-muted-foreground font-normal truncate max-w-xs">
+                    — {clean}{clean.length === 80 ? '…' : ''}
+                  </span>
+                ) : null;
+              })()}
             </span>
           </div>
           <div className="wt-content-block-actions">
@@ -2771,7 +2795,7 @@ export function ContentBlock({
             </Button>
           </div>
         </div>
-        <CardContent className="pt-4">
+        {!isCollapsed && <CardContent className="pt-4">
           {renderBlockEditor()}
 
           {/* Block Background section (email only) */}
@@ -2871,7 +2895,7 @@ export function ContentBlock({
           </div>
 
           </div>
-        </CardContent>
+        </CardContent>}
       </Card>
     </div>
   );
