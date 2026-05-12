@@ -1029,6 +1029,7 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
 
   ${allSchemas.map(s => `<script type="application/ld+json">${safeJsonLd(s)}</script>`).join('\n  ')}
 
+  <link rel="icon" type="image/png" href="https://welltolddesign.com/cdn/shop/files/WT_1_LightBlue_RGB_32x32.png?v=1613168805" />
   <link rel="stylesheet" href="${escAttr(baseUrl)}/a/articles/styles/wt-pages.css" />
   ${page.custom_css ? `<style>${page.custom_css}</style>` : ""}
 </head>
