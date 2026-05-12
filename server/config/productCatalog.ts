@@ -1214,11 +1214,37 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
 ];
 
 /**
- * Match a title + primary keyword against the catalog.
- * Returns the full matched CatalogEntry (handles + collections + pages),
- * or null if no entry matches (caller should fall back to Shopify search).
+ * Default entry used when no specific catalog entry matches.
+ * Contains the top-selling hero products — ordered by 12-month net units sold.
+ * This ensures AI never falls back to a raw Shopify keyword search (which can
+ * return blank/template products with no map art).
  */
-export function matchProductCatalog(title: string, primaryKeyword?: string): CatalogEntry | null {
+export const DEFAULT_CATALOG_ENTRY: CatalogEntry = {
+  label: "Default Bestsellers",
+  match: [],
+  handles: [
+    "home-town-maps-rocks-glass",
+    "home-town-maps-stemless-wine-glass",
+    "home-town-maps-pint-glass",
+    "home-town-map-20-oz-insulated-pint-tumbler",
+    "anywhere-maps-rocks-glass",
+    "custom-night-sky-rocks-glass",
+    "custom-quote-glassware",
+    "world-map-coffee-mug",
+    "topography-maps-rocks-glass",
+  ],
+  collections: ["home-town-maps-barware", "custom", "maps"],
+  pages: ["gift-guide"],
+};
+
+/**
+ * Match a title + primary keyword against the catalog.
+ * Returns the matched CatalogEntry (handles + collections + pages).
+ * Falls back to DEFAULT_CATALOG_ENTRY (hero products) if nothing matches —
+ * never returns null, so raw Shopify keyword searches (which can return blank
+ * template products) are never used.
+ */
+export function matchProductCatalog(title: string, primaryKeyword?: string): CatalogEntry {
   const haystack = `${title} ${primaryKeyword ?? ""}`.toLowerCase();
   for (const entry of PRODUCT_CATALOG) {
     if (entry.match.some(term => haystack.includes(term.toLowerCase()))) {
@@ -1226,5 +1252,6 @@ export function matchProductCatalog(title: string, primaryKeyword?: string): Cat
       return entry;
     }
   }
-  return null;
+  console.log(`[productCatalog] No match for: "${title}" — using default bestsellers`);
+  return DEFAULT_CATALOG_ENTRY;
 }
