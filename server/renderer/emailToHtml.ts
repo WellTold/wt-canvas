@@ -785,11 +785,31 @@ function renderImageText(c: any, bg?: BlockBg): string {
   const ctaText   = c.ctaText   || "";
   const ctaLink   = c.ctaLink   || "#";
 
+  // Per-field typography
+  const hSize   = c.headingFontSize       || "18";
+  const hWeight = c.headingFontWeight     || "700";
+  const hStyle  = c.headingFontStyle      || "normal";
+  const hDeco   = c.headingTextDecoration || "none";
+  const hXform  = c.headingTextTransform  || "none";
+
+  const bSize   = c.bodyFontSize          || "15";
+  const bWeight = c.bodyFontWeight        || "400";
+  const bStyle  = c.bodyFontStyle         || "normal";
+  const bDeco   = c.bodyTextDecoration    || "none";
+  const bXform  = c.bodyTextTransform     || "none";
+
+  // Text panel padding
+  const padTop    = c.textPadTop    !== undefined ? Number(c.textPadTop)    : 32;
+  const padRight  = c.textPadRight  !== undefined ? Number(c.textPadRight)  : 28;
+  const padBottom = c.textPadBottom !== undefined ? Number(c.textPadBottom) : 32;
+  const padLeft   = c.textPadLeft   !== undefined ? Number(c.textPadLeft)   : 28;
+  const cellPad   = `${padTop}px ${padRight}px ${padBottom}px ${padLeft}px`;
+
   const headingHtml = heading
-    ? `<p style="margin:0 0 10px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:18px;font-weight:700;line-height:1.3;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(heading)}</p>`
+    ? `<p style="margin:0 0 10px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(hSize)}px;font-weight:${esc(hWeight)};font-style:${esc(hStyle)};text-decoration:${esc(hDeco)};text-transform:${esc(hXform)};line-height:1.3;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(heading)}</p>`
     : "";
   const bodyHtml = body
-    ? `<p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;line-height:1.65;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(body)}</p>`
+    ? `<p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(bSize)}px;font-weight:${esc(bWeight)};font-style:${esc(bStyle)};text-decoration:${esc(bDeco)};text-transform:${esc(bXform)};line-height:1.65;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(body)}</p>`
     : "";
   const ctaHtml = ctaText
     ? `<p style="margin:18px 0 0;text-align:${esc(textAlign)};"><a href="${esc(ctaLink)}" style="font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-weight:600;color:${esc(textColor)};text-decoration:underline;">${esc(ctaText)}</a></p>`
@@ -799,7 +819,7 @@ function renderImageText(c: any, bg?: BlockBg): string {
     ? `<td width="300" valign="top" style="padding:0;"><img src="${esc(imageUrl)}" width="300" height="300" alt="${esc(imageAlt)}" style="display:block;width:300px;height:300px;object-fit:cover;border:0;" /></td>`
     : `<td width="300" valign="top" style="padding:0;background-color:#f0ebe7;width:300px;height:300px;"></td>`;
 
-  const textCell = `<td width="300" valign="middle" style="padding:32px 28px;background-color:${esc(textBg)};vertical-align:middle;">${headingHtml}${bodyHtml}${ctaHtml}</td>`;
+  const textCell = `<td width="300" valign="middle" style="padding:${cellPad};background-color:${esc(textBg)};vertical-align:middle;">${headingHtml}${bodyHtml}${ctaHtml}</td>`;
 
   const cols  = layout === "image_right" ? `${textCell}${imageCell}` : `${imageCell}${textCell}`;
   const inner = `<table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${cols}</tr></table>`;

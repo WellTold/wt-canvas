@@ -2003,7 +2003,63 @@ export function ContentBlock({
           </div>
         );
 
-      case 'image_text':
+      case 'image_text': {
+        const itTextAlign = safeContent?.textAlign || "left";
+
+        // Compact formatting bar shared between heading and body fields
+        const ItBtn = ({ active, onClick, title: t, children }: { active: boolean; onClick: () => void; title: string; children: React.ReactNode }) => (
+          <button type="button" title={t} onClick={onClick}
+            className={cn("h-7 w-7 flex items-center justify-center border border-gray-300 transition-colors shrink-0",
+              active ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-600 hover:bg-gray-100")}>
+            {children}
+          </button>
+        );
+
+        const ItFmtBar = ({ prefix }: { prefix: "heading" | "body" }) => {
+          const weightKey = `${prefix}FontWeight` as const;
+          const styleKey  = `${prefix}FontStyle`  as const;
+          const decoKey   = `${prefix}TextDecoration` as const;
+          const xformKey  = `${prefix}TextTransform`  as const;
+          const sizeKey   = `${prefix}FontSize`   as const;
+          const w = safeContent?.[weightKey] || (prefix === "heading" ? "700" : "400");
+          const s = safeContent?.[styleKey]  || "normal";
+          const d = safeContent?.[decoKey]   || "none";
+          const x = safeContent?.[xformKey]  || "none";
+          const sz = safeContent?.[sizeKey];
+          const sizes = prefix === "heading"
+            ? [["14","14px"],["16","16px"],["18","18px"],["20","20px"],["24","24px"],["28","28px"],["32","32px"]]
+            : [["12","12px"],["13","13px"],["14","14px"],["15","15px"],["16","16px"],["18","18px"]];
+          const defaultSize = prefix === "heading" ? "18" : "15";
+          return (
+            <div className="flex items-center gap-1 flex-wrap mt-1.5">
+              {/* Size */}
+              <Select value={sz || defaultSize} onValueChange={(v) => onUpdate({ ...safeContent, [sizeKey]: v })}>
+                <SelectTrigger className="h-7 text-xs w-16 shrink-0"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {sizes.map(([v, l]) => <SelectItem key={v} value={v} className="text-xs">{l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {/* Weight */}
+              <Select value={w} onValueChange={(v) => onUpdate({ ...safeContent, [weightKey]: v })}>
+                <SelectTrigger className="h-7 text-xs w-24 shrink-0"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[["300","Light"],["400","Regular"],["500","Medium"],["600","SemiBold"],["700","Bold"],["800","ExtraBold"]].map(([v,l]) => (
+                    <SelectItem key={v} value={v} className="text-xs">{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="w-px h-5 bg-gray-300 shrink-0" />
+              <ItBtn active={s === "italic"} onClick={() => onUpdate({ ...safeContent, [styleKey]: s === "italic" ? "normal" : "italic" })} title="Italic"><Italic className="h-3.5 w-3.5" /></ItBtn>
+              <ItBtn active={d === "underline"} onClick={() => onUpdate({ ...safeContent, [decoKey]: d === "underline" ? "none" : "underline" })} title="Underline"><Underline className="h-3.5 w-3.5" /></ItBtn>
+              <ItBtn active={d === "line-through"} onClick={() => onUpdate({ ...safeContent, [decoKey]: d === "line-through" ? "none" : "line-through" })} title="Strikethrough"><Strikethrough className="h-3.5 w-3.5" /></ItBtn>
+              <div className="w-px h-5 bg-gray-300 shrink-0" />
+              <ItBtn active={!x || x === "none"} onClick={() => onUpdate({ ...safeContent, [xformKey]: "none" })} title="Default casing"><span className="text-[10px]">Aa</span></ItBtn>
+              <ItBtn active={x === "uppercase"} onClick={() => onUpdate({ ...safeContent, [xformKey]: "uppercase" })} title="Uppercase"><span className="text-[10px] font-bold">AA</span></ItBtn>
+              <ItBtn active={x === "capitalize"} onClick={() => onUpdate({ ...safeContent, [xformKey]: "capitalize" })} title="Capitalise"><span className="text-[10px]">Tt</span></ItBtn>
+            </div>
+          );
+        };
+
         return (
           <div className="space-y-4">
             {/* Mini preview */}
@@ -2014,9 +2070,9 @@ export function ContentBlock({
                 </div>
               )}
               <div style={{ width: "50%", aspectRatio: "1/1", background: safeContent?.textBgColor || "#ffffff", padding: "16px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                {safeContent?.heading && <p style={{ margin: "0 0 6px", fontWeight: 700, fontSize: 12, color: safeContent?.textColor || "#333333", textAlign: safeContent?.textAlign || "left" }}>{safeContent.heading}</p>}
-                {safeContent?.body && <p style={{ margin: 0, fontSize: 11, lineHeight: 1.5, color: safeContent?.textColor || "#333333", textAlign: safeContent?.textAlign || "left" }}>{safeContent.body}</p>}
-                {safeContent?.ctaText && <p style={{ margin: "8px 0 0", fontSize: 11, textDecoration: "underline", color: safeContent?.textColor || "#333333", textAlign: safeContent?.textAlign || "left" }}>{safeContent.ctaText}</p>}
+                {safeContent?.heading && <p style={{ margin: "0 0 6px", fontWeight: Number(safeContent?.headingFontWeight || 700), fontStyle: safeContent?.headingFontStyle || "normal", textDecoration: safeContent?.headingTextDecoration || "none", textTransform: (safeContent?.headingTextTransform || "none") as any, fontSize: `${safeContent?.headingFontSize || 14}px`, color: safeContent?.textColor || "#333333", textAlign: itTextAlign as any }}>{safeContent.heading}</p>}
+                {safeContent?.body && <p style={{ margin: 0, fontWeight: Number(safeContent?.bodyFontWeight || 400), fontStyle: safeContent?.bodyFontStyle || "normal", textDecoration: safeContent?.bodyTextDecoration || "none", textTransform: (safeContent?.bodyTextTransform || "none") as any, fontSize: `${safeContent?.bodyFontSize || 12}px`, lineHeight: 1.5, color: safeContent?.textColor || "#333333", textAlign: itTextAlign as any }}>{safeContent.body}</p>}
+                {safeContent?.ctaText && <p style={{ margin: "8px 0 0", fontSize: 11, textDecoration: "underline", color: safeContent?.textColor || "#333333", textAlign: itTextAlign as any }}>{safeContent.ctaText}</p>}
               </div>
               {safeContent?.layout === "image_right" && (
                 <div style={{ width: "50%", aspectRatio: "1/1", background: safeContent?.imageUrl ? `url(${safeContent.imageUrl}) center/cover` : "#f0ebe7", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -2057,10 +2113,13 @@ export function ContentBlock({
             <div>
               <Label className="text-xs">Heading (optional)</Label>
               <Input value={safeContent?.heading || ""} onChange={(e) => onUpdate({ ...safeContent, heading: e.target.value })} placeholder="Custom engraved premium glassware…" className="mt-1" />
+              <ItFmtBar prefix="heading" />
             </div>
+
             <div>
               <Label className="text-xs">Body text</Label>
               <Textarea value={safeContent?.body || ""} onChange={(e) => onUpdate({ ...safeContent, body: e.target.value })} placeholder="Enter your paragraph text…" className="mt-1 text-sm" rows={4} />
+              <ItFmtBar prefix="body" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -2074,17 +2133,17 @@ export function ContentBlock({
               </div>
             </div>
 
+            {/* Colours + alignment */}
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label className="text-xs">Text align</Label>
-                <Select value={safeContent?.textAlign || "left"} onValueChange={(v) => onUpdate({ ...safeContent, textAlign: v })}>
-                  <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="left">Left</SelectItem>
-                    <SelectItem value="center">Center</SelectItem>
-                    <SelectItem value="right">Right</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-0.5 mt-1">
+                  {([["left","Left"],["center","Center"],["right","Right"]] as const).map(([v,l]) => (
+                    <ItBtn key={v} active={itTextAlign === v} onClick={() => onUpdate({ ...safeContent, textAlign: v })} title={l}>
+                      {v === "left" ? <AlignLeft className="h-3.5 w-3.5" /> : v === "center" ? <AlignCenter className="h-3.5 w-3.5" /> : <AlignRight className="h-3.5 w-3.5" />}
+                    </ItBtn>
+                  ))}
+                </div>
               </div>
               <div>
                 <Label className="text-xs">Text colour</Label>
@@ -2101,8 +2160,32 @@ export function ContentBlock({
                 </div>
               </div>
             </div>
+
+            {/* Text panel padding */}
+            <div className="pt-3 border-t border-dashed border-muted-foreground/20">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Text panel padding</Label>
+              <div className="mt-2 grid grid-cols-4 gap-1.5">
+                {([["textPadTop","T"],["textPadRight","R"],["textPadBottom","B"],["textPadLeft","L"]] as const).map(([field, label]) => (
+                  <div key={field} className="flex flex-col items-center gap-0.5">
+                    <span className="text-[10px] text-muted-foreground font-medium">{label}</span>
+                    <input
+                      type="number" min={0} max={120}
+                      value={safeContent?.[field] ?? ""}
+                      placeholder={field === "textPadTop" || field === "textPadBottom" ? "32" : "28"}
+                      onChange={(e) => {
+                        const v = e.target.value === "" ? undefined : Number(e.target.value);
+                        onUpdate({ ...safeContent, [field]: v });
+                      }}
+                      className="h-7 w-full rounded border border-input bg-background px-1.5 text-xs text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">Leave blank to use defaults (32px top/bottom, 28px left/right)</p>
+            </div>
           </div>
         );
+      }
 
       case 'ugc_review':
         return (
