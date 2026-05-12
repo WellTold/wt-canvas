@@ -1415,23 +1415,9 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
 
   const liveUrl = (() => {
     if (isEmailContent) return null;
-    // Prefer the persisted slug from the saved item to avoid opening a URL based on
-    // unsaved local edits.  Fall back to local state only if the item hasn't been
-    // saved yet (e.g. new draft not yet created on the server).
     const s = currentContentItem?.slug || slug;
     if (!s) return null;
-    // Derive site base URL from logoLink in site settings (strip trailing path/slash).
-    // Falls back to the canonical production domain.
-    const logoLink: string = siteSettings?.logoLink || "https://welltolddesign.com";
-    let base = logoLink.replace(/\/$/, "");
-    // logoLink may point to a deep path like https://welltolddesign.com/shop — strip to origin
-    try {
-      const u = new URL(base);
-      base = u.origin;
-    } catch {
-      base = "https://welltolddesign.com";
-    }
-    return `${base}/a/articles/${s}`;
+    return `https://welltolddesign.com/a/articles/${s}`;
   })();
 
   return (
