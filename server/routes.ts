@@ -13,6 +13,8 @@ import {
   emailStyles,
   insertEmailStyleSchema,
   insertKeywordSchema,
+  imageTemplates,
+  insertImageTemplateSchema,
 } from "@shared/schema";
 import { z } from "zod";
 import {
@@ -4670,6 +4672,136 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
     } catch (error) {
       console.error("Regenerate error:", error);
       res.status(500).json({ message: "Failed to regenerate page: " + (error as Error).message });
+    }
+  });
+
+  // ── Image Templates ────────────────────────────────────────────────────────
+  const requireAdminOrDev = (req: any, res: any, next: any) => {
+    const role = req.user?.user_metadata?.role;
+    if (role !== "admin" && role !== "developer") {
+      return res.status(403).json({ message: "Admin or developer role required" });
+    }
+    return next();
+  };
+
+  app.get("/api/image-templates", requireAuth, async (_req, res) => {
+    try {
+      const rows = await db.select().from(imageTemplates).orderBy(desc(imageTemplates.createdAt));
+      res.json(rows);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch image templates" });
+    }
+  });
+
+  app.post("/api/image-templates", requireAuth, requireAdminOrDev, async (req, res) => {
+    try {
+      const data = insertImageTemplateSchema.parse(req.body);
+      const [row] = await db.insert(imageTemplates).values(data).returning();
+      res.json(row);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid data: " + (error as Error).message });
+    }
+  });
+
+  app.patch("/api/image-templates/:id", requireAuth, requireAdminOrDev, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const data = insertImageTemplateSchema.partial().parse(req.body);
+      const [row] = await db.update(imageTemplates).set(data).where(eq(imageTemplates.id, id)).returning();
+      if (!row) return res.status(404).json({ message: "Template not found" });
+      res.json(row);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid data: " + (error as Error).message });
+    }
+  });
+
+  app.delete("/api/image-templates/:id", requireAuth, requireAdminOrDev, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(imageTemplates).where(eq(imageTemplates.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete template" });
+    }
+  });
+
+  // ── Image Template Thumbnail Upload ────────────────────────────────────────
+  app.post("/api/image-templates/upload-thumbnail", requireAuth, requireAdminOrDev, async (req, res) => {
+    try {
+      const { dataUrl } = z.object({ dataUrl: z.string().min(1) }).parse(req.body);
+      const cloudinaryMod = await import("cloudinary");
+      const cloudinaryV2 = cloudinaryMod.v2;
+      const result = await cloudinaryV2.uploader.upload(dataUrl, {
+        folder: "image-template-thumbnails",
+        resource_type: "image",
+      });
+      res.json({ url: result.secure_url });
+    } catch (error) {
+      res.status(500).json({ message: "Upload failed: " + (error as Error).message });
+    }
+  });
+
+  // ── Image Studio Generate ──────────────────────────────────────────────────
+  app.post("/api/image-studio/generate", requireAuth, async (req, res) => {
+    try {
+      const schema = z.object({
+        prompt: z.string().min(1),
+        model: z.string().default("bana-pro/text-to-image"),
+        aspectRatios: z.array(z.string()).min(1),
+        referenceImageUrls: z.array(z.string()).default([]),
+      });
+      const { prompt, model, aspectRatios, referenceImageUrls: rawReferenceUrls } = schema.parse(req.body);
+
+      // Pre-upload any data: URLs to Cloudinary so Higgsfield receives HTTP(S) URLs
+      const { v2: cloudinaryV2 } = await import("cloudinary");
+      const referenceImageUrls: string[] = await Promise.all(
+        rawReferenceUrls.map(async (url) => {
+          if (!url.startsWith("data:")) return url;
+          try {
+            const uploadResult = await cloudinaryV2.uploader.upload(url, { folder: "wt-generated" });
+            return uploadResult.secure_url;
+          } catch (err) {
+            console.warn("[image-studio] failed to pre-upload data URL:", (err as Error).message);
+            throw new Error("Failed to upload reference image. Please use an HTTP URL or try again.");
+          }
+        })
+      );
+
+      const { generateStudioImage, expandImage } = await import("./services/imageGeneration");
+
+      const primaryRatio = aspectRatios[0];
+      const primaryUrl = await generateStudioImage({ prompt, model, aspectRatio: primaryRatio, referenceImageUrls });
+
+      const results: Array<{ aspectRatio: string; url: string }> = [
+        { aspectRatio: primaryRatio, url: primaryUrl },
+      ];
+
+      for (const ratio of aspectRatios.slice(1)) {
+        try {
+          const expandedUrl = await expandImage({ sourceUrl: primaryUrl, targetAspectRatio: ratio });
+          results.push({ aspectRatio: ratio, url: expandedUrl });
+        } catch (err) {
+          console.warn(`[image-studio] expand failed for ${ratio}:`, (err as Error).message);
+        }
+      }
+
+      res.json({ images: results });
+    } catch (error) {
+      console.error("[image-studio] generate error:", error);
+      res.status(500).json({ message: "Generation failed: " + (error as Error).message });
+    }
+  });
+
+  // ── Image Studio Upload to Cloudinary ─────────────────────────────────────
+  app.post("/api/image-studio/save-to-cloudinary", requireAuth, async (req, res) => {
+    try {
+      const { url } = z.object({ url: z.string().url() }).parse(req.body);
+      const cloudinaryMod = await import("cloudinary");
+      const cloudinaryV2 = cloudinaryMod.v2;
+      const result = await cloudinaryV2.uploader.upload(url, { folder: "wt-generated", resource_type: "image" });
+      res.json({ url: result.secure_url });
+    } catch (error) {
+      res.status(500).json({ message: "Save failed: " + (error as Error).message });
     }
   });
 

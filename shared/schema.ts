@@ -394,3 +394,18 @@ export const insertIntegrationSchema = createInsertSchema(integrations).omit({
 
 export type Integration = typeof integrations.$inferSelect;
 export type InsertIntegration = z.infer<typeof insertIntegrationSchema>;
+
+// ─── Image Templates ─────────────────────────────────────────────────────────
+export const imageTemplates = pgTable("image_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  prompt: text("prompt").notNull(),
+  model: text("model").notNull().default("bana-pro/text-to-image"),
+  referenceImageUrls: text("reference_image_urls").array().notNull().default([]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertImageTemplateSchema = createInsertSchema(imageTemplates).omit({ id: true, createdAt: true });
+export type ImageTemplate = typeof imageTemplates.$inferSelect;
+export type InsertImageTemplate = z.infer<typeof insertImageTemplateSchema>;

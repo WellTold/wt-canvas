@@ -16,12 +16,16 @@ import {
   Globe2,
   Plug,
   KeyRound,
+  Wand2,
+  PlusSquare,
+  Palette,
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import logoHorizontal from "@assets/wt-canvas-horizontal-logo.png";
 import type { Integration } from "@shared/schema";
+import { useAuth } from "@/lib/auth";
 import { SiShopify } from "react-icons/si";
 import { Mail as MailIcon } from "lucide-react";
 
@@ -29,6 +33,7 @@ interface NavItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ size?: number }>;
+  adminOnly?: boolean;
 }
 
 interface NavSection {
@@ -69,12 +74,6 @@ const navigationItems: NavSection[] = [
       { name: "Brand Context", href: "/settings/brand-context", icon: LayoutTemplate },
     ],
   },
-  {
-    section: "Content Library",
-    items: [
-      { name: "Brand Logos",  href: "/brand-logos",  icon: Copyright },
-    ],
-  },
 ];
 
 interface CloudinaryFolder {
@@ -94,6 +93,9 @@ export function Sidebar() {
   const [location] = useLocation();
   const [isCloudinaryExpanded, setIsCloudinaryExpanded] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const { data: user } = useAuth();
+
+  const isAdminOrDev = user?.role === "admin" || user?.role === "developer";
 
   const { data: integrationsList = [] } = useQuery<Integration[]>({
     queryKey: ["/api/integrations"],
@@ -204,6 +206,7 @@ export function Sidebar() {
           <div className="wt-sidebar-section-title">{section.section}</div>
           <ul className="wt-sidebar-nav">
             {section.items.map((item) => {
+              if (item.adminOnly && !isAdminOrDev) return null;
               const IconComponent = item.icon;
               return (
                 <li key={item.href}>
@@ -217,6 +220,61 @@ export function Sidebar() {
           </ul>
         </div>
       ))}
+
+      {/* Content Section */}
+      <div className="wt-sidebar-section">
+        <div className="wt-sidebar-section-title">Content</div>
+        <ul className="wt-sidebar-nav">
+          <li>
+            <Link href="/brand-logos" className={isActive("/brand-logos") ? "active" : ""}>
+              <Copyright size={18} />
+              Brand Content
+            </Link>
+          </li>
+
+          {/* Cloudinary expandable */}
+          <li>
+            <button
+              onClick={() => setIsCloudinaryExpanded(!isCloudinaryExpanded)}
+              className="w-full flex items-center justify-between text-left px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Images size={18} />
+                <span>Cloudinary</span>
+              </div>
+              {isCloudinaryExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </button>
+          </li>
+
+          {isCloudinaryExpanded && (
+            <>
+              <li className="ml-4">
+                <Link href="/cloudinary" className={location === "/cloudinary" ? "active" : ""}>
+                  <Images size={18} />
+                  All Assets
+                </Link>
+              </li>
+              {renderFolderTree(folderTree)}
+            </>
+          )}
+
+          <li>
+            <Link href="/content/create" className={isActive("/content/create") ? "active" : ""}>
+              <Wand2 size={18} />
+              Create Content
+            </Link>
+          </li>
+
+          {isAdminOrDev && (
+            <li>
+              <Link href="/content/image-templates" className={isActive("/content/image-templates") ? "active" : ""}>
+                <Palette size={18} />
+                Image Templates
+              </Link>
+            </li>
+          )}
+        </ul>
+      </div>
 
       {/* Integrations Section */}
       <div className="wt-sidebar-section">
@@ -252,37 +310,6 @@ export function Sidebar() {
               </li>
             );
           })}
-        </ul>
-      </div>
-
-      {/* Cloudinary Section */}
-      <div className="wt-sidebar-section">
-        <div className="wt-sidebar-section-title">Cloudinary</div>
-        <ul className="wt-sidebar-nav">
-          <li>
-            <button
-              onClick={() => setIsCloudinaryExpanded(!isCloudinaryExpanded)}
-              className="w-full flex items-center justify-between text-left px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <Images size={18} />
-                <span>Assets</span>
-              </div>
-              {isCloudinaryExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </button>
-          </li>
-
-          {isCloudinaryExpanded && (
-            <>
-              <li className="ml-4">
-                <Link href="/cloudinary" className={location === "/cloudinary" ? "active" : ""}>
-                  <Images size={18} />
-                  All Assets
-                </Link>
-              </li>
-              {renderFolderTree(folderTree)}
-            </>
-          )}
         </ul>
       </div>
     </aside>

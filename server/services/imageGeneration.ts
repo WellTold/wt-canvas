@@ -128,6 +128,83 @@ async function downloadAndUploadToCloudinary(sourceUrl: string, folder = "wt-gen
 }
 
 // ---------------------------------------------------------------------------
+// Aspect ratio → width/height map
+// ---------------------------------------------------------------------------
+const ASPECT_RATIO_DIMENSIONS: Record<string, { width: number; height: number }> = {
+  "1:1":  { width: 1024, height: 1024 },
+  "9:16": { width: 576,  height: 1024 },
+  "4:3":  { width: 1024, height: 768  },
+  "3:4":  { width: 768,  height: 1024 },
+  "16:9": { width: 2048, height: 1152 },
+};
+
+// ---------------------------------------------------------------------------
+// Image Studio — generate a single image for a given aspect ratio
+// ---------------------------------------------------------------------------
+export async function generateStudioImage(params: {
+  prompt: string;
+  model: string;
+  aspectRatio: string;
+  referenceImageUrls: string[];
+}): Promise<string> {
+  const { prompt, model, aspectRatio, referenceImageUrls } = params;
+  const dims = ASPECT_RATIO_DIMENSIONS[aspectRatio] ?? { width: 1024, height: 1024 };
+
+  const input: Record<string, unknown> = {
+    prompt,
+    aspect_ratio: aspectRatio,
+    width: dims.width,
+    height: dims.height,
+    safety_tolerance: 2,
+  };
+
+  // Higgsfield's image_url field accepts a single conditioning URL.
+  // If multiple reference images are provided, only the first is used for
+  // composition conditioning — multi-image conditioning is not supported by
+  // the current Higgsfield API.
+  if (referenceImageUrls.length > 0) {
+    input.image_url = referenceImageUrls[0];
+  }
+
+  console.log(`[imageGeneration] studio mode=${model} ratio=${aspectRatio} prompt="${prompt.substring(0, 60)}…"`);
+  const providerUrl = await callHiggsfield(model, input);
+  const cloudinaryUrl = await downloadAndUploadToCloudinary(providerUrl, "wt-generated");
+  return cloudinaryUrl;
+}
+
+// ---------------------------------------------------------------------------
+// Expand/resize an existing image to a different aspect ratio.
+// Uses the FLUX Kontext Max model (context-aware image-conditioned generation)
+// which accepts image_url as a conditioning input and re-renders it at a new
+// aspect ratio while preserving composition.  The expand_image_url parameter
+// is sent when the endpoint supports explicit outpainting; image_url is the
+// standard field and provides visual context for composition consistency.
+// ---------------------------------------------------------------------------
+const EXPAND_MODEL = HIGGSFIELD_MODELS.FLUX_KONTEXT_MAX;
+
+export async function expandImage(params: {
+  sourceUrl: string;
+  targetAspectRatio: string;
+}): Promise<string> {
+  const { sourceUrl, targetAspectRatio } = params;
+  const dims = ASPECT_RATIO_DIMENSIONS[targetAspectRatio] ?? { width: 1024, height: 1024 };
+
+  const input: Record<string, unknown> = {
+    image_url: sourceUrl,
+    aspect_ratio: targetAspectRatio,
+    width: dims.width,
+    height: dims.height,
+    safety_tolerance: 2,
+    prompt: "expand the image to fill the new aspect ratio, preserving the original composition and style",
+  };
+
+  console.log(`[imageGeneration] expand to ${targetAspectRatio} using ${EXPAND_MODEL}`);
+  const providerUrl = await callHiggsfield(EXPAND_MODEL, input);
+  const cloudinaryUrl = await downloadAndUploadToCloudinary(providerUrl, "wt-generated");
+  return cloudinaryUrl;
+}
+
+// ---------------------------------------------------------------------------
 // Public entry point
 // ---------------------------------------------------------------------------
 
