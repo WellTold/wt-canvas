@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
-import { ArrowLeft, Wand2, Save, Plus, Mail, ExternalLink, Bookmark, BookMarked, ShoppingBag, ChevronUp, ChevronDown, Eye, Settings2, Upload, Megaphone, RefreshCw, ImageIcon, Loader2 } from "lucide-react";
+import { ArrowLeft, Wand2, Save, Plus, Mail, ExternalLink, Bookmark, BookMarked, ShoppingBag, ChevronUp, ChevronDown, Eye, Settings2, Upload, Megaphone, RefreshCw, ImageIcon, Loader2, Globe } from "lucide-react";
 import { EmailPreviewModal } from "./EmailPreviewModal";
 import { Badge } from "@/components/ui/badge";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -941,6 +941,29 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
     },
   });
 
+  const publishMutation = useMutation({
+    mutationFn: async () => {
+      const itemId = contentItemId || currentContentItem?.id;
+      if (!itemId) throw new Error("Save the article first before publishing.");
+      const res = await apiRequest("POST", "/api/publish/supabase", { contentId: itemId });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Publish failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setStatus("live");
+      const itemId = contentItemId || currentContentItem?.id;
+      queryClient.invalidateQueries({ queryKey: ["/api/content-items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content-items", String(itemId)] });
+      toast({ title: "Published", description: "Article is live. The hero image and all SEO fields have been synced." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Publish failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const addBlockWithContent = (type: string, initialContent: Record<string, any>) => {
     const nextOrder = localBlocks.length === 0 ? 0 : Math.max(...localBlocks.map((b: any) => b.order ?? 0)) + 1;
     const newBlock = {
@@ -1701,6 +1724,34 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
               >
                 <ExternalLink className="h-4 w-4 mr-1" />
                 View Live
+              </Button>
+            )}
+
+            {/* Publish — web content only, must be saved first */}
+            {!isEmailContent && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => publishMutation.mutate()}
+                disabled={publishMutation.isPending || !(contentItemId || currentContentItem?.id)}
+                title={
+                  !(contentItemId || currentContentItem?.id)
+                    ? "Save the article first before publishing"
+                    : status === "live"
+                    ? "Re-publish to push the latest changes live"
+                    : "Publish this article to the live website"
+                }
+              >
+                {publishMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Globe className="h-4 w-4 mr-1" />
+                )}
+                {publishMutation.isPending
+                  ? "Publishing…"
+                  : status === "live"
+                  ? "Update Live"
+                  : "Publish"}
               </Button>
             )}
 
