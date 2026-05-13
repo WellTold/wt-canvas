@@ -945,7 +945,10 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
     mutationFn: async () => {
       const itemId = contentItemId || currentContentItem?.id;
       if (!itemId) throw new Error("Save the article first before publishing.");
-      const res = await apiRequest("POST", "/api/publish/supabase", { contentId: itemId });
+      const res = await apiRequest("POST", "/api/publish/supabase", {
+        contentId: itemId,
+        featuredImage: featuredImage || undefined,
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.message || "Publish failed");

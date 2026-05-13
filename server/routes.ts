@@ -2079,8 +2079,8 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
   // Supabase publishing routes
   app.post("/api/publish/supabase", requireAuth, async (req, res) => {
     try {
-      const { contentId, contentType } = req.body;
-      console.log("📤 Publishing to Supabase:", { contentId, contentType });
+      const { contentId, contentType, featuredImage: passedFeaturedImage } = req.body;
+      console.log("📤 Publishing to Supabase:", { contentId, contentType, passedFeaturedImage: passedFeaturedImage ?? "(not passed)" });
 
       const contentItem = await storage.getContentItem(contentId);
       if (!contentItem) {
@@ -2112,8 +2112,11 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         if (contentItem.structuredData) {
           syncData.structured_data = contentItem.structuredData;
         }
-        if (contentItem.featuredImage) {
-          syncData.featured_image = contentItem.featuredImage;
+        // Use the featuredImage passed from the editor as priority (covers the case where
+        // the user set an image but hasn't saved yet), falling back to what's in the DB.
+        const effectiveFeaturedImage = passedFeaturedImage || contentItem.featuredImage || null;
+        if (effectiveFeaturedImage) {
+          syncData.featured_image = effectiveFeaturedImage;
         }
         if ((contentItem as any).ogImage) {
           syncData.og_image = (contentItem as any).ogImage;

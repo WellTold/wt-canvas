@@ -701,7 +701,8 @@ a { color: inherit; }
 
 /* ── Hero ───────────────────────────────────────────────────────────────── */
 .wt-hero { position: relative; margin: 0 calc(-1 * var(--wt-gutter)) 3rem; overflow: hidden; }
-.wt-hero-image { width: 100%; max-height: 480px; object-fit: cover; display: block; border-bottom: 2px solid var(--wt-color-border); }
+.wt-hero-image { width: 100%; margin: 0 0 2rem; border-bottom: 2px solid var(--wt-color-border); }
+.wt-hero-image img { width: 100%; max-height: 480px; object-fit: cover; display: block; }
 .wt-hero-body { padding: 2.5rem var(--wt-gutter) 2rem; background: var(--wt-color-surface); }
 .wt-hero-headline { font-family: var(--wt-font-sans); font-size: 2.75rem; font-weight: 800; line-height: 1.1; margin: 0 0 1rem; color: var(--wt-color-text); }
 .wt-hero-subtext { font-size: 1.2rem; color: var(--wt-color-muted); margin: 0 0 1.5rem; max-width: 600px; }
