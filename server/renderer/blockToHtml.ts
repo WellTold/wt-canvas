@@ -658,14 +658,20 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
       if (faqHeadingIdx !== -1) markdownForRender = markdownForRender.slice(0, faqHeadingIdx);
     }
 
-    // Render markdown to HTML, inject brand context after H1
+    // Render markdown to HTML, inject hero image then brand context after H1
     let body = markdownToHtml(markdownForRender);
-    const h1Match = body.match(/<h1>[^<]*<\/h1>/);
-    if (h1Match) {
-      const h1End = body.indexOf(h1Match[0]) + h1Match[0].length;
-      body = body.slice(0, h1End) + '\n' + brandContextHtml + body.slice(h1End);
+    const heroHtml = page.featured_image
+      ? `<div class="wt-hero-image"><img src="${escAttr(page.featured_image)}" alt="${escAttr(page.title || "")}" loading="eager" /></div>`
+      : '';
+    const h1End = body.indexOf('</h1>');
+    if (h1End !== -1) {
+      const insertAt = h1End + '</h1>'.length;
+      body = body.slice(0, insertAt)
+        + (heroHtml ? '\n' + heroHtml : '')
+        + '\n' + brandContextHtml
+        + body.slice(insertAt);
     } else {
-      body = brandContextHtml + '\n' + body;
+      body = (heroHtml ? heroHtml + '\n' : '') + brandContextHtml + '\n' + body;
     }
 
     // Inject inline CTA after 2nd </h2> in body
