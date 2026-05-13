@@ -2210,21 +2210,21 @@ export function ContentBlock({
                   {safeContent?.attribution && <p style={{ margin: "6px 0 0", fontStyle: "italic", color: safeContent?.textColor || "#ffffff", fontSize: 11 }}>— {safeContent.attribution}</p>}
                 </div>
               ) : (
-                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <div style={{ display: "flex", alignItems: "center" }}>
                   {safeContent?.layout !== "right" && (
-                    <div style={{ minWidth: 100, textAlign: "center", borderRight: "1px solid rgba(255,255,255,0.35)", paddingRight: 16 }}>
+                    <div style={{ flex: "0 0 33%", textAlign: "center", borderRight: "1px solid rgba(255,255,255,0.35)", paddingRight: 16 }}>
                       <div style={{ fontSize: 22, color: safeContent?.textColor || "#ffffff", letterSpacing: 2 }}>
                         {Array.from({ length: 5 }, (_, i) => <span key={i} style={{ opacity: i < (safeContent?.rating || 5) ? 1 : 0.35 }}>★</span>)}
                       </div>
                       {safeContent?.attribution && <p style={{ margin: "4px 0 0", fontStyle: "italic", color: safeContent?.textColor || "#ffffff", fontSize: 11 }}>— {safeContent.attribution}</p>}
                     </div>
                   )}
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: "0 0 67%", paddingLeft: safeContent?.layout !== "right" ? 16 : 0, paddingRight: safeContent?.layout === "right" ? 16 : 0 }}>
                     {safeContent?.title && <p style={{ margin: "0 0 4px", fontWeight: 700, textTransform: "uppercase", color: safeContent?.textColor || "#ffffff", fontSize: 13 }}>{safeContent.title}</p>}
                     {safeContent?.body && <p style={{ margin: 0, color: safeContent?.textColor || "#ffffff", fontSize: 12 }}>{safeContent.body}</p>}
                   </div>
                   {safeContent?.layout === "right" && (
-                    <div style={{ minWidth: 100, textAlign: "center", borderLeft: "1px solid rgba(255,255,255,0.35)", paddingLeft: 16 }}>
+                    <div style={{ flex: "0 0 33%", textAlign: "center", borderLeft: "1px solid rgba(255,255,255,0.35)", paddingLeft: 16 }}>
                       <div style={{ fontSize: 22, color: safeContent?.textColor || "#ffffff", letterSpacing: 2 }}>
                         {Array.from({ length: 5 }, (_, i) => <span key={i} style={{ opacity: i < (safeContent?.rating || 5) ? 1 : 0.35 }}>★</span>)}
                       </div>

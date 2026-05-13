@@ -132,6 +132,21 @@ const EMAIL_FONT_SIZES: Record<string, string> = {
 };
 
 /** Resolve a fontSize value — named key, raw number, or "Npx" string */
+/**
+ * Post-process rich HTML so <strong>/<b> are always visually heavier than the
+ * container's font-weight. Email clients won't promote a <strong> that is already
+ * at 700 when the container is also 700 — so we inject an explicit higher weight.
+ */
+function ensureInlineMarksVisible(html: string, containerWeight: string): string {
+  const base = containerWeight === "bold" ? 700
+    : containerWeight === "normal" ? 400
+    : parseInt(containerWeight) || 400;
+  const strongWeight = base <= 400 ? 700 : base <= 600 ? 800 : 900;
+  return html
+    .replace(/<strong(\s[^>]*)?>/gi, (_, attrs = "") => `<strong${attrs} style="font-weight:${strongWeight}">`)
+    .replace(/<b(\s[^>]*)?>/gi, (_, attrs = "") => `<b${attrs} style="font-weight:${strongWeight}">`);
+}
+
 function resolveFontSize(value: string | undefined, fallback: string): string {
   if (!value) return fallback;
   if (EMAIL_FONT_SIZES[value]) return EMAIL_FONT_SIZES[value];
@@ -215,9 +230,13 @@ function renderHeading(c: any, bg?: BlockBg): string {
   });
   const bgColor = c.backgroundColor || "#ffffff";
   // If rich HTML is stored, strip outer <p> wrappers and convert paragraph breaks to <br>
-  const headingContent = c.html
+  const rawHeadingContent = c.html
     ? c.html.replace(/<\/p>\s*<p>/g, "<br>").replace(/^<p>/, "").replace(/<\/p>$/, "")
     : esc(c.text);
+  // Ensure <strong>/<b> are visually heavier than the container weight
+  const headingContent = c.html
+    ? ensureInlineMarksVisible(rawHeadingContent, c.fontWeight || "bold")
+    : rawHeadingContent;
   return row(`<${tag} style="margin:0;${style}">${headingContent}</${tag}>`, bgColor, "20px 24px", bg);
 }
 
@@ -293,7 +312,9 @@ function renderParagraph(c: any, bg?: BlockBg): string {
   }
 
   const rawHtml = c.html || (c.text ? c.text.split(/\n\n+/).map((p: string) => `<p>${p}</p>`).join("") : "");
-  const processedHtml = processHtml(rawHtml);
+  // Ensure <strong>/<b> are visually heavier than the container weight before other processing
+  const markedHtml = c.html ? ensureInlineMarksVisible(rawHtml, c.fontWeight || "normal") : rawHtml;
+  const processedHtml = processHtml(markedHtml);
 
   const textEl = c.html || c.text
     ? `<div style="margin:0;${style}">${processedHtml}</div>`
@@ -724,20 +745,20 @@ function renderProductRow(c: any, bg?: BlockBg): string {
   const colWidth = Math.floor(552 / products.length);
   const cols = products.map((p) => {
     const img = p.imageUrl
-      ? `<img src="${esc(p.imageUrl)}" alt="${esc(p.name)}" width="${colWidth}" style="display:block;width:100%;height:auto;border:0;margin-bottom:8px;" />`
+      ? `<img src="${esc(p.imageUrl)}" alt="${esc(p.name)}" width="${colWidth}" class="mobile-img" style="display:block;width:100%;max-width:100%;height:auto;border:0;margin-bottom:8px;" />`
       : "";
     const price = p.price ? `<p style="margin:2px 0 8px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-weight:bold;color:#1a1a1a;">${esc(p.price)}</p>` : "";
     const cta = (p.ctaText && p.ctaLink)
       ? `<a href="${esc(p.ctaLink)}" style="display:inline-block;padding:8px 16px;background:#1a1a1a;color:#fff;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:12px;font-weight:bold;text-decoration:none;">${esc(p.ctaText)}</a>`
       : "";
-    return `<td width="${colWidth}" valign="top" style="padding:0 8px;text-align:center;">
+    return `<td width="${colWidth}" valign="top" style="padding:0 8px;text-align:center;" class="mobile-col">
       ${img}
       <p style="margin:0 0 4px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;font-weight:bold;color:#1a1a1a;">${esc(p.name)}</p>
       ${price}${cta}
     </td>`;
   }).join("");
   return row(
-    `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+    `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" class="mobile-stack">
        <tr>${cols}</tr>
      </table>`,
     "#ffffff",
@@ -816,13 +837,13 @@ function renderImageText(c: any, bg?: BlockBg): string {
     : "";
 
   const imageCell = imageUrl
-    ? `<td width="300" valign="top" style="padding:0;"><img src="${esc(imageUrl)}" width="300" height="300" alt="${esc(imageAlt)}" style="display:block;width:300px;height:300px;object-fit:cover;border:0;" /></td>`
-    : `<td width="300" valign="top" style="padding:0;background-color:#f0ebe7;width:300px;height:300px;"></td>`;
+    ? `<td width="300" valign="top" style="padding:0;" class="mobile-col"><img src="${esc(imageUrl)}" width="300" alt="${esc(imageAlt)}" class="mobile-img" style="display:block;width:300px;max-width:100%;height:auto;border:0;object-fit:cover;" /></td>`
+    : `<td width="300" valign="top" style="padding:0;background-color:#f0ebe7;min-height:160px;" class="mobile-col"></td>`;
 
-  const textCell = `<td width="300" valign="middle" style="padding:${cellPad};background-color:${esc(textBg)};vertical-align:middle;">${headingHtml}${bodyHtml}${ctaHtml}</td>`;
+  const textCell = `<td width="300" valign="middle" style="padding:${cellPad};background-color:${esc(textBg)};vertical-align:middle;" class="mobile-col">${headingHtml}${bodyHtml}${ctaHtml}</td>`;
 
   const cols  = layout === "image_right" ? `${textCell}${imageCell}` : `${imageCell}${textCell}`;
-  const inner = `<table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${cols}</tr></table>`;
+  const inner = `<table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="mobile-stack"><tr>${cols}</tr></table>`;
   return row(inner, textBg, "0", bg);
 }
 
@@ -855,18 +876,18 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
     return row(inner, bgColor, "28px 24px", bg);
   }
 
-  // Two-column: stars+attribution | content  (or reversed for "right")
+  // Two-column: stars (1/3 = 200px) | content (2/3 = 400px), or reversed for "right"
   const dividerSide  = layout === "left" ? "border-right" : "border-left";
-  const starsCell = `<td width="150" valign="middle" style="text-align:center;${dividerSide}:1px solid rgba(255,255,255,0.35);${layout === "left" ? "padding-right:22px;" : "padding-left:22px;"}">
+  const starsCell = `<td width="200" valign="middle" style="width:200px;text-align:center;${dividerSide}:1px solid rgba(255,255,255,0.35);${layout === "left" ? "padding-right:22px;" : "padding-left:22px;"}" class="mobile-col-stars">
     <div>${starsHtml}</div>
     ${attributionHtml}
   </td>`;
-  const contentCell = `<td valign="middle" style="${layout === "left" ? "padding-left:22px;" : "padding-right:22px;"}">
+  const contentCell = `<td width="400" valign="middle" style="width:400px;${layout === "left" ? "padding-left:22px;" : "padding-right:22px;"}" class="mobile-col">
     ${titleHtml}${bodyHtml}
   </td>`;
 
   const cols  = layout === "right" ? `${contentCell}${starsCell}` : `${starsCell}${contentCell}`;
-  const inner = `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${cols}</tr></table>`;
+  const inner = `<table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="mobile-stack"><tr>${cols}</tr></table>`;
   return row(inner, bgColor, "20px 24px", bg);
 }
 
@@ -990,12 +1011,12 @@ function renderShopifyProductCard(c: any, product: any, siteBaseUrl?: string, bg
     return `${sym}${n.toFixed(2)}`;
   };
   const imgCell = product.imageUrl
-    ? `<td width="220" valign="top" style="padding:0;">
+    ? `<td width="220" valign="top" style="padding:0;" class="mobile-col">
          <a href="${esc(link)}" style="display:block;text-decoration:none;">
-           <img src="${esc(product.imageUrl)}" alt="${esc(product.imageAlt || product.title)}" width="220" height="220" style="display:block;width:220px;height:220px;object-fit:cover;border:0;" />
+           <img src="${esc(product.imageUrl)}" alt="${esc(product.imageAlt || product.title)}" width="220" class="mobile-img" style="display:block;width:220px;max-width:100%;height:auto;object-fit:cover;border:0;" />
          </a>
        </td>
-       <td width="16" style="padding:0;font-size:0;line-height:0;">&nbsp;</td>`
+       <td width="16" style="padding:0;font-size:0;line-height:0;" class="mobile-spacer">&nbsp;</td>`
     : "";
   const imgColWidth = product.imageUrl ? 236 : 0;
   const textColWidth = 552 - imgColWidth;
@@ -1007,10 +1028,10 @@ function renderShopifyProductCard(c: any, product: any, siteBaseUrl?: string, bg
     : "";
 
   return row(
-    `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+    `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" class="mobile-stack">
        <tr>
          ${imgCell}
-         <td width="${textColWidth}" valign="top" style="padding:0;">
+         <td width="${textColWidth}" valign="top" style="padding:0;" class="mobile-col">
            <h3 style="margin:0 0 8px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:20px;line-height:1.3;color:#1a1a1a;">${esc(product.title)}</h3>
            ${descHtml}
            ${priceHtml}
@@ -1228,6 +1249,39 @@ ${gFontLinks ? `${gFontLinks}\n` : ""}  <!--[if mso]>
     body{margin:0;padding:0;background-color:#f4f1ef;}
     @media only screen and (max-width:640px){
       .email-container{width:100%!important;}
+      /* Two-column blocks: stack columns vertically */
+      .mobile-stack{width:100%!important;}
+      .mobile-col{
+        display:block!important;
+        width:100%!important;
+        max-width:100%!important;
+        box-sizing:border-box!important;
+      }
+      /* Reset fixed column widths on individual cells */
+      .mobile-col-stars{
+        display:block!important;
+        width:100%!important;
+        max-width:100%!important;
+        border-right:0!important;
+        border-left:0!important;
+        border-bottom:1px solid rgba(255,255,255,0.35)!important;
+        padding-right:0!important;
+        padding-left:0!important;
+        padding-bottom:16px!important;
+        text-align:center!important;
+      }
+      /* Images: always fluid on mobile */
+      .mobile-img{
+        width:100%!important;
+        height:auto!important;
+        max-width:100%!important;
+      }
+      /* Reduce side padding inside cells on narrow screens */
+      .mobile-pad{padding-left:20px!important;padding-right:20px!important;}
+      /* Center-align items that look better centred when stacked */
+      .mobile-center{text-align:center!important;}
+      /* Spacer cells between columns — hide on mobile */
+      .mobile-spacer{display:none!important;width:0!important;max-height:0!important;overflow:hidden!important;mso-hide:all!important;}
     }
   </style>
 </head>
