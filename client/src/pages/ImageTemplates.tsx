@@ -13,16 +13,12 @@ import { Plus, Pencil, Trash2, X, Image, Upload, Loader2 } from "lucide-react";
 import type { ImageTemplate, InsertImageTemplate } from "@shared/schema";
 
 const MODELS = [
-  { value: "bana-pro/text-to-image", label: "Bana Pro" },
-  { value: "bana-pro/nano/text-to-image", label: "Nano Bana Pro" },
-  { value: "flux-pro/text-to-image", label: "FLUX Pro" },
   { value: "flux-pro/kontext/max/text-to-image", label: "FLUX Kontext Max" },
-  { value: "nano/text-to-image", label: "Nano" },
-  { value: "chatgpt-image-2/text-to-image", label: "ChatGPT Image 2" },
+  { value: "reve/text-to-image", label: "Reve" },
 ];
 
 function blankForm(): Partial<InsertImageTemplate> {
-  return { name: "", prompt: "", model: "bana-pro/text-to-image", thumbnailUrl: "", referenceImageUrls: [] };
+  return { name: "", prompt: "", model: "flux-pro/kontext/max/text-to-image", thumbnailUrl: "", referenceImageUrls: [] };
 }
 
 export default function ImageTemplates() {
@@ -132,7 +128,7 @@ export default function ImageTemplates() {
     const data: InsertImageTemplate = {
       name: form.name!.trim(),
       prompt: form.prompt!.trim(),
-      model: form.model ?? "bana-pro/text-to-image",
+      model: form.model ?? "flux-pro/kontext/max/text-to-image",
       thumbnailUrl: form.thumbnailUrl?.trim() || undefined,
       referenceImageUrls: form.referenceImageUrls ?? [],
     };
@@ -296,7 +292,7 @@ export default function ImageTemplates() {
             <div>
               <Label>Model</Label>
               <Select
-                value={form.model ?? "bana-pro/text-to-image"}
+                value={form.model ?? "flux-pro/kontext/max/text-to-image"}
                 onValueChange={(v) => setForm((f) => ({ ...f, model: v }))}
               >
                 <SelectTrigger className="mt-1">

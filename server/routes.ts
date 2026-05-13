@@ -4746,7 +4746,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
     try {
       const schema = z.object({
         prompt: z.string().min(1),
-        model: z.string().default("bana-pro/text-to-image"),
+        model: z.string().default("flux-pro/kontext/max/text-to-image"),
         aspectRatios: z.array(z.string()).min(1),
         referenceImageUrls: z.array(z.string()).default([]),
       });

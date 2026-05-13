@@ -15,12 +15,8 @@ import type { ImageTemplate } from "@shared/schema";
 import { SiShopify as SiShopifyIcon } from "react-icons/si";
 
 const MODELS = [
-  { value: "bana-pro/text-to-image", label: "Bana Pro" },
-  { value: "bana-pro/nano/text-to-image", label: "Nano Bana Pro" },
-  { value: "flux-pro/text-to-image", label: "FLUX Pro" },
   { value: "flux-pro/kontext/max/text-to-image", label: "FLUX Kontext Max" },
-  { value: "nano/text-to-image", label: "Nano" },
-  { value: "chatgpt-image-2/text-to-image", label: "ChatGPT Image 2" },
+  { value: "reve/text-to-image", label: "Reve" },
 ];
 
 const ASPECT_RATIOS = ["1:1", "9:16", "4:3", "3:4"] as const;
@@ -39,7 +35,7 @@ export default function ImageStudio() {
   const { toast } = useToast();
 
   const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState("bana-pro/text-to-image");
+  const [model, setModel] = useState("flux-pro/kontext/max/text-to-image");
   const [selectedRatios, setSelectedRatios] = useState<AspectRatio[]>(["1:1"]);
   const [referenceUrls, setReferenceUrls] = useState<string[]>([]);
   const [imageSourceTab, setImageSourceTab] = useState<ImageSourceTab>("url");

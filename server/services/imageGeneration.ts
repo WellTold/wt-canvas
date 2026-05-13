@@ -17,27 +17,23 @@ cloudinaryV2.config({
 
 // ---------------------------------------------------------------------------
 // Higgsfield model endpoint slugs
-// Source: https://console.higgsfield.ai — verify/update after dashboard login.
-// To change the default model, update DEFAULT_MODEL below.
+// Confirmed real slugs — verified by direct API probe returning 403 (not 404):
+//   flux-pro/kontext/max/text-to-image → 403 not_enough_credits  ✅
+//   reve/text-to-image                 → 403 not_enough_credits  ✅
+// All other slugs (bana-pro, nano, chatgpt-image-2, etc.) returned 404 "Model not found".
+// Base URL: https://platform.higgsfield.ai  Auth: Key ID:SECRET
+// If generation fails with NotEnoughCreditsError, top up credits at cloud.higgsfield.ai.
 // ---------------------------------------------------------------------------
 export const HIGGSFIELD_MODELS = {
-  /** FLUX Pro — high quality text-to-image */
-  FLUX_PRO: "flux-pro/text-to-image",
-  /** FLUX Pro Kontext Max — highest quality, slower */
+  /** FLUX Pro Kontext Max — confirmed real slug. High quality, context-aware. */
   FLUX_KONTEXT_MAX: "flux-pro/kontext/max/text-to-image",
-  /** Bana Pro — stylised text-to-image */
-  BANA_PRO: "bana-pro/text-to-image",
-  /** Nano Bana Pro — slug TBC from dashboard; placeholder until verified */
-  NANO_BANA_PRO: "nanonx/text-to-image",
-  /** Nano — fast, lower cost text-to-image */
-  NANO: "nano/text-to-image",
-  /** ChatGPT Image 2 — OpenAI-backed generation via Higgsfield */
-  CHATGPT_IMAGE_2: "chatgpt-image-2/text-to-image",
+  /** Reve — confirmed real slug. Fast, high quality text-to-image. */
+  REVE: "reve/text-to-image",
 } as const;
 
 export type HiggsfieldModelSlug = typeof HIGGSFIELD_MODELS[keyof typeof HIGGSFIELD_MODELS];
 
-const DEFAULT_MODEL: HiggsfieldModelSlug = HIGGSFIELD_MODELS.BANA_PRO;
+const DEFAULT_MODEL: HiggsfieldModelSlug = HIGGSFIELD_MODELS.FLUX_KONTEXT_MAX;
 
 // ---------------------------------------------------------------------------
 // Types
