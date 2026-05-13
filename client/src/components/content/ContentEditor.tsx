@@ -847,6 +847,11 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       setLocalBlocks(blocks);
       setHasUnsavedChanges(true);
 
+      // Apply the auto-generated featured image if the server returned one
+      if (result.featuredImageUrl) {
+        setFeaturedImage(result.featuredImageUrl);
+      }
+
       // Read server-provided image suggestions attached to image blocks
       // Use index-based match: blocks[] is built from result.sections[] in the same order
       const serverSuggestions: Record<string, ImageSuggestion> = {};
@@ -864,7 +869,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
 
       toast({
         title: "Content Generated",
-        description: `Generated ${blocks.length} content sections successfully. ${contentItemId ? 'Save your changes to keep them.' : 'Save as draft to create the article.'}`,
+        description: `Generated ${blocks.length} content sections successfully${result.featuredImageUrl ? " with a featured image" : ""}. ${contentItemId ? 'Save your changes to keep them.' : 'Save as draft to create the article.'}`,
       });
     },
     onError: (error) => {

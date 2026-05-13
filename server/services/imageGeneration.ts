@@ -201,6 +201,89 @@ export async function expandImage(params: {
 }
 
 // ---------------------------------------------------------------------------
+// Article featured image — editorial lifestyle prompt
+// Runs a Claude sub-call to fill the three variable slots, then assembles
+// the fixed editorial shell and calls Higgsfield.
+// ---------------------------------------------------------------------------
+
+const ARTICLE_IMAGE_SHELL =
+  "Editorial lifestyle photograph. {subject} placed on {setting}, with {accent} nearby. " +
+  "Soft natural window light from the left, warm shadows, shallow depth of field. " +
+  "Muted earth tones — cream, slate, warm oak. Styled tabletop composition. " +
+  "Shot on medium format film. No text, no people, no faces, no legible text, no readable writing. Quiet and considered.";
+
+async function buildArticleImageSlots(
+  title: string,
+  primaryKeyword: string,
+): Promise<{ subject: string; setting: string; accent: string }> {
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 200,
+    system:
+      "You return only valid JSON — no preamble, no code fences, no explanation.",
+    messages: [
+      {
+        role: "user",
+        content:
+          `Given an article title and primary keyword for Well Told Design (a gift brand making map glassware, constellation gifts, and topographic drinkware), return a JSON object with exactly three fields:\n\n` +
+          `- "subject": a kraft-wrapped gift with one specific detail that connects to the article topic (e.g. "a kraft-wrapped gift with dark twine bow, tissue paper visible at the opening"). 15 words max.\n` +
+          `- "setting": a surface and one ambient object that suggests the recipient's world (e.g. "a worn walnut desktop beside a weathered leather journal"). 10 words max.\n` +
+          `- "accent": one small prop resting near the gift that connects to the article topic or occasion (e.g. "a handwritten gift tag on cream card stock"). 10 words max.\n\n` +
+          `Return ONLY valid JSON — no preamble, no code fences.\n\n` +
+          `Article title: ${title}\n` +
+          `Primary keyword: ${primaryKeyword}`,
+      },
+    ],
+  });
+
+  const raw = response.content[0].type === "text" ? response.content[0].text.trim() : "{}";
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      subject: String(parsed.subject || "a kraft-wrapped gift with a natural twine bow"),
+      setting: String(parsed.setting || "a worn oak surface beside a ceramic mug"),
+      accent: String(parsed.accent || "a small handwritten card on cream paper"),
+    };
+  } catch {
+    console.warn("[generateArticleFeaturedImage] Claude returned non-JSON, using defaults:", raw);
+    return {
+      subject: "a kraft-wrapped gift with a natural twine bow",
+      setting: "a worn oak surface beside a ceramic mug",
+      accent: "a small handwritten card on cream paper",
+    };
+  }
+}
+
+export async function generateArticleFeaturedImage(
+  title: string,
+  primaryKeyword: string,
+): Promise<GenerateImageResult> {
+  const slots = await buildArticleImageSlots(title, primaryKeyword);
+
+  const prompt = ARTICLE_IMAGE_SHELL
+    .replace("{subject}", slots.subject)
+    .replace("{setting}", slots.setting)
+    .replace("{accent}", slots.accent);
+
+  console.log(`[generateArticleFeaturedImage] slots:`, slots);
+  console.log(`[generateArticleFeaturedImage] prompt: "${prompt.substring(0, 100)}…"`);
+
+  const higgsInput: Record<string, unknown> = {
+    prompt,
+    aspect_ratio: "16:9",
+    width: 2048,
+    height: 1152,
+    safety_tolerance: 2,
+  };
+
+  const providerUrl = await callHiggsfield(HIGGSFIELD_MODELS.FLUX_KONTEXT_MAX, higgsInput);
+  const cloudinaryUrl = await downloadAndUploadToCloudinary(providerUrl, "wt-article-hero");
+
+  console.log(`[generateArticleFeaturedImage] Cloudinary URL: ${cloudinaryUrl}`);
+  return { cloudinaryUrl, providerUrl, model: HIGGSFIELD_MODELS.FLUX_KONTEXT_MAX };
+}
+
+// ---------------------------------------------------------------------------
 // Public entry point
 // ---------------------------------------------------------------------------
 

@@ -1355,17 +1355,30 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         }
 
         const { generateCompleteArticle } = await import("./services/claude");
+        const { generateArticleFeaturedImage } = await import("./services/imageGeneration");
 
-        const result = await generateCompleteArticle({
-          title,
-          type,
-          primaryKeyword,
-          supportingKeywords,
-          articleAngle: articleAngle || null,
-          metaDescription,
-          template,
-          additionalInstructions,
-        });
+        // Run article content + featured image generation in parallel.
+        // Image failure is non-fatal — article always succeeds.
+        const [result, imageOutcome] = await Promise.all([
+          generateCompleteArticle({
+            title,
+            type,
+            primaryKeyword,
+            supportingKeywords,
+            articleAngle: articleAngle || null,
+            metaDescription,
+            template,
+            additionalInstructions,
+          }),
+          (title && primaryKeyword)
+            ? generateArticleFeaturedImage(title, primaryKeyword).catch((e) => {
+                console.error("[generate-complete-article] image generation failed (non-fatal):", e?.message);
+                return null;
+              })
+            : Promise.resolve(null),
+        ]);
+
+        const featuredImageUrl = imageOutcome?.cloudinaryUrl ?? null;
 
         // Server-side auto-resolution: attach image suggestions to image blocks
         const imageBlockIndices = result.sections
@@ -1404,7 +1417,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           });
         }
 
-        res.json(result);
+        res.json({ ...result, featuredImageUrl });
       } catch (error) {
         console.error("Complete article generation error:", error);
         res.status(500).json({ message: (error as Error).message });
