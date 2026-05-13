@@ -824,6 +824,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate featured image for a content item
+  app.post("/api/content-items/:id/generate-featured-image", requireAuth, async (req, res) => {
+    try {
+      const rawId = req.params.id;
+      const id: number | string = /^\d+$/.test(rawId) ? parseInt(rawId) : rawId;
+
+      const item = await storage.getContentItem(id);
+      if (!item) {
+        return res.status(404).json({ message: "Content item not found" });
+      }
+
+      const topic = (item as any).primaryKeyword || (item as any).title || "gift guide";
+      const keyword = (item as any).primaryKeyword || undefined;
+
+      const { generateImage } = await import("./services/imageGeneration");
+
+      const result = await generateImage({
+        mode: "ai-prompt",
+        topic,
+        keyword,
+        brandContext: {
+          voice: "Well Told Design — a gift brand specialising in story-driven objects: map glassware, constellation gifts, topographic drinkware, and throws. Warm photography, real places, physical objects with meaning.",
+        },
+      });
+
+      const updatePayload: Record<string, any> = {
+        featuredImage: result.cloudinaryUrl,
+      };
+      if (!(item as any).ogImage) {
+        updatePayload.ogImage = result.cloudinaryUrl;
+      }
+
+      await storage.updateContentItem(id, updatePayload);
+
+      return res.json({ featuredImageUrl: result.cloudinaryUrl, model: result.model });
+    } catch (error) {
+      console.error("[generate-featured-image] error:", error);
+      return res.status(500).json({ message: "Image generation failed", error: (error as Error).message });
+    }
+  });
+
   // Content Blocks routes
   app.get("/api/content-items/:id/blocks", requireAuth, async (req, res) => {
     try {

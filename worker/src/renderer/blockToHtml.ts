@@ -1036,6 +1036,7 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
 <body class="wt-page wt-template-${escAttr(template)}">
   ${renderSiteHeader(siteSettings)}
   <main class="wt-content">
+    ${page.featured_image ? `<div class="wt-hero-image"><img src="${escAttr(page.featured_image)}" alt="${escAttr(page.title || "")}" loading="eager" fetchpriority="high" /></div>` : ""}
     ${body}
     ${bottomCtaHtml}
     ${productsHtml}

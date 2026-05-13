@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
-import { ArrowLeft, Wand2, Save, Plus, Mail, ExternalLink, Bookmark, BookMarked, ShoppingBag, ChevronUp, ChevronDown, Eye, Settings2, Upload, Megaphone, RefreshCw } from "lucide-react";
+import { ArrowLeft, Wand2, Save, Plus, Mail, ExternalLink, Bookmark, BookMarked, ShoppingBag, ChevronUp, ChevronDown, Eye, Settings2, Upload, Megaphone, RefreshCw, ImageIcon } from "lucide-react";
 import { EmailPreviewModal } from "./EmailPreviewModal";
 import { Badge } from "@/components/ui/badge";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -901,6 +901,29 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
     },
   });
 
+  const generateImageMutation = useMutation({
+    mutationFn: async () => {
+      const itemId = contentItemId || currentContentItem?.id;
+      if (!itemId) throw new Error("Save the page first before generating an image.");
+      const res = await apiRequest("POST", `/api/content-items/${itemId}/generate-featured-image`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Image generation failed");
+      }
+      return res.json() as Promise<{ featuredImageUrl: string; model: string }>;
+    },
+    onSuccess: (data) => {
+      setFeaturedImage(data.featuredImageUrl);
+      setHasUnsavedChanges(true);
+      const itemId = contentItemId || currentContentItem?.id;
+      queryClient.invalidateQueries({ queryKey: ["/api/content-items", String(itemId)] });
+      toast({ title: "Image generated", description: "Featured image has been set. Save to publish the change." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Image generation failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const addBlockWithContent = (type: string, initialContent: Record<string, any>) => {
     const nextOrder = localBlocks.length === 0 ? 0 : Math.max(...localBlocks.map((b: any) => b.order ?? 0)) + 1;
     const newBlock = {
@@ -1561,6 +1584,20 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
               >
                 <Megaphone className="h-4 w-4 mr-1" />
                 Push to Campaign
+              </Button>
+            )}
+
+            {/* Generate Image — only for web page types that have been saved */}
+            {!isEmailContent && (contentItemId || currentContentItem?.id) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => generateImageMutation.mutate()}
+                disabled={generateImageMutation.isPending || !primaryKeyword}
+                title={!primaryKeyword ? "Set a primary keyword in Settings first" : featuredImage ? "Regenerate the featured hero image using AI" : "Generate a featured hero image using AI"}
+              >
+                <ImageIcon className={`h-4 w-4 mr-1 ${generateImageMutation.isPending ? "animate-pulse" : ""}`} />
+                {generateImageMutation.isPending ? "Generating…" : featuredImage ? "Regenerate Image" : "Generate Image"}
               </Button>
             )}
 

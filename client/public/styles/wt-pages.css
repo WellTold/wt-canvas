@@ -124,10 +124,14 @@ body {
 }
 .wt-hero-image {
   width: 100%;
+  margin: 0 0 2rem;
+  border-bottom: 2px solid var(--wt-color-border);
+}
+.wt-hero-image img {
+  width: 100%;
   max-height: 480px;
   object-fit: cover;
   display: block;
-  border-bottom: 2px solid var(--wt-color-border);
 }
 .wt-hero-body {
   padding: 2.5rem var(--wt-gutter) 2rem;
