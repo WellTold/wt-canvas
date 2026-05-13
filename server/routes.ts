@@ -835,8 +835,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Content item not found" });
       }
 
-      const topic = (item as any).primaryKeyword || (item as any).title || "gift guide";
-      const keyword = (item as any).primaryKeyword || undefined;
+      const topic = item.primaryKeyword || item.title || "gift guide";
+      const keyword = item.primaryKeyword ?? undefined;
 
       const { generateImage } = await import("./services/imageGeneration");
 
@@ -849,12 +849,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
 
-      const updatePayload: Record<string, any> = {
+      const updatePayload: Partial<import("@shared/schema").InsertContentItem> = {
         featuredImage: result.cloudinaryUrl,
+        ...(!item.ogImage ? { ogImage: result.cloudinaryUrl } : {}),
       };
-      if (!(item as any).ogImage) {
-        updatePayload.ogImage = result.cloudinaryUrl;
-      }
 
       await storage.updateContentItem(id, updatePayload);
 

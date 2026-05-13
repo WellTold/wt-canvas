@@ -1,7 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { v2 as cloudinary } from "cloudinary";
+import { higgsfield, config as higgsfieldConfig } from "@higgsfield/client/v2";
+import type { V2Response } from "@higgsfield/client/v2";
+import { v2 as cloudinaryV2 } from "cloudinary";
 
-cloudinary.config({
+// Configure Higgsfield credentials at module load time
+higgsfieldConfig({ credentials: process.env.HIGGSFIELD_CREDENTIALS });
+
+// Cloudinary is configured globally in cloudinary.ts; we configure it here
+// as well so this service works standalone without the main app import order.
+cloudinaryV2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
@@ -10,17 +17,25 @@ cloudinary.config({
 
 // ---------------------------------------------------------------------------
 // Higgsfield model endpoint slugs
-// Verify these against https://console.higgsfield.ai after credential setup.
-// To swap the default model, update DEFAULT_MODEL below.
+// Source: https://console.higgsfield.ai — verify/update after dashboard login.
+// To change the default model, update DEFAULT_MODEL below.
 // ---------------------------------------------------------------------------
 export const HIGGSFIELD_MODELS = {
+  /** FLUX Pro — high quality text-to-image (default) */
   FLUX_PRO: "flux-pro/text-to-image",
+  /** FLUX Pro Kontext Max — highest quality, slower */
   FLUX_KONTEXT_MAX: "flux-pro/kontext/max/text-to-image",
+  /** Bana Pro — stylised text-to-image */
   BANA_PRO: "bana-pro/text-to-image",
+  /** Nano — fast, lower cost text-to-image */
   NANO: "nano/text-to-image",
+  /** ChatGPT Image 2 — OpenAI-backed generation via Higgsfield */
+  CHATGPT_IMAGE_2: "chatgpt-image-2/text-to-image",
 } as const;
 
-const DEFAULT_MODEL = HIGGSFIELD_MODELS.FLUX_PRO;
+export type HiggsfieldModelSlug = typeof HIGGSFIELD_MODELS[keyof typeof HIGGSFIELD_MODELS];
+
+const DEFAULT_MODEL: HiggsfieldModelSlug = HIGGSFIELD_MODELS.FLUX_PRO;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -73,23 +88,21 @@ async function buildImagePrompt(topic: string, keyword?: string, brandContext?: 
 }
 
 async function callHiggsfield(modelSlug: string, input: Record<string, unknown>): Promise<string> {
-  const { higgsfield, config } = await import("@higgsfield/client/v2") as any;
-  config({ credentials: process.env.HIGGSFIELD_CREDENTIALS });
-
-  const jobSet = await higgsfield.subscribe(modelSlug, {
+  const response: V2Response = await higgsfield.subscribe(modelSlug, {
     input,
     withPolling: true,
   });
 
-  const url = jobSet?.jobs?.[0]?.results?.raw?.url;
-  if (!url) {
-    throw new Error(`Higgsfield returned no image URL. Job set: ${JSON.stringify(jobSet)}`);
+  // V2Response exposes images[] for image generation endpoints
+  const imageUrl = response?.images?.[0]?.url;
+  if (!imageUrl) {
+    throw new Error(`Higgsfield returned no image URL. Response: ${JSON.stringify(response)}`);
   }
-  return url as string;
+  return imageUrl;
 }
 
-async function uploadToCloudinary(sourceUrl: string, folder = "wt-generated"): Promise<string> {
-  const result = await cloudinary.uploader.upload(sourceUrl, {
+async function downloadAndUploadToCloudinary(sourceUrl: string, folder = "wt-generated"): Promise<string> {
+  const result = await cloudinaryV2.uploader.upload(sourceUrl, {
     folder,
     resource_type: "image",
     fetch_format: "auto",
@@ -138,9 +151,9 @@ export async function generateImage(request: GenerateImageRequest): Promise<Gene
   };
 
   const providerUrl = await callHiggsfield(modelSlug, higgsInput);
-  console.log(`[imageGeneration] Higgsfield URL: ${providerUrl}`);
+  console.log(`[imageGeneration] provider URL: ${providerUrl}`);
 
-  const cloudinaryUrl = await uploadToCloudinary(providerUrl);
+  const cloudinaryUrl = await downloadAndUploadToCloudinary(providerUrl);
   console.log(`[imageGeneration] Cloudinary URL: ${cloudinaryUrl}`);
 
   return { cloudinaryUrl, providerUrl, model: modelSlug };

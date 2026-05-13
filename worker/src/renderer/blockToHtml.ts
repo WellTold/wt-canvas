@@ -983,6 +983,19 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
 
     let body = markdownToHtmlSafe(markdownForRender);
 
+    // Inject hero image after the first <h1> (and its closing </h1>) and before the first paragraph
+    if (page.featured_image) {
+      const heroHtml = `<div class="wt-hero-image"><img src="${escAttr(page.featured_image)}" alt="${escAttr(page.title || "")}" loading="eager" fetchpriority="high" /></div>`;
+      const h1End = body.indexOf('</h1>');
+      if (h1End !== -1) {
+        const insertAt = h1End + '</h1>'.length;
+        body = body.slice(0, insertAt) + '\n' + heroHtml + body.slice(insertAt);
+      } else {
+        // No H1 found — prepend before the body
+        body = heroHtml + '\n' + body;
+      }
+    }
+
     // Inject inline CTA after the 2nd <h2> in the article body (mid-article placement)
     if (inlineCtaHtml) {
       const h2Regex = /<\/h2>/g;
@@ -1036,7 +1049,6 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
 <body class="wt-page wt-template-${escAttr(template)}">
   ${renderSiteHeader(siteSettings)}
   <main class="wt-content">
-    ${page.featured_image ? `<div class="wt-hero-image"><img src="${escAttr(page.featured_image)}" alt="${escAttr(page.title || "")}" loading="eager" fetchpriority="high" /></div>` : ""}
     ${body}
     ${bottomCtaHtml}
     ${productsHtml}
