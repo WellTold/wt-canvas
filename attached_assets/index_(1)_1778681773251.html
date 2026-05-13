@@ -1,0 +1,1508 @@
+<!--
+  Well Told Design — Hometown Maps Interactive Landing Page
+  =========================================================
+  Two things to configure before going live:
+  1. Google Maps API key: find key: "AIzaSy..." near the bottom and replace if needed.
+  2. Faire product URLs: open products.js and replace each "FILL_IN" with the real Faire listing URL.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hometown Maps — Well Told Wholesale</title>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #ffffff;
+      --surface: #ffffff;
+      --border: #e0e0e0;
+      --text-primary: #1a1a1a;
+      --text-muted: #666666;
+      --header-bg: #2d3039;
+      --header-text: #ffffff;
+      --btn-bg: #1a1a1a;
+      --btn-text: #ffffff;
+      --btn-hover: #333333;
+      --shimmer-start: #e8e8e8;
+      --shimmer-end: #f0f0f0;
+      --content-width: 80%;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Cera Pro', 'Poppins', 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--header-bg);
+      height: 60px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 max(24px, calc((100% - 1400px) / 2));
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-logo img {
+      width: 130px;
+      height: auto;
+      display: block;
+    }
+
+    .header-nav {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .header-nav a {
+      color: var(--header-text);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      opacity: 0.9;
+      transition: opacity 0.2s;
+    }
+
+    .header-nav a:hover { opacity: 1; }
+
+    /* ── FULL-WIDTH WRAPPER (banner stays edge-to-edge) ── */
+    .full-width { width: 100%; }
+
+    /* ── BANNER ── */
+    .banner {
+      width: 100%;
+      line-height: 0;
+    }
+
+    .banner img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* ── CONTENT COLUMN (80% centered) ── */
+    .content-col {
+      width: var(--content-width);
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* ── MAIN ── */
+    main {
+      flex: 1;
+      padding-bottom: 60px;
+    }
+
+    /* ── PAGE TITLE (above banner) ── */
+    .page-title-wrap {
+      width: var(--content-width);
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 36px 0 28px;
+      text-align: center;
+    }
+
+    .page-title-wrap h1 {
+      font-size: 30px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      line-height: 1.2;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .page-title-wrap p {
+      font-size: 15px;
+      color: var(--text-muted);
+      max-width: 640px;
+      margin: 0 auto;
+      line-height: 1.65;
+    }
+
+    /* ── SEARCH SECTION ── */
+    .search-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 0 32px;
+      gap: 8px;
+    }
+
+    .search-label {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .search-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    #city-input {
+      width: 100%;
+      padding: 18px 22px;
+      font-size: 18px;
+      font-family: inherit;
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    #city-input:focus {
+      border-color: #888;
+      box-shadow: 0 0 0 3px rgba(26,26,26,0.07);
+    }
+
+    #city-input::placeholder { color: #bbb; }
+
+    .location-confirmation {
+      font-size: 14px;
+      color: var(--text-muted);
+      min-height: 22px;
+      font-style: italic;
+    }
+
+    .location-confirmation strong {
+      color: var(--text-primary);
+      font-style: normal;
+    }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      text-align: center;
+      padding: 50px 20px;
+      color: var(--text-muted);
+    }
+
+    .empty-state-icon {
+      font-size: 44px;
+      margin-bottom: 14px;
+      opacity: 0.35;
+    }
+
+    .empty-state p {
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    /* ── PRODUCT GRID ── */
+    #product-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+    }
+
+    /* ── PRODUCT CARD ── */
+    .product-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: box-shadow 0.2s;
+    }
+
+    .product-card:hover {
+      box-shadow: 0 4px 18px rgba(0,0,0,0.09);
+    }
+
+    .card-image-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: var(--shimmer-start);
+      overflow: hidden;
+    }
+
+    .card-image-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .card-image-wrap img.loaded { opacity: 1; }
+
+    /* Shimmer */
+    .shimmer {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        90deg,
+        var(--shimmer-start) 25%,
+        var(--shimmer-end) 50%,
+        var(--shimmer-start) 75%
+      );
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+    }
+
+    .shimmer.hidden { display: none; }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% center; }
+      100% { background-position: -200% center; }
+    }
+
+    /* Fallback badge */
+    .fallback-badge {
+      display: none;
+      position: absolute;
+      bottom: 8px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      padding: 6px 10px;
+      font-size: 11px;
+      color: var(--text-muted);
+      font-style: italic;
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(2px);
+      line-height: 1.3;
+    }
+
+    .fallback-badge.visible { display: block; }
+
+    .card-body {
+      padding: 12px 14px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .card-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.35;
+    }
+
+    .card-badge {
+      display: inline-block;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fff;
+      background: #c0392b;
+      border-radius: 3px;
+      padding: 2px 6px;
+      align-self: flex-start;
+      margin-top: -4px;
+    }
+
+    .card-cta {
+      display: block;
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      text-align: center;
+      text-decoration: none;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      border-radius: 4px;
+      transition: background 0.2s;
+      margin-top: auto;
+      font-family: inherit;
+    }
+
+    .card-cta:hover { background: var(--btn-hover); }
+
+    .card-cta.disabled {
+      background: #ccc;
+      pointer-events: none;
+      cursor: default;
+    }
+
+    /* ── CUSTOM EXTRA-LOCATIONS SUGGESTIONS ── */
+    .custom-suggestions {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      margin-top: 4px;
+      z-index: 1001;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .custom-suggestion-item {
+      padding: 9px 16px;
+      cursor: pointer;
+      font-size: 15px;
+      color: var(--text-primary);
+      border-top: 1px solid #f0f0f0;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .custom-suggestion-item:first-child { border-top: none; }
+    .custom-suggestion-item:hover,
+    .custom-suggestion-item.active { background: #f5f5f5; }
+
+    .suggestion-secondary {
+      color: #999;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    /* Suppress Google's native pac-container — we render our own dropdown */
+    .pac-container { display: none !important; }
+
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 22px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .footer-logo img {
+      width: 44px;
+      height: auto;
+      filter: invert(1) brightness(2);
+      opacity: 0.8;
+    }
+
+    .footer-copy {
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      color: rgba(255,255,255,0.65);
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .footer-copy a {
+      color: rgba(255,255,255,0.65);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-copy a:hover { color: #fff; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 960px) {
+      :root { --content-width: 90%; }
+      #product-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @media (max-width: 700px) {
+      :root { --content-width: 94%; }
+      header { height: auto; flex-direction: column; padding: 14px 20px; gap: 10px; }
+      .header-nav { gap: 20px; }
+      .page-title-wrap h1 { font-size: 22px; }
+      #product-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      footer { flex-direction: column; align-items: flex-start; }
+    }
+
+    @media (max-width: 400px) {
+      #product-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── IMAGE MODAL / LIGHTBOX ── */
+    .img-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .img-modal.open { display: flex; }
+
+    .img-modal-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.82);
+      cursor: pointer;
+    }
+
+    .img-modal-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      max-width: 90vw;
+      max-height: 90vh;
+    }
+
+    .img-modal-close {
+      position: absolute;
+      top: -40px;
+      right: 0;
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 28px;
+      cursor: pointer;
+      line-height: 1;
+      opacity: 0.8;
+      padding: 4px 8px;
+      transition: opacity 0.2s;
+    }
+
+    .img-modal-close:hover { opacity: 1; }
+
+    .img-modal-main {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .img-modal-img {
+      max-width: min(780px, 80vw);
+      max-height: 70vh;
+      object-fit: contain;
+      display: block;
+      border-radius: 4px;
+    }
+
+    .img-modal-nav {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      color: #fff;
+      font-size: 36px;
+      line-height: 1;
+      cursor: pointer;
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.2s;
+      padding: 0;
+    }
+
+    .img-modal-nav:hover { background: rgba(255,255,255,0.3); }
+    .img-modal-nav:disabled { opacity: 0.2; cursor: default; }
+
+    .img-modal-thumbs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .img-modal-thumb {
+      width: 54px;
+      height: 54px;
+      object-fit: cover;
+      border-radius: 3px;
+      cursor: pointer;
+      opacity: 0.55;
+      border: 2px solid transparent;
+      transition: opacity 0.2s, border-color 0.2s;
+    }
+
+    .img-modal-thumb.active,
+    .img-modal-thumb:hover { opacity: 1; border-color: #fff; }
+
+    .img-modal-counter {
+      color: rgba(255,255,255,0.7);
+      font-size: 13px;
+      letter-spacing: 0.05em;
+    }
+
+    /* Make card images show pointer cursor */
+    .card-image-wrap { cursor: zoom-in; }
+
+    /* ── COLOR SWATCHES ── */
+    .card-swatches {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .card-swatch {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(0,0,0,0.18);
+      display: inline-block;
+      flex-shrink: 0;
+      background-size: cover;
+      background-position: center;
+      transition: box-shadow 0.15s;
+    }
+    .card-swatch.clickable {
+      cursor: pointer;
+    }
+    .card-swatch.active {
+      box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(0,0,0,0.55);
+    }
+
+    /* ── MAP ART PREVIEW ── */
+    .map-preview-section {
+      margin-bottom: 44px;
+    }
+
+    .map-preview-outer {
+      /* Fixed artboard: 824 × 230 px — image scales to fit inside */
+      width: 100%;
+      max-width: 740px;
+      height: 230px;
+      margin: 0 auto;
+      border-radius: 6px;
+      background: var(--bg);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .map-preview-loading {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, #ebebeb 25%, #f5f5f5 50%, #ebebeb 75%);
+      background-size: 200% 100%;
+      animation: shimmer-anim 1.4s infinite;
+    }
+
+    .map-preview-loading.hidden { display: none; }
+
+    #map-preview-img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: calc(50% - 42px) center;
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    #map-preview-img.loaded { opacity: 1; }
+
+    /* ── Rate-limit lockout banner ── */
+    #rate-limit-banner {
+      display: none;
+      margin: 20px auto 0;
+      max-width: 560px;
+      background: #fff8ec;
+      border: 1px solid #f5c97a;
+      border-radius: 8px;
+      padding: 18px 22px;
+      text-align: center;
+      color: var(--text-primary);
+    }
+    #rate-limit-banner p {
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 6px;
+    }
+    #rate-limit-banner .rl-countdown {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    #rate-limit-banner a {
+      color: var(--btn-bg);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════ HEADER ═══════════════ -->
+<header>
+  <span class="header-logo">
+    <img
+      src="https://wholesale.welltolddesign.com/cdn/shop/files/WT_5_White_RGB_410x.png"
+      alt="Well Told Design"
+    />
+  </span>
+  <nav class="header-nav">
+    <a href="https://welltold.faire.com?utm_source=embed&fdb=welltold" target="_blank" rel="noopener">Shop on Faire</a>
+  </nav>
+</header>
+
+<!-- ═══════════════ MAIN ═══════════════ -->
+<main>
+
+  <!-- PAGE TITLE (above banner) -->
+  <div class="page-title-wrap">
+    <h1>Custom Home Town Map Gifts &amp; Glassware</h1>
+    <p>Raise a glass to your city! Customize your item with ANY U.S. city or town map or choose from our most popular U.S. and international cities.</p>
+  </div>
+
+  <!-- BANNER (80% centered) -->
+  <div class="content-col banner">
+    <img
+      src="https://cdn.shopify.com/s/files/1/0011/0418/3355/files/WT-product-header-2026_2400x460_e39b1725-4d05-409c-9833-6b0a02bbb555.png"
+      alt="Hometown Maps by Well Told Design"
+    />
+  </div>
+
+  <!-- SEARCH -->
+  <div class="search-section content-col">
+    <div class="search-label">Find Your Town</div>
+    <div class="search-wrapper">
+      <input
+        id="city-input"
+        type="text"
+        placeholder="Begin typing your location - Then select from list"
+        autocomplete="off"
+        aria-label="Search for a city"
+      />
+      <div id="custom-suggestions" class="custom-suggestions" role="listbox"></div>
+    </div>
+    <div class="location-confirmation" id="location-label"></div>
+    <div id="rate-limit-banner">
+      <p>You've been exploring a lot of locations! To prevent misuse, search has been temporarily paused.</p>
+      <p>Looking for bulk custom orders? <a href="https://welltold.faire.com?utm_source=embed&fdb=welltold" target="_blank" rel="noopener">Shop our full collection on Faire.</a></p>
+      <div class="rl-countdown" id="rl-countdown"></div>
+    </div>
+  </div>
+
+  <!-- MAP ART PREVIEW -->
+  <div class="map-preview-section content-col" id="map-preview-section" style="display:none;">
+    <div class="map-preview-outer">
+      <div class="map-preview-loading" id="map-preview-loading"></div>
+      <div id="map-preview-img" role="img" aria-label="Flat art preview for selected city"></div>
+    </div>
+  </div>
+
+  <!-- GRID -->
+  <div class="content-col" id="grid-container">
+    <div class="empty-state" id="empty-state">
+      <div class="empty-state-icon">🗺️</div>
+      <p>Enter your city above to preview your products</p>
+    </div>
+    <div id="product-grid" style="display:none;"></div>
+  </div>
+
+</main>
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<footer>
+  <div class="footer-logo">
+    <img
+      src="https://wholesale.welltolddesign.com/cdn/shop/files/WT_Badge_7_Black_RGB_100x.png"
+      alt="Well Told"
+    />
+  </div>
+  <div class="footer-copy">
+    <span>© 2026 Well Told Wholesale</span>
+    <a href="https://welltold.faire.com?utm_source=embed&fdb=welltold" target="_blank" rel="noopener">welltold.faire.com</a>
+  </div>
+</footer>
+
+<!-- ═══════════════ SCRIPTS ═══════════════ -->
+<script>
+  let currentSlug    = null;
+  let currentDisplay = null;
+  let lastPreviewTime = 0;
+  let previewPending  = null;
+
+  // ── Client-side rate limiting ──────────────────────────────────────────────
+  var RL_MAX     = 50;               // max city selections allowed...
+  var RL_WINDOW  = 20 * 60 * 1000;  // ...within this rolling window (20 min)
+  var RL_LOCKOUT = 2 * 60 * 60 * 1000; // lockout duration (2 hours)
+  var RL_TS_KEY  = 'wt_rl_ts';      // localStorage: JSON array of timestamps
+  var RL_LOCK_KEY = 'wt_rl_until';  // localStorage: lockout expiry timestamp
+
+  var rlCountdownTimer = null;
+
+  function rlGetTs() {
+    try { return JSON.parse(localStorage.getItem(RL_TS_KEY) || '[]'); } catch(e) { return []; }
+  }
+  function rlSaveTs(arr) {
+    try { localStorage.setItem(RL_TS_KEY, JSON.stringify(arr)); } catch(e) {}
+  }
+  function rlGetUntil() {
+    try { return parseInt(localStorage.getItem(RL_LOCK_KEY) || '0', 10); } catch(e) { return 0; }
+  }
+  function rlSetUntil(until) {
+    try { localStorage.setItem(RL_LOCK_KEY, String(until)); } catch(e) {}
+  }
+  function rlClear() {
+    try { localStorage.removeItem(RL_TS_KEY); localStorage.removeItem(RL_LOCK_KEY); } catch(e) {}
+  }
+
+  function rlFormatCountdown(msLeft) {
+    var h = Math.floor(msLeft / 3600000);
+    var m = Math.floor((msLeft % 3600000) / 60000);
+    var s = Math.floor((msLeft % 60000) / 1000);
+    return (h > 0 ? h + 'h ' : '') + m + 'm ' + s + 's';
+  }
+
+  function rlShowLockout(until) {
+    var input   = document.getElementById('city-input');
+    var banner  = document.getElementById('rate-limit-banner');
+    var preview = document.getElementById('map-preview-section');
+    var counter = document.getElementById('rl-countdown');
+    if (input)   { input.disabled = true; input.value = ''; }
+    if (banner)  { banner.style.display = ''; }
+    if (preview) { preview.style.display = 'none'; }
+
+    // Tick countdown every second
+    if (rlCountdownTimer) clearInterval(rlCountdownTimer);
+    function tick() {
+      var left = until - Date.now();
+      if (left <= 0) {
+        clearInterval(rlCountdownTimer);
+        rlClear();
+        rlHideLockout();
+        return;
+      }
+      if (counter) counter.textContent = 'Search unlocks in ' + rlFormatCountdown(left);
+    }
+    tick();
+    rlCountdownTimer = setInterval(tick, 1000);
+  }
+
+  function rlHideLockout() {
+    var input  = document.getElementById('city-input');
+    var banner = document.getElementById('rate-limit-banner');
+    if (input)  { input.disabled = false; }
+    if (banner) { banner.style.display = 'none'; }
+  }
+
+  // Check on every city selection. Returns false (and locks) if limit exceeded.
+  function rlRecord() {
+    var until = rlGetUntil();
+    if (until && Date.now() < until) { rlShowLockout(until); return false; }
+    if (until) rlClear(); // expired lockout — clear it
+
+    var now  = Date.now();
+    var arr  = rlGetTs().filter(function(t) { return now - t < RL_WINDOW; });
+    arr.push(now);
+    rlSaveTs(arr);
+
+    if (arr.length > RL_MAX) {
+      var newUntil = now + RL_LOCKOUT;
+      rlSetUntil(newUntil);
+      rlShowLockout(newUntil);
+      return false;
+    }
+    return true;
+  }
+
+  // Run once on startup — restore lockout state if the user returns while locked.
+  function rlInit() {
+    var until = rlGetUntil();
+    if (until && Date.now() < until) { rlShowLockout(until); }
+    else if (until) { rlClear(); }
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // ── Data loaded from S3 ──
+  var acConfig      = null;  // autocomplete.json
+  var extraLocations = [];   // extra-hometowns.json
+
+  function normalizeStr(str) {
+    return str.toLowerCase().trim()
+      .replace(/[\s]+/g, '-')
+      .replace(/[^a-z0-9\-]/g, '')
+      .replace(/\-+/g, '-');
+  }
+
+  function buildSlug(city, state, country) {
+    const c  = normalizeStr(city);
+    const s  = state.toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    const cn = country.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '');
+    return `${c}_${s}_${cn}`;
+  }
+
+  // Apply normalize / translate / abbreviate maps from autocomplete config to a string
+  function applyConfigMaps(str) {
+    if (!acConfig) return str;
+    ['normalize', 'translate', 'abbreviate'].forEach(function(mapName) {
+      var map = acConfig[mapName] || {};
+      Object.keys(map).forEach(function(from) {
+        str = str.split(from).join(map[from]);
+      });
+    });
+    return str;
+  }
+
+  // Parse an injection-file label "City Name, ST, Country" into parts
+  // Applies config maps first so "USA" → "United States" etc.
+  function parseInjectionLabel(rawLabel) {
+    var label = applyConfigMaps(rawLabel);
+    var parts = label.split(', ');
+    if (parts.length < 2) return null;
+    var country = parts.length >= 3 ? parts[parts.length - 1] : 'United States';
+    var state   = parts[parts.length - 2];
+    var city    = parts.slice(0, parts.length - 2).join(', ') || parts[0];
+    return { city: city, state: state, country: country, display: [city, state].join(', ') };
+  }
+
+  // ── Custom suggestions dropdown (extra-hometowns.json) ──
+  function hideCustomSuggestions() {
+    var dropdown = document.getElementById('custom-suggestions');
+    if (dropdown) dropdown.style.display = 'none';
+  }
+
+  function checkImageExists(url) {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload  = () => resolve(true);
+      img.onerror = () => resolve(false);
+      img.src = url;
+    });
+  }
+
+  async function resolveImage(folder, locationSlug, fallbackFile, colorHex) {
+    const base        = 'https://welltold.s3.us-east-1.amazonaws.com';
+    const colorSuffix = colorHex ? `_${encodeURIComponent(colorHex)}` : '';
+    const stem        = `${locationSlug}${colorSuffix}`;
+
+    // New curated photos use _0 / _90 / _180 / _270; legacy photos use _1 / _1.fallback
+    const newSuffixes  = ['_0', '_90', '_180', '_270'];
+    const fallbackNames = [];
+    if (fallbackFile) fallbackNames.push(fallbackFile);
+    fallbackNames.push('fallback.jpg', 'fallback.png');
+
+    const attempts = [
+      // New photography-new/Curated path — try all rotation angles first
+      ...newSuffixes.map(sfx => ({ url: `${base}/photography-new/Hometown/Curated/${folder}/${stem}${sfx}.jpg`, fallback: false })),
+      // Legacy _1 / _2 / _3 in both paths
+      { url: `${base}/photography-new/Hometown/Curated/${folder}/${stem}_1.jpg`, fallback: false },
+      { url: `${base}/photography/Hometown/${folder}/${stem}_1.jpg`,             fallback: false },
+      { url: `${base}/photography-new/Hometown/Curated/${folder}/${stem}_2.jpg`, fallback: false },
+      { url: `${base}/photography/Hometown/${folder}/${stem}_2.jpg`,             fallback: false },
+      { url: `${base}/photography-new/Hometown/Curated/${folder}/${stem}_3.jpg`, fallback: false },
+      { url: `${base}/photography/Hometown/${folder}/${stem}_3.jpg`,             fallback: false },
+      // Legacy fallback extension
+      { url: `${base}/photography-new/Hometown/Curated/${folder}/${stem}_1.fallback.jpg`, fallback: false },
+      { url: `${base}/photography/Hometown/${folder}/${stem}_1.fallback.jpg`,             fallback: false },
+      // Folder-level fallback images
+      ...fallbackNames.flatMap(name => [
+        { url: `${base}/photography-new/Hometown/Curated/${folder}/${name}`, fallback: true },
+        { url: `${base}/photography/Hometown/${folder}/${name}`,             fallback: true },
+      ]),
+    ];
+
+    for (const attempt of attempts) {
+      if (await checkImageExists(attempt.url)) return { url: attempt.url, isFallback: attempt.fallback };
+    }
+
+    // Last resort: try Nashville, TN as a sample city (isFallback: true)
+    // Nashville is confirmed to have images in most product folders.
+    // Preserve colorSuffix so ceramic mug hex-color variants work correctly.
+    const fallbackStem = `nashville_tn_united-states${colorSuffix}`;
+    for (const [path, sfx] of [
+      [`${base}/photography-new/Hometown/Curated`, '_0'],
+      [`${base}/photography/Hometown`, '_1'],
+    ]) {
+      const url = `${path}/${folder}/${fallbackStem}${sfx}.jpg`;
+      if (await checkImageExists(url)) return { url, isFallback: true };
+    }
+
+    return { url: null, isFallback: true };
+  }
+
+  function buildGrid() {
+    const grid = document.getElementById('product-grid');
+    grid.innerHTML = '';
+    PRODUCTS.forEach(product => {
+      const hasFaire = product.faire_url && product.faire_url !== 'FILL_IN';
+      const card = document.createElement('div');
+      card.className = 'product-card';
+      card.innerHTML = `
+        <div class="card-image-wrap">
+          <div class="shimmer" id="shimmer-${product.id}"></div>
+          <img id="img-${product.id}" src="" alt="${product.name}" />
+          <div class="fallback-badge" id="badge-${product.id}">
+            *Sample — Preview not yet available for this location
+          </div>
+        </div>
+        <div class="card-body">
+          ${product.badge ? `<span class="card-badge">${product.badge}</span>` : ''}
+          <div class="card-name">${product.name}</div>
+          ${product.swatches ? `<div class="card-swatches" id="swatches-${product.id}">${product.swatches.map(s => s.image ? `<span class="card-swatch" style="background-image:url('${s.image}');" title="${s.label}"></span>` : `<span class="card-swatch" style="background:${s.color};" title="${s.label}"></span>`).join('')}</div>` : ''}
+          <a
+            href="${hasFaire ? product.faire_url : '#'}"
+            class="card-cta${hasFaire ? '' : ' disabled'}"
+            target="_blank" rel="noopener"
+            ${!hasFaire ? 'tabindex="-1" aria-disabled="true"' : ''}
+          >Shop on Faire →</a>
+        </div>`;
+      grid.appendChild(card);
+
+      // Attach swatch click handlers for variant-switching swatches
+      if (product.swatches) {
+        const swatchEls = card.querySelectorAll('.card-swatch');
+        let defaultMarked = false;
+        swatchEls.forEach(function(el, i) {
+          const swatch = product.swatches[i];
+          const hasVariant = swatch.folder || swatch.color_hex;
+          if (!hasVariant) return;
+          el.classList.add('clickable');
+          // Mark active if this swatch matches the product's default folder/color_hex
+          const folderMatch   = swatch.folder    ? swatch.folder    === product.folder    : true;
+          const colorHexMatch = swatch.color_hex ? swatch.color_hex === product.color_hex : !product.color_hex;
+          if (!defaultMarked && folderMatch && colorHexMatch) {
+            el.classList.add('active');
+            defaultMarked = true;
+          }
+          el.addEventListener('click', function() {
+            swatchEls.forEach(function(s) { s.classList.remove('active'); });
+            el.classList.add('active');
+            swapCardImage(product, swatch.folder || product.folder, swatch.color_hex || null);
+          });
+        });
+        // Fallback: if no swatch matched, activate the first clickable one
+        if (!defaultMarked) {
+          swatchEls.forEach(function(el, i) {
+            if (!defaultMarked && (product.swatches[i].folder || product.swatches[i].color_hex)) {
+              el.classList.add('active');
+              defaultMarked = true;
+            }
+          });
+        }
+      }
+    });
+  }
+
+  // Swaps a single card's image when a swatch is clicked
+  async function swapCardImage(product, folder, colorHex) {
+    if (!currentSlug) return;
+    const img     = document.getElementById(`img-${product.id}`);
+    const shimmer = document.getElementById(`shimmer-${product.id}`);
+    const badge   = document.getElementById(`badge-${product.id}`);
+
+    if (img)     { img.classList.remove('loaded'); }
+    if (shimmer) { shimmer.classList.remove('hidden'); shimmer.style.animation = ''; shimmer.style.background = ''; }
+    if (badge)   badge.classList.remove('visible');
+
+    const { url, isFallback } = await resolveImage(folder, currentSlug, product.fallback_file, colorHex);
+
+    if (!url) {
+      if (shimmer) { shimmer.style.animation = 'none'; shimmer.style.background = '#ddd'; }
+      if (badge)   badge.classList.add('visible');
+      if (img)     img.style.display = 'none';
+    } else if (img) {
+      img.onload = function() {
+        img.style.display = '';
+        if (shimmer) shimmer.classList.add('hidden');
+        if (!isFallback) img.dataset.baseUrl = url.replace(/[_\-]\d+\.jpg$/, '');
+        else delete img.dataset.baseUrl;
+        if (isFallback && badge) badge.classList.add('visible');
+        requestAnimationFrame(() => img.classList.add('loaded'));
+      };
+      img.onerror = function() {
+        if (shimmer) { shimmer.style.animation = 'none'; shimmer.style.background = '#ddd'; }
+        if (badge)   badge.classList.add('visible');
+        img.style.display = 'none';
+      };
+      img.src = url;
+    }
+  }
+
+  async function updateImages(slug) {
+    document.getElementById('empty-state').style.display  = 'none';
+    document.getElementById('product-grid').style.display = 'grid';
+
+    PRODUCTS.forEach(p => {
+      const img     = document.getElementById(`img-${p.id}`);
+      const shimmer = document.getElementById(`shimmer-${p.id}`);
+      const badge   = document.getElementById(`badge-${p.id}`);
+      if (img)     { img.onload = null; img.onerror = null; img.classList.remove('loaded'); img.src = ''; img.style.display = ''; }
+      if (shimmer) { shimmer.classList.remove('hidden'); shimmer.style.animation = ''; shimmer.style.background = ''; }
+      if (badge)   badge.classList.remove('visible');
+    });
+
+    const results = await Promise.all(
+      PRODUCTS.map(p => resolveImage(p.folder, slug, p.fallback_file, p.color_hex).then(r => ({ product: p, ...r })))
+    );
+
+    if (slug !== currentSlug) return;
+
+    // Reset each product's active swatch to whichever matches the product's default folder/color_hex
+    PRODUCTS.forEach(p => {
+      if (!p.swatches) return;
+      const swatchesEl = document.getElementById(`swatches-${p.id}`);
+      if (!swatchesEl) return;
+      const swatchEls = swatchesEl.querySelectorAll('.card-swatch');
+      let marked = false;
+      swatchEls.forEach(function(el, i) {
+        el.classList.remove('active');
+        if (!marked) {
+          const s = p.swatches[i];
+          const folderMatch    = s.folder    ? s.folder    === p.folder    : true;
+          const colorHexMatch  = s.color_hex ? s.color_hex === p.color_hex : !p.color_hex;
+          if ((s.folder || s.color_hex) && folderMatch && colorHexMatch) {
+            el.classList.add('active');
+            marked = true;
+          }
+        }
+      });
+      // Fallback: if no swatch matched the default, activate the first clickable one
+      if (!marked) {
+        swatchEls.forEach(function(el, i) {
+          if (!marked && (p.swatches[i].folder || p.swatches[i].color_hex)) {
+            el.classList.add('active');
+            marked = true;
+          }
+        });
+      }
+    });
+
+    results.forEach(({ product, url, isFallback }) => {
+      const img     = document.getElementById(`img-${product.id}`);
+      const shimmer = document.getElementById(`shimmer-${product.id}`);
+      const badge   = document.getElementById(`badge-${product.id}`);
+
+      if (!url) {
+        if (shimmer) { shimmer.style.animation = 'none'; shimmer.style.background = '#ddd'; }
+        if (badge)   badge.classList.add('visible');
+        if (img)     img.style.display = 'none';
+      } else if (img) {
+        img.onload = function() {
+          img.style.display = '';
+          if (shimmer) shimmer.classList.add('hidden');
+          if (!isFallback) img.dataset.baseUrl = url.replace(/[_\-]\d+\.jpg$/, '');
+          else delete img.dataset.baseUrl;
+          if (isFallback && badge) badge.classList.add('visible');
+          requestAnimationFrame(() => img.classList.add('loaded'));
+        };
+        img.onerror = function() {
+          if (shimmer) { shimmer.style.animation = 'none'; shimmer.style.background = '#ddd'; }
+          if (badge)   badge.classList.add('visible');
+          img.style.display = 'none';
+        };
+        img.src = url;
+      }
+    });
+  }
+
+  // Resolves once products.js has been fetched and PRODUCTS is available
+  var productsLoadedResolve;
+  var productsLoaded = new Promise(function(resolve) { productsLoadedResolve = resolve; });
+
+  // ── Unified search: AutocompleteService (programmatic) + custom locations ──
+  // Uses Places AutocompleteService so we can render one dropdown instead of two.
+  function initAutocomplete() {
+    var input         = document.getElementById('city-input');
+    var dropdown      = document.getElementById('custom-suggestions');
+    var autoService   = new google.maps.places.AutocompleteService();
+    var placesService = new google.maps.places.PlacesService(document.createElement('div'));
+    var activeIndex   = -1;
+    var currentItems  = []; // [{type:'custom'|'google', data:...}]
+    var debounceTimer = null;
+
+    // ── Fetch & render unified suggestions ──
+    function fetchSuggestions(query) {
+      var q = query.toLowerCase();
+
+      // Custom matches from extra-hometowns (limit to 3 to leave room for Google)
+      var customMatches = extraLocations.filter(function(loc) {
+        if (loc.label.toLowerCase().includes(q)) return true;
+        if (loc.candidates) return loc.candidates.some(function(c) { return c.toLowerCase().includes(q); });
+        return false;
+      }).slice(0, 3);
+
+      // Google Places predictions
+      autoService.getPlacePredictions({
+        input: query,
+        types: ['(cities)'],
+        componentRestrictions: { country: 'us' },
+      }, function(predictions, status) {
+        var googleItems = (status === google.maps.places.PlacesServiceStatus.OK && predictions)
+          ? predictions.slice(0, 6) : [];
+        renderDropdown(customMatches, googleItems);
+      });
+    }
+
+    function renderDropdown(customMatches, googleItems) {
+      currentItems = [];
+      activeIndex  = -1;
+      var html = '';
+
+      // Custom locations first
+      customMatches.forEach(function(loc) {
+        var parsed  = parseInjectionLabel(loc.label);
+        var display = parsed ? parsed.display : loc.label;
+        var idx = currentItems.length;
+        currentItems.push({ type: 'custom', data: loc });
+        html += '<div class="custom-suggestion-item" data-idx="' + idx + '">' +
+          '<span>' + display + '</span>' +
+          '</div>';
+      });
+
+      // Google predictions below
+      googleItems.forEach(function(pred) {
+        var idx  = currentItems.length;
+        var sf   = pred.structured_formatting;
+        var main = sf ? sf.main_text : pred.description;
+        var sec  = sf ? sf.secondary_text : '';
+        currentItems.push({ type: 'google', data: pred });
+        html += '<div class="custom-suggestion-item" data-idx="' + idx + '">' +
+          '<span>' + main + '</span>' +
+          (sec ? '<span class="suggestion-secondary">' + sec + '</span>' : '') +
+          '</div>';
+      });
+
+      if (!currentItems.length) { dropdown.style.display = 'none'; return; }
+      dropdown.innerHTML = html;
+      dropdown.style.display = 'block';
+    }
+
+    function applyPlaceComponents(place, fallbackName) {
+      var city = '', state = '', country = '';
+      place.address_components.forEach(function(comp) {
+        if ((comp.types.includes('locality') || comp.types.includes('sublocality')) && !city)
+          city = comp.long_name;
+        if (comp.types.includes('administrative_area_level_1')) state   = comp.short_name;
+        if (comp.types.includes('country'))                     country = comp.long_name;
+      });
+      if (!city) city = fallbackName || '';
+
+      var full  = applyConfigMaps([city, state, country].filter(Boolean).join(', '));
+      var parts = full.split(', ');
+      if (parts.length >= 3) {
+        country = parts[parts.length - 1];
+        state   = parts[parts.length - 2];
+        city    = parts.slice(0, parts.length - 2).join(', ');
+      } else if (parts.length === 2) {
+        state = parts[1]; city = parts[0];
+      }
+
+      var display = [city, state].filter(Boolean).join(', ');
+      input.value = display;
+      applyLocation(buildSlug(city, state, country), display);
+    }
+
+    function selectItem(idx) {
+      var item = currentItems[idx];
+      if (!item) return;
+      dropdown.style.display = 'none';
+
+      if (item.type === 'custom') {
+        var parsed = parseInjectionLabel(item.data.label);
+        if (!parsed) return;
+        input.value = parsed.display;
+        applyLocation(buildSlug(parsed.city, parsed.state, parsed.country), parsed.display);
+      } else {
+        // Fetch full place details for address components
+        placesService.getDetails(
+          { placeId: item.data.place_id, fields: ['address_components', 'name'] },
+          function(place, status) {
+            if (!place || !place.address_components) return;
+            applyPlaceComponents(place, item.data.structured_formatting && item.data.structured_formatting.main_text);
+          }
+        );
+      }
+    }
+
+    // ── Event: input typing ──
+    input.addEventListener('input', function() {
+      var query = this.value.trim();
+      clearTimeout(debounceTimer);
+      if (!query || query.length < 2) { dropdown.style.display = 'none'; return; }
+      debounceTimer = setTimeout(function() { fetchSuggestions(query); }, 200);
+    });
+
+    // ── Event: click on dropdown item ──
+    dropdown.addEventListener('mousedown', function(e) {
+      var item = e.target.closest('.custom-suggestion-item');
+      if (!item) return;
+      e.preventDefault();
+      selectItem(parseInt(item.dataset.idx));
+    });
+
+    // ── Event: keyboard navigation ──
+    input.addEventListener('keydown', function(e) {
+      var items = dropdown.querySelectorAll('.custom-suggestion-item');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeIndex = Math.min(activeIndex + 1, items.length - 1);
+        items.forEach(function(el, i) { el.classList.toggle('active', i === activeIndex); });
+        if (items[activeIndex]) items[activeIndex].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeIndex = Math.max(activeIndex - 1, -1);
+        items.forEach(function(el, i) { el.classList.toggle('active', i === activeIndex); });
+      } else if (e.key === 'Enter') {
+        if (dropdown.style.display !== 'none' && activeIndex >= 0) {
+          e.preventDefault();
+          selectItem(activeIndex);
+        }
+      } else if (e.key === 'Escape') {
+        dropdown.style.display = 'none';
+      }
+    });
+
+    // ── Event: close on outside click ──
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.search-wrapper')) dropdown.style.display = 'none';
+    });
+
+    input.focus();
+
+    // Wait for products to be loaded before applying URL params
+    productsLoaded.then(function() {
+      var params   = new URLSearchParams(window.location.search);
+      var urlSlug  = params.get('location');
+      var urlLabel = params.get('label');
+      if (urlSlug) applyLocation(urlSlug, urlLabel || urlSlug, false);
+    });
+  }
+
+  function _doFetchPreview(display) {
+    var location   = display + ', United States';
+    var previewUrl = 'https://web-preview.welltoldco.com/?' + new URLSearchParams({
+      productLine:  'Hometown',
+      mapType:      'Rocks',
+      location:     location,
+      fgColorHex:   '#000000',
+      bgColorHex:   '#FFFFFF',
+      maxDimension: '2048',
+      v:            '2',
+    }).toString();
+
+    lastPreviewTime = Date.now();
+    previewPending  = null;
+
+    var section = document.getElementById('map-preview-section');
+    var loading = document.getElementById('map-preview-loading');
+    var div     = document.getElementById('map-preview-img');
+    section.style.display = '';
+    loading.classList.remove('hidden');
+    div.classList.remove('loaded');
+    div.style.backgroundImage = '';
+
+    // Load via a hidden Image object so no <img> element exists in the DOM.
+    // Right-clicking the div shows a plain div context menu — no "Save image as".
+    var probe = new Image();
+    probe.onload = function() {
+      div.style.backgroundImage = 'url("' + previewUrl + '")';
+      loading.classList.add('hidden');
+      requestAnimationFrame(function() { div.classList.add('loaded'); });
+    };
+    probe.onerror = function() {
+      section.style.display = 'none';
+    };
+    probe.src = previewUrl;
+  }
+
+  function updateMapPreview(display) {
+    // Throttle: first request fires immediately; subsequent requests within
+    // 5 s are deferred until the throttle window expires.
+    var now  = Date.now();
+    var wait = 5000 - (now - lastPreviewTime);
+    if (previewPending) { clearTimeout(previewPending); previewPending = null; }
+    if (wait <= 0) {
+      _doFetchPreview(display);
+    } else {
+      previewPending = setTimeout(function() { _doFetchPreview(display); }, wait);
+    }
+  }
+
+  function applyLocation(slug, display, updateUrl = true) {
+    if (!rlRecord()) return; // rate limit exceeded — lockout shown by rlRecord
+    currentSlug    = slug;
+    currentDisplay = display;
+    document.getElementById('location-label').innerHTML =
+      'Showing results for: <strong>' + display + '</strong>';
+    if (updateUrl) {
+      var params = new URLSearchParams({ location: slug, label: display });
+      history.pushState({}, '', '?' + params.toString());
+    }
+    updateMapPreview(display);
+    setTimeout(function() { updateImages(slug); }, 300);
+  }
+
+  // ── Startup: fetch products, autocomplete config, and extra locations ──
+  rlInit(); // restore lockout state if user returns while still locked out
+  var ts = Date.now();
+
+  fetch('products.js?_=' + ts, { cache: 'no-store' })
+    .then(function(r) { return r.text(); })
+    .then(function(code) {
+      var s = document.createElement('script');
+      s.textContent = code;
+      document.head.appendChild(s);
+      buildGrid();
+      productsLoadedResolve();
+    })
+    .catch(function() {
+      document.getElementById('empty-state').innerHTML =
+        '<p>Could not load product data. Please refresh the page.</p>';
+    });
+
+  Promise.all([
+    fetch('https://welltold.s3.us-east-1.amazonaws.com/assets/config/autocomplete.json?_=' + ts, { cache: 'no-store' }).then(function(r) { return r.json(); }),
+    fetch('https://welltold.s3.us-east-1.amazonaws.com/assets/data/extra-hometowns.json?_=' + ts,  { cache: 'no-store' }).then(function(r) { return r.json(); })
+  ]).then(function(results) {
+    acConfig       = results[0];
+    extraLocations = results[1];
+  }).catch(function() {
+    // Silently degrade — app works without these files
+  });
+
+  // ── LIGHTBOX / IMAGE MODAL ──
+  var modalImages  = [];
+  var modalIndex   = 0;
+
+  function modalEl(id) { return document.getElementById(id); }
+
+  function renderModal() {
+    var url = modalImages[modalIndex];
+    modalEl('modal-img').src = url;
+    modalEl('modal-counter').textContent = modalImages.length > 1
+      ? (modalIndex + 1) + ' / ' + modalImages.length : '';
+    modalEl('modal-prev').disabled = modalIndex === 0;
+    modalEl('modal-next').disabled = modalIndex === modalImages.length - 1;
+    document.querySelectorAll('.img-modal-thumb').forEach(function(t, i) {
+      t.classList.toggle('active', i === modalIndex);
+    });
+  }
+
+  function buildThumbs() {
+    var strip = modalEl('modal-thumbs');
+    strip.innerHTML = '';
+    if (modalImages.length <= 1) return;
+    modalImages.forEach(function(url, i) {
+      var t = document.createElement('img');
+      t.src = url;
+      t.className = 'img-modal-thumb' + (i === modalIndex ? ' active' : '');
+      t.addEventListener('click', function() { modalIndex = i; renderModal(); });
+      strip.appendChild(t);
+    });
+  }
+
+  async function openLightbox(baseUrl) {
+    // Probe both new-curated rotation angles (_0/_90/_180/_270)
+    // and legacy sequential suffixes (_1/_2/_3/_4/_5).
+    // Do not break on first miss — formats are non-sequential.
+    var found = [];
+    var candidates = ['_0','_90','_180','_270','_1','_2','_3','_4','_5'];
+    for (var ci = 0; ci < candidates.length; ci++) {
+      var url = baseUrl + candidates[ci] + '.jpg';
+      if (await checkImageExists(url)) found.push(url);
+    }
+    if (!found.length) return;
+    modalImages = found;
+    modalIndex  = 0;
+    buildThumbs();
+    renderModal();
+    modalEl('img-modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    modalEl('img-modal').classList.remove('open');
+    document.body.style.overflow = '';
+    modalEl('modal-img').src = '';
+  }
+
+  // Silently copy city to clipboard when "Shop on Faire" is clicked
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.card-cta:not(.disabled)');
+    if (!btn || !currentDisplay) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(currentDisplay).catch(function() {});
+    }
+  });
+
+  // Open modal on card-image-wrap click
+  document.addEventListener('click', function(e) {
+    var wrap = e.target.closest('.card-image-wrap');
+    if (!wrap) return;
+    var img = wrap.querySelector('img');
+    if (!img || !img.dataset.baseUrl) return;
+    openLightbox(img.dataset.baseUrl);
+  });
+
+  // Close on overlay or close button
+  document.addEventListener('click', function(e) {
+    if (e.target.matches('.img-modal-overlay') || e.target.matches('#modal-close')) {
+      closeLightbox();
+    }
+  });
+
+  // Keyboard: arrows + Escape
+  document.addEventListener('keydown', function(e) {
+    if (!modalEl('img-modal').classList.contains('open')) return;
+    if (e.key === 'Escape')      { closeLightbox(); }
+    if (e.key === 'ArrowLeft'  && modalIndex > 0)                    { modalIndex--; renderModal(); }
+    if (e.key === 'ArrowRight' && modalIndex < modalImages.length - 1) { modalIndex++; renderModal(); }
+  });
+
+  // Prev / Next buttons
+  document.addEventListener('click', function(e) {
+    if (e.target.matches('#modal-prev')) { if (modalIndex > 0)                    { modalIndex--; renderModal(); } }
+    if (e.target.matches('#modal-next')) { if (modalIndex < modalImages.length - 1) { modalIndex++; renderModal(); } }
+  });
+</script>
+
+<!-- ═══════════════ IMAGE LIGHTBOX MODAL ═══════════════ -->
+<div id="img-modal" class="img-modal" role="dialog" aria-modal="true" aria-label="Image viewer">
+  <div class="img-modal-overlay"></div>
+  <div class="img-modal-content">
+    <button class="img-modal-close" id="modal-close" aria-label="Close">✕</button>
+    <div class="img-modal-main">
+      <button class="img-modal-nav" id="modal-prev" aria-label="Previous image">&#8249;</button>
+      <img class="img-modal-img" id="modal-img" src="" alt="Product image" />
+      <button class="img-modal-nav" id="modal-next" aria-label="Next image">&#8250;</button>
+    </div>
+    <div class="img-modal-counter" id="modal-counter"></div>
+    <div class="img-modal-thumbs" id="modal-thumbs"></div>
+  </div>
+</div>
+
+<!-- Google Maps — classic Places API (v=quarterly for stability) -->
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAfpE5pU7XsGfuuOg6UfX5_qH__HqHXkWc&libraries=places&callback=initAutocomplete&loading=async"
+  async defer
+></script>
+
+</body>
+</html>
