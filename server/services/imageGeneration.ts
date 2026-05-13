@@ -21,12 +21,14 @@ cloudinaryV2.config({
 // To change the default model, update DEFAULT_MODEL below.
 // ---------------------------------------------------------------------------
 export const HIGGSFIELD_MODELS = {
-  /** FLUX Pro — high quality text-to-image (default) */
+  /** FLUX Pro — high quality text-to-image */
   FLUX_PRO: "flux-pro/text-to-image",
   /** FLUX Pro Kontext Max — highest quality, slower */
   FLUX_KONTEXT_MAX: "flux-pro/kontext/max/text-to-image",
   /** Bana Pro — stylised text-to-image */
   BANA_PRO: "bana-pro/text-to-image",
+  /** Nano Bana Pro — Bana Pro at nano speed tier (default — often in unlimited mode) */
+  NANO_BANA_PRO: "bana-pro/nano/text-to-image",
   /** Nano — fast, lower cost text-to-image */
   NANO: "nano/text-to-image",
   /** ChatGPT Image 2 — OpenAI-backed generation via Higgsfield */
@@ -35,7 +37,7 @@ export const HIGGSFIELD_MODELS = {
 
 export type HiggsfieldModelSlug = typeof HIGGSFIELD_MODELS[keyof typeof HIGGSFIELD_MODELS];
 
-const DEFAULT_MODEL: HiggsfieldModelSlug = HIGGSFIELD_MODELS.FLUX_PRO;
+const DEFAULT_MODEL: HiggsfieldModelSlug = HIGGSFIELD_MODELS.NANO_BANA_PRO;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -160,6 +162,8 @@ export async function generateImage(request: GenerateImageRequest): Promise<Gene
   const higgsInput: Record<string, unknown> = {
     prompt,
     aspect_ratio: "16:9",
+    width: 2048,
+    height: 1152,
     safety_tolerance: 2,
     ...extraInput,
   };
