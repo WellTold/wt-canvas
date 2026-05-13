@@ -280,6 +280,7 @@ export interface IStorage {
   getKeyword(id: number): Promise<Keyword | null>;
   getKeywordByContentItemId(contentItemId: string): Promise<Keyword | null>;
   getKeywordsByContentItemId(contentItemId: string): Promise<Keyword[]>;
+  releaseKeywordsByContentItemId(contentItemId: string): Promise<number>;
   createKeyword(keyword: InsertKeyword): Promise<Keyword>;
   createKeywordsBulk(keywords: InsertKeyword[]): Promise<Keyword[]>;
   updateKeyword(id: number, keyword: Partial<InsertKeyword>): Promise<Keyword>;
@@ -1033,6 +1034,24 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return rows;
+  }
+
+  async releaseKeywordsByContentItemId(contentItemId: string): Promise<number> {
+    const linked = await db
+      .select()
+      .from(keywordsTable)
+      .where(eq(keywordsTable.contentItemId, contentItemId));
+    if (linked.length === 0) return 0;
+    let released = 0;
+    for (const kw of linked) {
+      const newStatus = kw.status === "in_progress" ? "untargeted" : kw.status;
+      await db
+        .update(keywordsTable)
+        .set({ contentItemId: null, contentItemTitle: null, status: newStatus } as any)
+        .where(eq(keywordsTable.id, kw.id));
+      released++;
+    }
+    return released;
   }
 
   async updateKeyword(id: number, keyword: Partial<InsertKeyword>): Promise<Keyword> {

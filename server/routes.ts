@@ -754,6 +754,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Release any keywords linked to this article before deleting
+      try {
+        const released = await storage.releaseKeywordsByContentItemId(String(id));
+        if (released > 0) {
+          console.log(`Released ${released} keyword(s) linked to content item ${id}`);
+        }
+      } catch (err) {
+        console.error(`Failed to release keywords for content item ${id}:`, err);
+      }
+
       await storage.deleteContentItem(id);
       console.log(`Successfully deleted content item ${id}`);
 
