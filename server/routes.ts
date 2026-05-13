@@ -2149,6 +2149,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         }
 
         if (Object.keys(syncData).length > 1) {
+          console.log(`📦 Sync payload for ${contentId}:`, Object.keys(syncData), "featured_image:", syncData.featured_image ?? "(not set)");
           await supabaseClient
             .from(publishTableName)
             .update(syncData)
@@ -2160,6 +2161,40 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       }
 
       const result = await supabaseLegacyPublisher.publish(contentItem);
+
+      // Purge Cloudflare edge cache so the updated HTML (with hero image, SEO fields, etc.)
+      // is served immediately rather than stale cached content
+      if (contentItem.slug && process.env.CF_ZONE_ID && process.env.CF_API_TOKEN) {
+        const baseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
+        const purgeUrls = [
+          `${baseUrl}/a/articles/${contentItem.slug}`,
+          `${baseUrl}/articles/${contentItem.slug}`,
+          `${baseUrl}/a/pages/${contentItem.slug}`,
+          `${baseUrl}/pages/${contentItem.slug}`,
+        ];
+        console.log(`Purging CF cache after publish: ${purgeUrls.join(", ")}`);
+        try {
+          const cfRes = await fetch(
+            `https://api.cloudflare.com/client/v4/zones/${process.env.CF_ZONE_ID}/purge_cache`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${process.env.CF_API_TOKEN}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ files: purgeUrls }),
+            },
+          );
+          if (cfRes.ok) {
+            console.log(`✅ CF cache purged after publish: ${purgeUrls.join(", ")}`);
+          } else {
+            const errText = await cfRes.text();
+            console.warn(`⚠️ CF cache purge failed (${cfRes.status}): ${errText}`);
+          }
+        } catch (purgeErr) {
+          console.warn("⚠️ CF cache purge error (non-fatal):", purgeErr);
+        }
+      }
 
       // Publish lifecycle: auto-flip all linked keyword statuses to published
       try {
