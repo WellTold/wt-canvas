@@ -2112,6 +2112,18 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         if (contentItem.structuredData) {
           syncData.structured_data = contentItem.structuredData;
         }
+        if (contentItem.featuredImage) {
+          syncData.featured_image = contentItem.featuredImage;
+        }
+        if ((contentItem as any).ogImage) {
+          syncData.og_image = (contentItem as any).ogImage;
+        }
+        if ((contentItem as any).ogTitle) {
+          syncData.og_title = (contentItem as any).ogTitle;
+        }
+        if ((contentItem as any).metaDescription) {
+          syncData.meta_description = (contentItem as any).metaDescription;
+        }
 
         // For legacy block-only pages: auto-generate markdown if none exists anywhere
         if (!contentItem.markdownContent) {
