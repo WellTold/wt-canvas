@@ -27,8 +27,8 @@ export const HIGGSFIELD_MODELS = {
   FLUX_KONTEXT_MAX: "flux-pro/kontext/max/text-to-image",
   /** Bana Pro — stylised text-to-image */
   BANA_PRO: "bana-pro/text-to-image",
-  /** Nano Bana Pro — Bana Pro at nano speed tier (default — often in unlimited mode) */
-  NANO_BANA_PRO: "bana-pro/nano/text-to-image",
+  /** Nano Bana Pro — slug TBC from dashboard; placeholder until verified */
+  NANO_BANA_PRO: "nanonx/text-to-image",
   /** Nano — fast, lower cost text-to-image */
   NANO: "nano/text-to-image",
   /** ChatGPT Image 2 — OpenAI-backed generation via Higgsfield */
@@ -37,7 +37,7 @@ export const HIGGSFIELD_MODELS = {
 
 export type HiggsfieldModelSlug = typeof HIGGSFIELD_MODELS[keyof typeof HIGGSFIELD_MODELS];
 
-const DEFAULT_MODEL: HiggsfieldModelSlug = HIGGSFIELD_MODELS.NANO_BANA_PRO;
+const DEFAULT_MODEL: HiggsfieldModelSlug = HIGGSFIELD_MODELS.BANA_PRO;
 
 // ---------------------------------------------------------------------------
 // Types
