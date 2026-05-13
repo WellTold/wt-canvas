@@ -122,6 +122,15 @@ export function RichTextEditor({
           event.preventDefault();
           return true;
         }
+        // Shift+Enter → hard line break (<br>) instead of a new paragraph
+        if (event.key === "Enter" && event.shiftKey) {
+          const { state, dispatch } = view;
+          const hardBreak = state.schema.nodes.hardBreak;
+          if (hardBreak) {
+            dispatch(state.tr.replaceSelectionWith(hardBreak.create()).scrollIntoView());
+            return true;
+          }
+        }
         return false;
       },
     },
