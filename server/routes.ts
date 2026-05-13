@@ -28,6 +28,7 @@ import {
   generateFAQ,
   generateCTAs,
   selectKeywordsForTopic,
+  generatePhilosophyIntro,
 } from "./services/claude";
 import { marked } from "marked";
 import { fetchProductList, fetchProductsByHandles, fetchProductAllImages, isShopifyConfigured } from "./services/shopify";
@@ -4324,8 +4325,8 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         }
       }
 
-      // 6. Run markdown generation + FAQ + CTAs all in parallel — FAQ/CTAs no longer block markdown
-      const [markdown, faqItems, ctaData] = await Promise.all([
+      // 6. Run markdown generation + FAQ + CTAs + philosophy intro all in parallel
+      const [markdown, faqItems, ctaData, philosophyIntro] = await Promise.all([
         generateWebPageMarkdownContent({
           title,
           type: contentType,
@@ -4345,6 +4346,10 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         generateCTAs(faqSearchTerm, siteBaseUrl).catch((e) => {
           console.error("[ai-quick-create] CTA generation failed:", e?.message);
           return null;
+        }),
+        generatePhilosophyIntro(kw.keyword, title, brandContext).catch((e) => {
+          console.error("[ai-quick-create] Philosophy intro failed:", e?.message);
+          return "";
         }),
       ]);
       console.log(
@@ -4410,7 +4415,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         approvalStatus: "pending",
         primaryKeyword: kw.keyword,
         supportingKeywords: supportingKeywordsStr || null,
-        markdownContent: markdown.trimEnd(),
+        markdownContent: (philosophyIntro ? philosophyIntro + "\n\n" : "") + markdown.trimEnd(),
         structuredData:
           Object.keys(structuredData).length > 0 ? structuredData : null,
         authorId: req.userId!,
@@ -4540,8 +4545,8 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         if (supplementary.length > 0) productContext = (productContext ? productContext + "\n" : "") + supplementary.join("\n");
       }
 
-      // Generate markdown + FAQ + CTAs in parallel
-      const [markdown, faqItems, ctaData] = await Promise.all([
+      // Generate markdown + FAQ + CTAs + philosophy intro in parallel
+      const [markdown, faqItems, ctaData, philosophyIntro] = await Promise.all([
         generateWebPageMarkdownContent({
           title,
           type: contentType,
@@ -4556,6 +4561,10 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         }),
         generateFAQ(primaryKw, supportingKeywordsStr).catch(() => []),
         generateCTAs(primaryKw, siteBaseUrl).catch(() => null),
+        generatePhilosophyIntro(primaryKw, title, brandContext).catch((e) => {
+          console.error("[regenerate] Philosophy intro failed:", e?.message);
+          return "";
+        }),
       ]);
 
       // Build structured data
@@ -4586,7 +4595,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       await storage.updateContentItem(id as any, {
         title,
         slug: newSlug,
-        markdownContent: markdown.trimEnd(),
+        markdownContent: (philosophyIntro ? philosophyIntro + "\n\n" : "") + markdown.trimEnd(),
         primaryKeyword: primaryKw,
         supportingKeywords: supportingKeywordsStr || null,
         structuredData: Object.keys(structuredData).length > 0 ? structuredData : null,

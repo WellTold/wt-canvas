@@ -1073,6 +1073,60 @@ export async function selectKeywordsForTopic(
   }
 }
 
+// ── Philosophy Intro Generator ───────────────────────────────────────────────
+// Generates a 150–200 word Well Told voice intro for gift guide pages.
+// Runs in parallel with the main markdown generation — does not block it.
+export async function generatePhilosophyIntro(
+  keyword: string,
+  title: string,
+  brandContext?: {
+    voice_document?: string;
+    always_rules?: string;
+    avoid_rules?: string;
+  },
+): Promise<string> {
+  const voiceGuidance = brandContext?.voice_document
+    ? `\n\nBrand voice guidance:\n${brandContext.voice_document}`
+    : "";
+  const alwaysRules = brandContext?.always_rules
+    ? `\n\nAlways: ${brandContext.always_rules}`
+    : "";
+  const avoidRules = brandContext?.avoid_rules
+    ? `\n\nAvoid: ${brandContext.avoid_rules}`
+    : "";
+
+  const systemPrompt = `You write the opening philosophy section for Well Told gift guide pages. Well Told makes personalized gifts built around places, moments, and memories — custom hometown map glassware, topographic designs, night sky pieces, and other story-driven keepsakes. Every piece is made to order and tied to something specific: a city, a trail, a date, a constellation.${voiceGuidance}${alwaysRules}${avoidRules}`;
+
+  const userPrompt = `Write a 2–3 paragraph opening section (150–200 words) for a Well Told gift guide page titled: "${title}"
+Primary keyword/topic: ${keyword}
+
+This section should:
+- Open with a specific, emotionally resonant observation about why this kind of gift is hard to get right — the reader should immediately feel seen
+- Share Well Told's genuine philosophy on what makes a great gift for this specific person or occasion — not generic advice, but the Well Told lens: gifts tied to real places, real moments, real stories
+- NOT mention any specific products by name
+- Sound like a thoughtful Well Told team member speaking directly to a gift-giver who cares about getting it right
+- End naturally so the product content that follows feels like a direct answer to the philosophy you've set up
+
+Tone: warm, direct, a little literary. Confident without being salesy. Like a wise gift shop owner giving real advice to a friend.
+
+Return only the paragraph text — no heading, no markdown formatting, no preamble.`;
+
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 400,
+    messages: [{ role: "user", content: userPrompt }],
+    system: systemPrompt,
+  });
+
+  const text = response.content
+    .filter((b) => b.type === "text")
+    .map((b) => (b as { type: "text"; text: string }).text)
+    .join("")
+    .trim();
+
+  return text;
+}
+
 export async function generateSection(topic: string, sectionType: string, context?: string): Promise<string> {
   const contextText = context ? ` Additional context: ${context}.` : "";
   const response = await anthropic.messages.create({
