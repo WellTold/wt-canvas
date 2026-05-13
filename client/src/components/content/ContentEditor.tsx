@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
-import { ArrowLeft, Wand2, Save, Plus, Mail, ExternalLink, Bookmark, BookMarked, ShoppingBag, ChevronUp, ChevronDown, Eye, Settings2, Upload, Megaphone, RefreshCw, ImageIcon } from "lucide-react";
+import { ArrowLeft, Wand2, Save, Plus, Mail, ExternalLink, Bookmark, BookMarked, ShoppingBag, ChevronUp, ChevronDown, Eye, Settings2, Upload, Megaphone, RefreshCw, ImageIcon, Loader2 } from "lucide-react";
 import { EmailPreviewModal } from "./EmailPreviewModal";
 import { Badge } from "@/components/ui/badge";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -98,6 +98,18 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const [pickerProduct, setPickerProduct] = useState<{ handle: string; title: string; currentImageUrl: string } | null>(null);
   const [pickerImages, setPickerImages] = useState<{ src: string; alt: string }[]>([]);
   const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerTab, setPickerTab] = useState<'url' | 'upload' | 'cloudinary'>('url');
+  const [pickerUrlInput, setPickerUrlInput] = useState('');
+  const [pickerUploadLoading, setPickerUploadLoading] = useState(false);
+
+  const [heroPickerOpen, setHeroPickerOpen] = useState(false);
+  const [heroPickerTab, setHeroPickerTab] = useState<'url' | 'upload' | 'cloudinary'>('url');
+  const [heroUrlInput, setHeroUrlInput] = useState('');
+  const [heroUploadLoading, setHeroUploadLoading] = useState(false);
+  const [cloudinaryTarget, setCloudinaryTarget] = useState<'hero' | 'product'>('hero');
+
+  const heroFileInputRef = useRef<HTMLInputElement>(null);
+  const productFileInputRef = useRef<HTMLInputElement>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1203,8 +1215,81 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
     }
   };
 
+  const applyProductImageChange = (handle: string, oldUrl: string, newUrl: string) => {
+    const updated = markdownContent.replace(
+      new RegExp(`!\\[([^\\]]*)\\]\\(${oldUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)`, "g"),
+      `![$1](${newUrl})`
+    );
+    setMarkdownContent(updated);
+    setHasUnsavedChanges(true);
+    import("marked").then(async ({ marked }) => {
+      const html = await Promise.resolve(marked(updated));
+      setMarkdownPreviewHtml(html as string);
+    });
+    const updatedSD = JSON.parse(JSON.stringify(generatedStructuredData));
+    const p = updatedSD._wt_products?.find((p: any) => p.handle === handle);
+    if (p) p.imageUrl = newUrl;
+    setGeneratedStructuredData(updatedSD);
+    setPickerProduct(prev => prev ? { ...prev, currentImageUrl: newUrl } : null);
+    toast({ title: "Image updated", description: "Save the article to keep this change." });
+  };
+
+  const handleHeroFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target?.result as string;
+      setHeroUploadLoading(true);
+      try {
+        const res = await apiRequest("POST", "/api/media/upload", { dataUrl });
+        const data = await res.json();
+        if (data.url) {
+          setFeaturedImage(data.url);
+          setHasUnsavedChanges(true);
+          setHeroPickerOpen(false);
+          toast({ title: "Image uploaded" });
+        } else throw new Error(data.message || "Upload failed");
+      } catch (err) {
+        toast({ title: "Upload failed", description: (err as Error).message, variant: "destructive" });
+      } finally {
+        setHeroUploadLoading(false);
+        if (heroFileInputRef.current) heroFileInputRef.current.value = "";
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleProductFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0 || !pickerProduct) return;
+    const file = files[0];
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target?.result as string;
+      setPickerUploadLoading(true);
+      try {
+        const res = await apiRequest("POST", "/api/media/upload", { dataUrl });
+        const data = await res.json();
+        if (data.url) {
+          applyProductImageChange(pickerProduct.handle, pickerProduct.currentImageUrl, data.url);
+        } else throw new Error(data.message || "Upload failed");
+      } catch (err) {
+        toast({ title: "Upload failed", description: (err as Error).message, variant: "destructive" });
+      } finally {
+        setPickerUploadLoading(false);
+        if (productFileInputRef.current) productFileInputRef.current.value = "";
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleAssetSelect = (asset: any) => {
-    setFeaturedImage(asset.secure_url);
+    if (cloudinaryTarget === 'product' && pickerProduct) {
+      applyProductImageChange(pickerProduct.handle, pickerProduct.currentImageUrl, asset.secure_url);
+    } else {
+      setFeaturedImage(asset.secure_url);
+      setHeroPickerOpen(false);
+    }
     setIsAssetSelectorOpen(false);
     setHasUnsavedChanges(true);
   };
@@ -1592,19 +1677,6 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
               </Button>
             )}
 
-            {/* Generate Image — only for web page types that have been saved */}
-            {!isEmailContent && (contentItemId || currentContentItem?.id) && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => generateImageMutation.mutate()}
-                disabled={generateImageMutation.isPending || !primaryKeyword}
-                title={!primaryKeyword ? "Set a primary keyword in Settings first" : featuredImage ? "Regenerate the featured hero image using AI" : "Generate a featured hero image using AI"}
-              >
-                <ImageIcon className={`h-4 w-4 mr-1 ${generateImageMutation.isPending ? "animate-pulse" : ""}`} />
-                {generateImageMutation.isPending ? "Generating…" : featuredImage ? "Regenerate Image" : "Generate Image"}
-              </Button>
-            )}
 
             {/* Regenerate — only for non-email pages that have been saved */}
             {!isEmailContent && (contentItemId || currentContentItem?.id) && (
@@ -1976,19 +2048,157 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
           </Card>
         )}
 
-        {/* Product Image Picker — shown when article has _wt_products */}
-        {isMarkdownMode && generatedStructuredData && (generatedStructuredData as any)._wt_products?.length > 0 && (
+        {/* Images — hero + product images, shown whenever the article is in markdown mode */}
+        {isMarkdownMode && (
           <Card>
             <CardContent className="pt-4">
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Product Images</h3>
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Images</h3>
               <div className="flex flex-col gap-3">
-                {((generatedStructuredData as any)._wt_products as any[]).map((product: any) => {
+
+                {/* ── Hero Image row ── */}
+                <div className="border border-black/20">
+                  <div className="flex items-center gap-3 p-2">
+                    {featuredImage ? (
+                      <img src={featuredImage} alt="Hero" className="w-12 h-12 object-cover border border-black/10 flex-shrink-0" />
+                    ) : (
+                      <div className="w-12 h-12 bg-[#f0ebe7] border border-black/10 flex-shrink-0 flex items-center justify-center">
+                        <ImageIcon className="w-4 h-4 text-black/30" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">Hero Image</p>
+                      <p className="text-xs text-muted-foreground">{featuredImage ? "Featured image set" : "No image yet"}</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-none border-black text-xs flex-shrink-0"
+                      onClick={() => setHeroPickerOpen(!heroPickerOpen)}
+                    >
+                      {heroPickerOpen ? "Close" : "Change"}
+                    </Button>
+                  </div>
+
+                  {heroPickerOpen && (
+                    <div className="border-t border-black/10 p-3 space-y-3">
+                      {/* Tab pills */}
+                      <div className="flex gap-1">
+                        {(['url', 'upload', 'cloudinary'] as const).map((tab) => (
+                          <button
+                            key={tab}
+                            onClick={() => setHeroPickerTab(tab)}
+                            className={`px-2 py-1 text-xs border border-black/20 ${heroPickerTab === tab ? 'bg-black text-white' : 'bg-white hover:bg-[#f0ebe7]'}`}
+                          >
+                            {tab === 'url' ? 'URL' : tab === 'upload' ? 'Upload' : 'Cloudinary'}
+                          </button>
+                        ))}
+                      </div>
+
+                      {heroPickerTab === 'url' && (
+                        <div className="flex gap-2">
+                          <Input
+                            value={heroUrlInput}
+                            onChange={(e) => setHeroUrlInput(e.target.value)}
+                            placeholder="Paste image URL…"
+                            className="flex-1 h-8 text-xs rounded-none"
+                          />
+                          <Button
+                            size="sm"
+                            className="rounded-none text-xs h-8"
+                            onClick={() => {
+                              if (!heroUrlInput.trim()) return;
+                              setFeaturedImage(heroUrlInput.trim());
+                              setHasUnsavedChanges(true);
+                              setHeroUrlInput('');
+                              setHeroPickerOpen(false);
+                              toast({ title: "Hero image updated" });
+                            }}
+                          >
+                            Apply
+                          </Button>
+                        </div>
+                      )}
+
+                      {heroPickerTab === 'upload' && (
+                        <div>
+                          <input
+                            ref={heroFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleHeroFileUpload(e.target.files)}
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-none border-black text-xs"
+                            disabled={heroUploadLoading}
+                            onClick={() => heroFileInputRef.current?.click()}
+                          >
+                            {heroUploadLoading ? (
+                              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                            ) : (
+                              <Upload className="h-3.5 w-3.5 mr-1" />
+                            )}
+                            {heroUploadLoading ? 'Uploading…' : 'Choose File'}
+                          </Button>
+                        </div>
+                      )}
+
+                      {heroPickerTab === 'cloudinary' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-none border-black text-xs"
+                          onClick={() => {
+                            setCloudinaryTarget('hero');
+                            setIsAssetSelectorOpen(true);
+                          }}
+                        >
+                          Browse Library
+                        </Button>
+                      )}
+
+                      {/* Generate New — always visible in hero picker */}
+                      <div className="pt-1 border-t border-black/10">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-none border-black text-xs w-full"
+                          disabled={generateImageMutation.isPending || !primaryKeyword || !(contentItemId || currentContentItem?.id)}
+                          title={
+                            !(contentItemId || currentContentItem?.id)
+                              ? "Save the article first to generate an image"
+                              : !primaryKeyword
+                              ? "Set a primary keyword in Settings first"
+                              : "Generate a new hero image with AI"
+                          }
+                          onClick={() => generateImageMutation.mutate()}
+                        >
+                          {generateImageMutation.isPending ? (
+                            <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                          ) : (
+                            <Wand2 className="h-3.5 w-3.5 mr-1" />
+                          )}
+                          {generateImageMutation.isPending ? 'Generating…' : 'Generate New'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Product Image rows ── */}
+                {((generatedStructuredData as any)?._wt_products as any[] ?? []).map((product: any) => {
                   const isOpen = pickerProduct?.handle === product.handle;
                   return (
                     <div key={product.handle} className="border border-black/20">
                       <div className="flex items-center gap-3 p-2">
-                        {product.imageUrl && (
+                        {product.imageUrl ? (
                           <img src={product.imageUrl} alt={product.title} className="w-12 h-12 object-cover border border-black/10 flex-shrink-0" />
+                        ) : (
+                          <div className="w-12 h-12 bg-[#f0ebe7] border border-black/10 flex-shrink-0 flex items-center justify-center">
+                            <ImageIcon className="w-4 h-4 text-black/30" />
+                          </div>
                         )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{product.title}</p>
@@ -2002,6 +2212,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                             if (isOpen) { setPickerProduct(null); setPickerImages([]); return; }
                             setPickerProduct({ handle: product.handle, title: product.title, currentImageUrl: product.imageUrl });
                             setPickerImages([]);
+                            setPickerTab('url');
                             setPickerLoading(true);
                             try {
                               const res = await apiRequest("GET", `/api/shopify/product-images/${product.handle}`);
@@ -2017,13 +2228,15 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                           {isOpen ? "Close" : "Change Image"}
                         </Button>
                       </div>
+
                       {isOpen && (
-                        <div className="border-t border-black/10 p-3">
+                        <div className="border-t border-black/10 p-3 space-y-3">
+                          {/* Shopify images */}
                           {pickerLoading ? (
-                            <p className="text-xs text-muted-foreground">Loading images…</p>
-                          ) : pickerImages.length === 0 ? (
-                            <p className="text-xs text-muted-foreground">No alternate images found.</p>
-                          ) : (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" /> Loading Shopify images…
+                            </p>
+                          ) : pickerImages.length > 0 ? (
                             <div className="flex flex-wrap gap-2">
                               {pickerImages.map((img) => {
                                 const isCurrent = img.src === pickerProduct?.currentImageUrl;
@@ -2033,27 +2246,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                                     title={img.alt || img.src}
                                     onClick={() => {
                                       if (isCurrent) return;
-                                      // Replace old image URL with new one in markdown
-                                      const oldUrl = pickerProduct!.currentImageUrl;
-                                      const newUrl = img.src;
-                                      const updated = markdownContent.replace(
-                                        new RegExp(`!\\[([^\\]]*)\\]\\(${oldUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)`, "g"),
-                                        `![$1](${newUrl})`
-                                      );
-                                      setMarkdownContent(updated);
-                                      setHasUnsavedChanges(true);
-                                      // Update preview
-                                      import("marked").then(async ({ marked }) => {
-                                        const html = await Promise.resolve(marked(updated));
-                                        setMarkdownPreviewHtml(html as string);
-                                      });
-                                      // Update the product's imageUrl in structured data so picker reflects new selection
-                                      const updatedSD = JSON.parse(JSON.stringify(generatedStructuredData));
-                                      const p = updatedSD._wt_products?.find((p: any) => p.handle === product.handle);
-                                      if (p) p.imageUrl = newUrl;
-                                      setGeneratedStructuredData(updatedSD);
-                                      setPickerProduct(prev => prev ? { ...prev, currentImageUrl: newUrl } : null);
-                                      toast({ title: "Image updated", description: "Save the article to keep this change." });
+                                      applyProductImageChange(product.handle, pickerProduct!.currentImageUrl, img.src);
                                     }}
                                     className={`relative border-2 ${isCurrent ? "border-black" : "border-transparent hover:border-black/40"} transition-colors`}
                                     style={{ padding: 0, background: "none", cursor: isCurrent ? "default" : "pointer" }}
@@ -2066,12 +2259,93 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                                 );
                               })}
                             </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">No alternate Shopify images.</p>
                           )}
+
+                          {/* Additional options: URL / Upload / Cloudinary */}
+                          <div className="border-t border-black/10 pt-3 space-y-2">
+                            <p className="text-xs text-muted-foreground font-medium">Or use a custom image:</p>
+                            <div className="flex gap-1">
+                              {(['url', 'upload', 'cloudinary'] as const).map((tab) => (
+                                <button
+                                  key={tab}
+                                  onClick={() => setPickerTab(tab)}
+                                  className={`px-2 py-1 text-xs border border-black/20 ${pickerTab === tab ? 'bg-black text-white' : 'bg-white hover:bg-[#f0ebe7]'}`}
+                                >
+                                  {tab === 'url' ? 'URL' : tab === 'upload' ? 'Upload' : 'Cloudinary'}
+                                </button>
+                              ))}
+                            </div>
+
+                            {pickerTab === 'url' && (
+                              <div className="flex gap-2">
+                                <Input
+                                  value={pickerUrlInput}
+                                  onChange={(e) => setPickerUrlInput(e.target.value)}
+                                  placeholder="Paste image URL…"
+                                  className="flex-1 h-8 text-xs rounded-none"
+                                />
+                                <Button
+                                  size="sm"
+                                  className="rounded-none text-xs h-8"
+                                  onClick={() => {
+                                    if (!pickerUrlInput.trim() || !pickerProduct) return;
+                                    applyProductImageChange(product.handle, pickerProduct.currentImageUrl, pickerUrlInput.trim());
+                                    setPickerUrlInput('');
+                                  }}
+                                >
+                                  Apply
+                                </Button>
+                              </div>
+                            )}
+
+                            {pickerTab === 'upload' && (
+                              <div>
+                                <input
+                                  ref={productFileInputRef}
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => handleProductFileUpload(e.target.files)}
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="rounded-none border-black text-xs"
+                                  disabled={pickerUploadLoading}
+                                  onClick={() => productFileInputRef.current?.click()}
+                                >
+                                  {pickerUploadLoading ? (
+                                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                                  ) : (
+                                    <Upload className="h-3.5 w-3.5 mr-1" />
+                                  )}
+                                  {pickerUploadLoading ? 'Uploading…' : 'Choose File'}
+                                </Button>
+                              </div>
+                            )}
+
+                            {pickerTab === 'cloudinary' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-none border-black text-xs"
+                                onClick={() => {
+                                  setCloudinaryTarget('product');
+                                  setIsAssetSelectorOpen(true);
+                                }}
+                              >
+                                Browse Library
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
                   );
                 })}
+
               </div>
             </CardContent>
           </Card>

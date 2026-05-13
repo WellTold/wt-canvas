@@ -4738,6 +4738,24 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
     }
   });
 
+  // ── General media upload — uploads a data URL to Cloudinary, accessible to all auth'd users
+  app.post("/api/media/upload", requireAuth, async (req, res) => {
+    try {
+      const { dataUrl } = z.object({ dataUrl: z.string().min(1) }).parse(req.body);
+      const cloudinaryMod = await import("cloudinary");
+      const cloudinaryV2 = cloudinaryMod.v2;
+      const result = await cloudinaryV2.uploader.upload(dataUrl, {
+        folder: "wt-content",
+        resource_type: "image",
+        fetch_format: "auto",
+        quality: "auto:best",
+      });
+      res.json({ url: result.secure_url });
+    } catch (error) {
+      res.status(500).json({ message: "Upload failed: " + (error as Error).message });
+    }
+  });
+
   // ── Image Template Thumbnail Upload ────────────────────────────────────────
   app.post("/api/image-templates/upload-thumbnail", requireAuth, requireAdminOrDev, async (req, res) => {
     try {
