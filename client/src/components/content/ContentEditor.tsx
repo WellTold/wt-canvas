@@ -917,7 +917,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       setHasUnsavedChanges(true);
       const itemId = contentItemId || currentContentItem?.id;
       queryClient.invalidateQueries({ queryKey: ["/api/content-items", String(itemId)] });
-      toast({ title: "Image generated", description: "Featured image has been set. Save to publish the change." });
+      toast({ title: "Image generated", description: "Featured image has been set and saved." });
     },
     onError: (error: any) => {
       toast({ title: "Image generation failed", description: error.message, variant: "destructive" });

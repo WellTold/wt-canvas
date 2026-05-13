@@ -102,12 +102,26 @@ async function callHiggsfield(modelSlug: string, input: Record<string, unknown>)
 }
 
 async function downloadAndUploadToCloudinary(sourceUrl: string, folder = "wt-generated"): Promise<string> {
-  const result = await cloudinaryV2.uploader.upload(sourceUrl, {
-    folder,
-    resource_type: "image",
-    fetch_format: "auto",
-    quality: "auto:best",
+  // Explicitly fetch the image bytes from the provider URL before uploading,
+  // so we are not reliant on Cloudinary's remote-fetch behaviour (which may
+  // fail for short-lived signed provider URLs).
+  const fetched = await fetch(sourceUrl);
+  if (!fetched.ok) {
+    throw new Error(`Failed to download generated image from provider (${fetched.status}): ${sourceUrl}`);
+  }
+  const buffer = Buffer.from(await fetched.arrayBuffer());
+
+  const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
+    const uploadStream = cloudinaryV2.uploader.upload_stream(
+      { folder, resource_type: "image", fetch_format: "auto", quality: "auto:best" },
+      (error, result) => {
+        if (error || !result) reject(error ?? new Error("Cloudinary upload_stream returned no result"));
+        else resolve(result);
+      },
+    );
+    uploadStream.end(buffer);
   });
+
   return result.secure_url;
 }
 
