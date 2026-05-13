@@ -67,6 +67,7 @@ WT Canvas is a full-stack dashboard for the Well Told team to manage content cre
 Preferred communication style: Simple, everyday language.
 Design preferences: Sharp corners (no border radius), card backgrounds using color #f0ebe7, flat border-style shadows on hover with muted accent colors, all borders solid black.
 Layout preferences: Vertical stacking for detailed pages - back buttons at top, titles below, content type badges below titles, action buttons at bottom. Avoid horizontal layouts unless data naturally groups together.
+AI content rules: NEVER use em-dashes (—) in any AI-generated content. Use a regular hyphen (-) or rewrite the sentence instead. This is a universal rule applied to every prompt and enforced in post-processing.
 
 ## Gotchas
 

@@ -9,6 +9,9 @@ const MODEL = "claude-sonnet-4-20250514";
 const MAX_TOKENS_ARTICLE = 8192;
 const MAX_TOKENS_SHORT = 1024;
 
+// Universal writing rule — injected into every system prompt and enforced in post-processing.
+const NO_EMDASH = "Never use em-dashes (—). Use a regular hyphen (-) or rewrite the sentence instead.";
+
 export const MOOD_INSTRUCTIONS: Record<string, string> = {
   "warm-sentimental": "Write with sincerity and warmth. This content is meant to create an emotional connection. Avoid humor, urgency, and sales pressure. Prioritize heart over transaction. Use calm, unhurried phrasing.",
   "celebratory": "Write with genuine excitement and energy. This is a moment worth celebrating. The tone should feel like good news delivered by a friend. Avoid being hyperbolic or hollow — the enthusiasm should feel earned.",
@@ -38,6 +41,8 @@ function cleanAIContent(content: string): string {
   cleaned = cleaned.replace(/\[[^\]]*\]\(#\)/g, "");
   cleaned = cleaned.replace(/\(#\)\*\*/g, "");
   cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+  // Replace any em-dashes that slipped through — universal house rule
+  cleaned = cleaned.replace(/—/g, "-");
   // Strip year from H1 title line — titles should be evergreen
   cleaned = cleaned.replace(/^(#\s+[^\n]*?)\s*\b20\d{2}\b\s*([^\n]*)/m, (_, before, after) => {
     console.warn(`[AI] Stripped year reference from generated title`);
@@ -312,6 +317,8 @@ ${alwaysRules}
 Never do any of the following:
 ${avoidRules}
 
+Universal rule: ${NO_EMDASH}
+
 ---
 
 ## VOCABULARY
@@ -485,7 +492,7 @@ ${template?.existingContent ? "Reformat and incorporate the existing content int
 
 Content Generation Rules:
 - Use straight apostrophes (') instead of curly quotes
-- Do not use em-dashes (—), use hyphens (-) instead
+- Do not use em-dashes (—), use hyphens (-) instead (universal rule)
 - Generate content as a JSON array of blocks
 - Each block must have: id (string), type (string), order (integer), content (object)
 - Available block types: heading, text, list, quote, cta
@@ -851,7 +858,7 @@ export async function improveContent(content: string, instructions?: string, typ
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS_SHORT,
-    system: `You are an expert content editor. Improve the provided ${context}content by making it more engaging, clear, and effective.${instructionText} Return only the improved content — no prefixes, labels, or explanations.`,
+    system: `You are an expert content editor. Improve the provided ${context}content by making it more engaging, clear, and effective.${instructionText} ${NO_EMDASH} Return only the improved content — no prefixes, labels, or explanations.`,
     messages: [{ role: "user", content: `Improve the following content:\n\n${content}` }],
   });
   const text = response.content[0].type === "text" ? response.content[0].text : content;
@@ -863,7 +870,7 @@ export async function refineContent(content: string, feedback: string, type?: st
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS_SHORT,
-    system: `You are an expert content editor. Refine the provided${context} content based on specific feedback. Apply the feedback thoughtfully while maintaining the core message. Return only the refined content — no prefixes, labels, or explanations.`,
+    system: `You are an expert content editor. Refine the provided${context} content based on specific feedback. Apply the feedback thoughtfully while maintaining the core message. ${NO_EMDASH} Return only the refined content — no prefixes, labels, or explanations.`,
     messages: [
       {
         role: "user",
@@ -894,7 +901,7 @@ export async function generateTitle(
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 100,
-    system: `You are an expert SEO copywriter. Generate compelling, SEO-optimized titles for ${type} content. Keep it under 60 characters when possible.${primaryKeyword ? ` Always include the primary keyword "${primaryKeyword}" naturally.` : ""} Return only the title text — no quotation marks, no explanations.`,
+    system: `You are an expert SEO copywriter. Generate compelling, SEO-optimized titles for ${type} content. Keep it under 60 characters when possible.${primaryKeyword ? ` Always include the primary keyword "${primaryKeyword}" naturally.` : ""} ${NO_EMDASH} Return only the title text — no quotation marks, no explanations.`,
     messages: [{ role: "user", content: userPrompt }],
   });
 
@@ -919,7 +926,7 @@ export async function generateMetaDescription(
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 150,
-    system: `You are an expert SEO copywriter. Generate compelling meta descriptions that encourage clicks from search results. Keep it between 150-160 characters, include relevant keywords, make it actionable.${primaryKeyword ? ` Always include the primary keyword "${primaryKeyword}" naturally.` : ""} Return only the meta description — no quotes, no explanations.`,
+    system: `You are an expert SEO copywriter. Generate compelling meta descriptions that encourage clicks from search results. Keep it between 150-160 characters, include relevant keywords, make it actionable.${primaryKeyword ? ` Always include the primary keyword "${primaryKeyword}" naturally.` : ""} ${NO_EMDASH} Return only the meta description — no quotes, no explanations.`,
     messages: [
       {
         role: "user",
@@ -1002,7 +1009,7 @@ export async function generateCTAs(primaryKeyword: string, siteBaseUrl: string):
     const response = await anthropic.messages.create({
       model: MODEL,
       max_tokens: MAX_TOKENS_SHORT,
-      system: `You are a copywriter for Well Told Design — a Boston-based gift brand known for story-driven objects: glassware, drinkware, and textiles engraved with maps, constellations, and topographic designs. Write in the Well Told brand voice: warm, specific, story-driven — never salesy. Lead with a specific image or place, not a product feature. Never use "shop now", "click here", "amazing", "perfect", exclamation points, or urgency language. Respond ONLY with valid JSON — no preamble, no code fences.`,
+      system: `You are a copywriter for Well Told Design — a Boston-based gift brand known for story-driven objects: glassware, drinkware, and textiles engraved with maps, constellations, and topographic designs. Write in the Well Told brand voice: warm, specific, story-driven — never salesy. Lead with a specific image or place, not a product feature. Never use "shop now", "click here", "amazing", "perfect", exclamation points, or urgency language. ${NO_EMDASH} Respond ONLY with valid JSON — no preamble, no code fences.`,
       messages: [{
         role: "user",
         content: `Article topic: "${primaryKeyword}"
@@ -1095,7 +1102,7 @@ export async function generatePhilosophyIntro(
     ? `\n\nAvoid: ${brandContext.avoid_rules}`
     : "";
 
-  const systemPrompt = `You write the opening philosophy section for Well Told gift guide pages. Well Told makes personalized gifts built around places, moments, and memories — custom hometown map glassware, topographic designs, night sky pieces, and other story-driven keepsakes. Every piece is made to order and tied to something specific: a city, a trail, a date, a constellation.${voiceGuidance}${alwaysRules}${avoidRules}`;
+  const systemPrompt = `You write the opening philosophy section for Well Told gift guide pages. Well Told makes personalized gifts built around places, moments, and memories — custom hometown map glassware, topographic designs, night sky pieces, and other story-driven keepsakes. Every piece is made to order and tied to something specific: a city, a trail, a date, a constellation.${voiceGuidance}${alwaysRules}${avoidRules}\n\n${NO_EMDASH}`;
 
   const userPrompt = `Write a 2–3 paragraph opening section (150–200 words) for a Well Told gift guide page titled: "${title}"
 Primary keyword/topic: ${keyword}
@@ -1132,7 +1139,7 @@ export async function generateSection(topic: string, sectionType: string, contex
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 500,
-    system: `You are an expert content writer. Generate high-quality ${sectionType} content about the given topic. Make it engaging, informative, and well-structured.${contextText} Return only the content — no prefixes, labels, or explanations.`,
+    system: `You are an expert content writer. Generate high-quality ${sectionType} content about the given topic. Make it engaging, informative, and well-structured.${contextText} ${NO_EMDASH} Return only the content — no prefixes, labels, or explanations.`,
     messages: [{ role: "user", content: `Write a ${sectionType} section about: ${topic}` }],
   });
   const text = response.content[0].type === "text" ? response.content[0].text.trim() : `Content about ${topic}`;
