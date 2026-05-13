@@ -131,6 +131,21 @@ async function resolveImageSuggestions(params: {
   return suggestions;
 }
 
+/**
+ * Inserts a philosophy intro paragraph immediately after the first # heading
+ * in the markdown body so it renders below the page title, not above it.
+ */
+function withPhilosophyAfterTitle(philosophy: string | null | undefined, markdown: string): string {
+  if (!philosophy) return markdown.trimEnd();
+  const firstHeadingMatch = markdown.match(/^# .+$/m);
+  if (firstHeadingMatch && firstHeadingMatch.index !== undefined) {
+    const end = firstHeadingMatch.index + firstHeadingMatch[0].length;
+    return markdown.slice(0, end) + "\n\n" + philosophy.trim() + "\n\n" + markdown.slice(end).trimStart();
+  }
+  // No H1 heading found — put philosophy at start
+  return philosophy.trim() + "\n\n" + markdown.trimEnd();
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Seed initial users in Supabase Auth
   await seedUsers();
@@ -144,33 +159,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         process.env.SHOPIFY_STOREFRONT_TOKEN && process.env.SHOPIFY_STORE_DOMAIN
       ),
     });
-  });
-
-  // TEMPORARY PROBE — remove after use
-  app.get("/api/debug/higgsfield-probe", async (_req, res) => {
-    const creds = process.env.HIGGSFIELD_CREDENTIALS;
-    const allHiggsfield = Object.keys(process.env).filter(k => k.includes("HIGGSFIELD") || k.includes("higgsfield"));
-    if (!creds) return res.status(500).json({ error: "No HIGGSFIELD_CREDENTIALS", envKeysFound: allHiggsfield, totalEnvKeys: Object.keys(process.env).length });
-    const BASE = "https://platform.higgsfield.ai";
-    const headers = {
-      "Authorization": `Key ${creds}`,
-      "Content-Type": "application/json",
-      "User-Agent": "higgsfield-server-js/2.0",
-    };
-    const paths = ["/v1/models", "/v1/models/text-to-image", "/v1/plans", "/v1/user", "/v1/account", "/v1/credits", "/v2/models", "/api/models"];
-    const results: Record<string, any> = {};
-    for (const path of paths) {
-      try {
-        const r = await fetch(`${BASE}${path}`, { headers });
-        const text = await r.text();
-        let body: any;
-        try { body = JSON.parse(text); } catch { body = text.slice(0, 500); }
-        results[path] = { status: r.status, body };
-      } catch (e: any) {
-        results[path] = { error: e.message };
-      }
-    }
-    res.json(results);
   });
 
   // Component registry — public read, no auth required
@@ -4491,7 +4479,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         approvalStatus: "pending",
         primaryKeyword: kw.keyword,
         supportingKeywords: supportingKeywordsStr || null,
-        markdownContent: (philosophyIntro ? philosophyIntro + "\n\n" : "") + markdown.trimEnd(),
+        markdownContent: withPhilosophyAfterTitle(philosophyIntro, markdown),
         structuredData:
           Object.keys(structuredData).length > 0 ? structuredData : null,
         authorId: req.userId!,
@@ -4671,7 +4659,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       await storage.updateContentItem(id as any, {
         title,
         slug: newSlug,
-        markdownContent: (philosophyIntro ? philosophyIntro + "\n\n" : "") + markdown.trimEnd(),
+        markdownContent: withPhilosophyAfterTitle(philosophyIntro, markdown),
         primaryKeyword: primaryKw,
         supportingKeywords: supportingKeywordsStr || null,
         structuredData: Object.keys(structuredData).length > 0 ? structuredData : null,
