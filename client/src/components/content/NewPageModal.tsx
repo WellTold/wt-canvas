@@ -291,7 +291,7 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
       <div className="space-y-2">
         <button
           className="w-full flex items-start gap-3 p-4 border-2 border-black bg-white hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all text-left disabled:opacity-60 disabled:cursor-not-allowed"
-          onClick={handleAiPickForMe}
+          onClick={() => handleAiPickForMe()}
           disabled={isQuickCreating}
         >
           {isQuickCreating
