@@ -710,13 +710,24 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       }
       const result = await response.json();
       if (!result.markdown) throw new Error("No markdown returned from AI");
-      return result as { markdown: string; structuredData?: object };
+      return result as { markdown: string; structuredData?: object; featuredImageUrl?: string | null };
     },
     onSuccess: async (result) => {
       setMarkdownContent(result.markdown);
       if (result.structuredData) {
         setGeneratedStructuredData(result.structuredData);
         setStructuredDataType("Article");
+      }
+      // Apply auto-generated featured image if the server returned one
+      if (result.featuredImageUrl) {
+        setFeaturedImage(result.featuredImageUrl);
+        // Persist it to the DB right away so publish always finds it — fire and forget
+        const itemId = contentItemId || currentContentItem?.id;
+        if (itemId) {
+          apiRequest("PATCH", `/api/content-items/${itemId}`, {
+            featuredImage: result.featuredImageUrl,
+          }).catch(() => {});
+        }
       }
       setHasUnsavedChanges(true);
       const { marked } = await import("marked");
@@ -725,7 +736,8 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       const faqCount = (result.structuredData as any)?._wt_faq?.length ?? 0;
       const productCount = (result.structuredData as any)?._wt_products?.length ?? 0;
       const extras = [faqCount > 0 && `${faqCount} FAQ`, productCount > 0 && `${productCount} product cards`].filter(Boolean).join(', ');
-      toast({ title: "Content Generated", description: extras ? `Article + ${extras} ready. Review and save.` : "Review and edit the markdown, then save." });
+      const imageNote = result.featuredImageUrl ? " + hero image" : "";
+      toast({ title: "Content Generated", description: extras ? `Article + ${extras}${imageNote} ready. Review and save.` : `Article${imageNote} ready. Review and edit the markdown, then save.` });
     },
     onError: (error: any) => {
       toast({ title: "Generation Failed", description: error.message || "Could not generate content", variant: "destructive" });

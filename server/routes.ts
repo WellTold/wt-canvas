@@ -1578,20 +1578,34 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           }
         }
 
-        const markdown = await generateWebPageMarkdownContent({
-          title,
-          type,
-          primaryKeyword,
-          supportingKeywords: filteredSupportingKeywords,
-          articleAngle,
-          mood,
-          additionalInstructions,
-          keywordType,
-          format,
-          productContext,
-          siteBaseUrl,
-          brandContext,
-        });
+        const { generateArticleFeaturedImage } = await import("./services/imageGeneration");
+
+        // Run markdown generation + featured image generation in parallel.
+        // Image failure is non-fatal — the markdown always succeeds.
+        const [markdown, imageOutcome] = await Promise.all([
+          generateWebPageMarkdownContent({
+            title,
+            type,
+            primaryKeyword,
+            supportingKeywords: filteredSupportingKeywords,
+            articleAngle,
+            mood,
+            additionalInstructions,
+            keywordType,
+            format,
+            productContext,
+            siteBaseUrl,
+            brandContext,
+          }),
+          (title && primaryKeyword)
+            ? generateArticleFeaturedImage(title, primaryKeyword).catch((e) => {
+                console.error("[generate-webpage-markdown] image generation failed (non-fatal):", e?.message);
+                return null;
+              })
+            : Promise.resolve(null),
+        ]);
+
+        const featuredImageUrl = imageOutcome?.cloudinaryUrl ?? null;
 
         // Build composite structured data — Article JSON-LD + private _wt_ fields for worker rendering
         const slug = title
@@ -1659,7 +1673,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
 
         // FAQ lives only in _wt_faq structured data — rendered as accordion by the worker.
         // Do NOT append to markdown (that prevents accordion rendering on the live site).
-        res.json({ markdown: markdown.trimEnd(), structuredData });
+        res.json({ markdown: markdown.trimEnd(), structuredData, featuredImageUrl });
       } catch (error) {
         console.error("Web page markdown generation error:", error);
         res.status(500).json({
