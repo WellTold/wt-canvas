@@ -860,13 +860,13 @@ function renderImageText(c: any, bg?: BlockBg): string {
     : "";
 
   const imageCell = imageUrl
-    ? `<td width="300" valign="top" style="padding:0;" class="mobile-col"><img src="${esc(imageUrl)}" width="300" alt="${esc(imageAlt)}" class="mobile-img" style="display:block;width:300px;max-width:100%;height:auto;border:0;object-fit:cover;" /></td>`
-    : `<td width="300" valign="top" style="padding:0;background-color:#f0ebe7;min-height:160px;" class="mobile-col"></td>`;
+    ? `<td width="50%" valign="top" style="width:50%;padding:0;"><img src="${esc(imageUrl)}" alt="${esc(imageAlt)}" style="display:block;width:100%;max-width:300px;height:auto;border:0;object-fit:cover;" /></td>`
+    : `<td width="50%" valign="top" style="width:50%;padding:0;background-color:#f0ebe7;min-height:160px;"></td>`;
 
-  const textCell = `<td width="300" valign="middle" style="padding:${cellPad};background-color:${esc(textBg)};vertical-align:middle;" class="mobile-col">${headingHtml}${bodyHtml}${ctaHtml}</td>`;
+  const textCell = `<td width="50%" valign="middle" style="width:50%;padding:${cellPad};background-color:${esc(textBg)};vertical-align:middle;"><div class="mobile-text-shrink">${headingHtml}${bodyHtml}${ctaHtml}</div></td>`;
 
   const cols  = layout === "image_right" ? `${textCell}${imageCell}` : `${imageCell}${textCell}`;
-  const inner = `<table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="mobile-stack"><tr>${cols}</tr></table>`;
+  const inner = `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${cols}</tr></table>`;
   return row(inner, textBg, "0", bg);
 }
 
@@ -899,18 +899,19 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
     return row(inner, bgColor, "28px 24px", bg);
   }
 
-  // Two-column: stars (1/3 = 200px) | content (2/3 = 400px), or reversed for "right"
+  // Two-column: stars (33%) | content (67%), or reversed for "right"
+  // Always stays side-by-side — vertical border divides the columns on all screen sizes.
   const dividerSide  = layout === "left" ? "border-right" : "border-left";
-  const starsCell = `<td width="200" valign="middle" style="width:200px;text-align:center;${dividerSide}:1px solid rgba(255,255,255,0.35);${layout === "left" ? "padding-right:22px;" : "padding-left:22px;"}" class="mobile-col-stars">
-    <div>${starsHtml}</div>
+  const starsCell = `<td width="33%" valign="middle" style="width:33%;text-align:center;${dividerSide}:1px solid rgba(255,255,255,0.35);${layout === "left" ? "padding-right:16px;" : "padding-left:16px;"}">
+    <div class="mobile-stars">${starsHtml}</div>
     ${attributionHtml}
   </td>`;
-  const contentCell = `<td width="400" valign="middle" style="width:400px;${layout === "left" ? "padding-left:22px;" : "padding-right:22px;"}" class="mobile-col">
+  const contentCell = `<td width="67%" valign="middle" style="width:67%;${layout === "left" ? "padding-left:16px;" : "padding-right:16px;"}">
     ${titleHtml}${bodyHtml}
   </td>`;
 
   const cols  = layout === "right" ? `${contentCell}${starsCell}` : `${starsCell}${contentCell}`;
-  const inner = `<table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="mobile-stack"><tr>${cols}</tr></table>`;
+  const inner = `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${cols}</tr></table>`;
   return row(inner, bgColor, "20px 24px", bg);
 }
 
@@ -1304,7 +1305,7 @@ ${gFontLinks ? `${gFontLinks}\n` : ""}  <!--[if mso]>
     body{margin:0;padding:0;background-color:#f4f1ef;}
     @media only screen and (max-width:480px){
       .email-container{width:100%!important;}
-      /* Two-column blocks: stack columns vertically */
+      /* Legacy stack helpers kept for any custom blocks that still use them */
       .mobile-stack{width:100%!important;}
       .mobile-col{
         display:block!important;
@@ -1312,31 +1313,17 @@ ${gFontLinks ? `${gFontLinks}\n` : ""}  <!--[if mso]>
         max-width:100%!important;
         box-sizing:border-box!important;
       }
-      /* Reset fixed column widths on individual cells */
-      .mobile-col-stars{
-        display:block!important;
-        width:100%!important;
-        max-width:100%!important;
-        border-right:0!important;
-        border-left:0!important;
-        border-bottom:1px solid rgba(255,255,255,0.35)!important;
-        padding-right:0!important;
-        padding-left:0!important;
-        padding-bottom:16px!important;
-        text-align:center!important;
-      }
-      /* Images: always fluid on mobile */
-      .mobile-img{
-        width:100%!important;
-        height:auto!important;
-        max-width:100%!important;
-      }
       /* Reduce side padding inside cells on narrow screens */
       .mobile-pad{padding-left:20px!important;padding-right:20px!important;}
       /* Center-align items that look better centred when stacked */
       .mobile-center{text-align:center!important;}
       /* Spacer cells between columns — hide on mobile */
       .mobile-spacer{display:none!important;width:0!important;max-height:0!important;overflow:hidden!important;mso-hide:all!important;}
+      /* image_text: scale text down so side-by-side columns stay readable at ~50% width */
+      .mobile-text-shrink p{font-size:13px!important;line-height:1.5!important;}
+      .mobile-text-shrink p:first-child{font-size:14px!important;font-weight:700!important;}
+      /* ugc_review: shrink stars slightly so they fit in the 33% column */
+      .mobile-stars span{font-size:20px!important;}
     }
   </style>
 </head>

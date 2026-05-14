@@ -441,10 +441,11 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
           )}
           {previewUrl && (
             <div
-              className="mx-auto bg-white shadow-sm transition-all duration-200"
+              className="mx-auto shadow-sm transition-all duration-200"
               style={{ width: emailPreviewDevice === "mobile" ? "375px" : "600px", minHeight: "100%" }}
             >
               <iframe
+                key={emailPreviewDevice}
                 src={previewUrl}
                 title="Email Preview"
                 style={{ width: "100%", height: "75vh", border: "none", display: "block" }}
