@@ -19,6 +19,7 @@ import {
   Wand2,
   PlusSquare,
   Palette,
+  Cloud,
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -72,6 +73,7 @@ const navigationItems: NavSection[] = [
     items: [
       { name: "Site Settings", href: "/site-settings", icon: Globe2 },
       { name: "Brand Context", href: "/settings/brand-context", icon: LayoutTemplate },
+      { name: "Worker Deployment", href: "/tools/worker-deployment", icon: Cloud, adminOnly: true },
     ],
   },
 ];

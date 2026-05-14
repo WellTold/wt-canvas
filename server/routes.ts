@@ -4905,6 +4905,62 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
     }
   });
 
+  // ── Worker Deployment ─────────────────────────────────────────────────────
+  app.post("/api/tools/deploy-worker", requireAuth, requireAdminOrDev, async (req, res) => {
+    const { spawn } = await import("child_process");
+    const path = await import("path");
+    const workerDir = path.resolve(process.cwd(), "worker");
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const sendLine = (line: string) => {
+      res.write(`data: ${JSON.stringify({ line })}\n\n`);
+    };
+
+    sendLine("[WT Canvas] Starting Cloudflare Worker deployment...");
+    sendLine(`[WT Canvas] Working directory: ${workerDir}`);
+
+    const child = spawn("npm", ["run", "deploy"], {
+      cwd: workerDir,
+      env: { ...process.env, FORCE_COLOR: "0" },
+      shell: false,
+    });
+
+    child.stdout.on("data", (chunk: Buffer) => {
+      const lines = chunk.toString().split("\n");
+      lines.forEach((l) => { if (l.trim()) sendLine(l); });
+    });
+
+    child.stderr.on("data", (chunk: Buffer) => {
+      const lines = chunk.toString().split("\n");
+      lines.forEach((l) => { if (l.trim()) sendLine(l); });
+    });
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        sendLine("[WT Canvas] Deployment succeeded.");
+        res.write(`data: ${JSON.stringify({ done: true, success: true })}\n\n`);
+      } else {
+        sendLine(`[WT Canvas] Deployment failed with exit code ${code}.`);
+        res.write(`data: ${JSON.stringify({ done: true, success: false })}\n\n`);
+      }
+      res.end();
+    });
+
+    child.on("error", (err) => {
+      sendLine(`[WT Canvas] Failed to start deploy process: ${err.message}`);
+      res.write(`data: ${JSON.stringify({ done: true, success: false })}\n\n`);
+      res.end();
+    });
+
+    req.on("close", () => {
+      if (!child.killed) child.kill();
+    });
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
