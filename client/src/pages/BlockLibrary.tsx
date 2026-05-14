@@ -7,7 +7,10 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   Heading2, AlignLeft, Image, List, Quote, MousePointerClick, Minus,
-  ChevronsUpDown, Globe, Bookmark, Trash2, Search,
+  ChevronsUpDown, Bookmark, Trash2, Search, Monitor, Megaphone,
+  Layers, Code, ShoppingBag, ShoppingCart, Grid3X3, Tag, Timer,
+  Award, Film, Star, User, Navigation, Link2, Settings, GalleryHorizontal,
+  Columns2, ChevronDown, LayoutTemplate,
 } from "lucide-react";
 
 interface BlockDef {
@@ -16,18 +19,74 @@ interface BlockDef {
   description: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   channels: ("web" | "email")[];
-  fields: string[];
 }
 
-const BLOCKS: BlockDef[] = [
-  { type: "heading",   label: "Heading",        description: "A section title rendered as H2, H3 or H4.",              icon: Heading2,          channels: ["web", "email"], fields: ["text", "level (2 | 3 | 4)"] },
-  { type: "paragraph", label: "Paragraph",       description: "A block of rich text for body copy.",                    icon: AlignLeft,          channels: ["web", "email"], fields: ["text"] },
-  { type: "image",     label: "Image",           description: "A full-width image with optional alt text and caption.", icon: Image,              channels: ["web", "email"], fields: ["url", "alt", "caption"] },
-  { type: "list",      label: "List",            description: "An ordered or unordered list of items.",                 icon: List,               channels: ["web", "email"], fields: ["items[ ]", "ordered (boolean)"] },
-  { type: "quote",     label: "Quote",           description: "A pull-quote with optional attribution.",                icon: Quote,              channels: ["web"],           fields: ["text", "author"] },
-  { type: "cta",       label: "Call to Action",  description: "A highlighted section with a button that links somewhere.", icon: MousePointerClick, channels: ["web", "email"], fields: ["text", "buttonText", "link", "style"] },
-  { type: "divider",   label: "Divider",         description: "A horizontal rule (line) or a configurable blank gap.", icon: Minus,              channels: ["web"],           fields: ["style (line | space)", "spacing (small | medium | large)"] },
-  { type: "spacer",    label: "Spacer",          description: "A fixed-height blank space for layout control.",         icon: ChevronsUpDown,     channels: ["web"],           fields: ["height (px, 8–400)"] },
+interface BlockGroup {
+  label: string;
+  blocks: BlockDef[];
+}
+
+const BLOCK_GROUPS: BlockGroup[] = [
+  {
+    label: "Content",
+    blocks: [
+      { type: "heading",    label: "Heading",        description: "Section title — rendered as H2, H3, or H4.",                           icon: Heading2,          channels: ["web", "email"] },
+      { type: "paragraph",  label: "Paragraph",       description: "Body copy and rich text block.",                                        icon: AlignLeft,          channels: ["web", "email"] },
+      { type: "image",      label: "Image",           description: "Full-width image with optional alt text and caption.",                  icon: Image,              channels: ["web", "email"] },
+      { type: "list",       label: "List",            description: "Ordered or unordered list of items.",                                   icon: List,               channels: ["web", "email"] },
+      { type: "quote",      label: "Quote",           description: "Pull-quote or blockquote with optional attribution.",                   icon: Quote,              channels: ["web", "email"] },
+      { type: "cta",        label: "Call to Action",  description: "Highlighted section with a button that links somewhere.",              icon: MousePointerClick,  channels: ["web", "email"] },
+    ],
+  },
+  {
+    label: "Layout",
+    blocks: [
+      { type: "hero",           label: "Hero",            description: "Full-width hero section with headline, subtext, and background.",   icon: Monitor,       channels: ["web", "email"] },
+      { type: "banner",         label: "Banner",          description: "Announcement or promotional bar.",                                  icon: Megaphone,     channels: ["web", "email"] },
+      { type: "divider",        label: "Divider",         description: "Horizontal rule or a configurable blank gap.",                      icon: Minus,         channels: ["web", "email"] },
+      { type: "spacer",         label: "Spacer",          description: "Fixed-height blank space for layout control.",                      icon: ChevronsUpDown,channels: ["web", "email"] },
+      { type: "image_text",     label: "Image & Text",    description: "Side-by-side image and text columns.",                              icon: Columns2,      channels: ["email"] },
+      { type: "image_row",      label: "Image Row",       description: "Up to four side-by-side images in a single row.",                  icon: GalleryHorizontal, channels: ["email"] },
+      { type: "two_column",     label: "Two Column",      description: "Side-by-side content columns for web pages.",                      icon: Layers,        channels: ["web"] },
+      { type: "accordion",      label: "Accordion",       description: "Expandable FAQ-style sections.",                                   icon: ChevronDown,   channels: ["web"] },
+      { type: "icon_text_row",  label: "Icon Row",        description: "Icon paired with label rows — useful for feature lists.",          icon: Grid3X3,       channels: ["web"] },
+    ],
+  },
+  {
+    label: "Email",
+    blocks: [
+      { type: "product_feature",   label: "Product Feature",    description: "Highlight a single product with image, description, and CTA.",  icon: ShoppingBag,  channels: ["email"] },
+      { type: "product_row",       label: "Product Row",         description: "Row of products with images and prices.",                        icon: ShoppingCart, channels: ["email"] },
+      { type: "promo_code",        label: "Promo Code",          description: "Discount or promotional code display block.",                    icon: Tag,          channels: ["email"] },
+      { type: "review",            label: "Review",              description: "Customer review with star rating and attribution.",              icon: Star,         channels: ["email"] },
+      { type: "ugc_review",        label: "UGC Review",          description: "User-generated content style review block.",                     icon: Star,         channels: ["email"] },
+      { type: "gif_image",         label: "GIF / Animation",     description: "Animated GIF image block.",                                      icon: Film,         channels: ["email"] },
+      { type: "countdown_timer",   label: "Countdown Timer",     description: "Urgency countdown to a specific date and time.",                 icon: Timer,        channels: ["email"] },
+      { type: "progress_loyalty",  label: "Loyalty Progress",    description: "Points or loyalty tier progress bar.",                           icon: Award,        channels: ["email"] },
+      { type: "html_block",        label: "HTML Block",          description: "Raw HTML or named snippet (e.g. WT Footer, standard header).",   icon: Code,         channels: ["email"] },
+    ],
+  },
+  {
+    label: "Shopify",
+    blocks: [
+      { type: "shopify_product_card",       label: "Product Card",        description: "Single product pulled live from Shopify — image, title, price.",     icon: ShoppingBag,  channels: ["web", "email"] },
+      { type: "shopify_collection_feature", label: "Collection Feature",  description: "Showcase a Shopify collection with featured image and heading.",      icon: LayoutTemplate, channels: ["web", "email"] },
+      { type: "shopify_product_grid",       label: "Product Grid",        description: "Grid of products from a Shopify collection.",                         icon: Grid3X3,      channels: ["web"] },
+      { type: "shopify_variant_selector",   label: "Variant Selector",    description: "Interactive colour/size variant picker for a product page.",          icon: Settings,     channels: ["web"] },
+      { type: "shopify_page",               label: "Page Embed",          description: "Embed a Shopify page by its handle.",                                 icon: Layers,       channels: ["web"] },
+      { type: "shopify_image",              label: "Shopify Image",       description: "Image served directly from your Shopify media library.",              icon: Image,        channels: ["web"] },
+    ],
+  },
+  {
+    label: "Web",
+    blocks: [
+      { type: "author_bio",     label: "Author Bio",       description: "Writer profile with photo and short bio.",                            icon: User,       channels: ["web"] },
+      { type: "breadcrumb",     label: "Breadcrumb",       description: "Navigation trail showing the current page path.",                     icon: Navigation, channels: ["web"] },
+      { type: "related_content",label: "Related Content",  description: "Links to related articles or pages.",                                icon: Link2,      channels: ["web"] },
+      { type: "app_block",      label: "App Block",        description: "Registered custom component from the component registry.",            icon: Settings,   channels: ["web"] },
+      { type: "html_block",     label: "HTML Block",       description: "Raw HTML, embeds, or custom markup injected into the page.",          icon: Code,       channels: ["web"] },
+    ],
+  },
 ];
 
 const CHANNEL_COLOR: Record<"web" | "email", string> = {
@@ -74,13 +133,15 @@ export default function BlockLibrary() {
     p.blockType.toLowerCase().includes(search.toLowerCase())
   );
 
+  const blockCount = BLOCK_GROUPS.reduce((n, g) => n + g.blocks.length, 0);
+
   return (
     <div>
       <div className="wt-page-header">
         <div>
           <h1 className="wt-page-title">Block Library</h1>
           <p className="text-gray-500 text-sm mt-1">
-            All available content block types and your saved presets.
+            All {blockCount} content block types available across emails and web pages, plus your saved presets.
           </p>
         </div>
       </div>
@@ -103,56 +164,46 @@ export default function BlockLibrary() {
       </div>
 
       {activeTab === "blocks" && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {BLOCKS.map((block) => {
-              const Icon = block.icon;
-              return (
-                <div
-                  key={block.type}
-                  className="border border-black p-4 bg-[#f0ebe7] hover:shadow-[4px_4px_0_0_#1a1a1a] transition-shadow"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 p-2 bg-white border border-black flex-shrink-0">
-                      <Icon size={18} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="font-semibold text-sm">{block.label}</span>
-                        <code className="text-xs bg-white border border-gray-200 px-1.5 py-0.5 font-mono text-gray-500">
-                          {block.type}
-                        </code>
-                        {block.channels.map((ch) => (
-                          <span key={ch} className={`text-xs border px-1.5 py-0.5 font-medium capitalize ${CHANNEL_COLOR[ch]}`}>
-                            {ch}
-                          </span>
-                        ))}
+        <div className="space-y-8">
+          {BLOCK_GROUPS.map((group) => (
+            <section key={group.label}>
+              <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-3">
+                {group.label}
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {group.blocks.map((block) => {
+                  const Icon = block.icon;
+                  return (
+                    <div
+                      key={`${group.label}-${block.type}`}
+                      className="border border-black p-4 bg-[#f0ebe7] hover:shadow-[4px_4px_0_0_#1a1a1a] transition-shadow"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 p-2 bg-white border border-black flex-shrink-0">
+                          <Icon size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="font-semibold text-sm">{block.label}</span>
+                            <code className="text-xs bg-white border border-gray-200 px-1.5 py-0.5 font-mono text-gray-500">
+                              {block.type}
+                            </code>
+                            {block.channels.map((ch) => (
+                              <span key={ch} className={`text-xs border px-1.5 py-0.5 font-medium capitalize ${CHANNEL_COLOR[ch]}`}>
+                                {ch}
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-sm text-gray-600">{block.description}</p>
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-600 mb-2">{block.description}</p>
-                      <div className="flex flex-wrap gap-1">
-                        {block.fields.map((f) => (
-                          <code key={f} className="text-xs bg-white border border-gray-200 px-1.5 py-0.5 font-mono text-gray-500">
-                            {f}
-                          </code>
-                        ))}
-                      </div>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-8 p-4 border border-black bg-white">
-            <div className="flex items-center gap-2 mb-2">
-              <Globe size={16} />
-              <span className="font-semibold text-sm">More blocks coming soon</span>
-            </div>
-            <p className="text-sm text-gray-500">
-              Accordion, Banner, Icon Row, Author Bio, Breadcrumb, Related Content, and full email-specific blocks are planned.
-            </p>
-          </div>
-        </>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
       )}
 
       {activeTab === "presets" && (

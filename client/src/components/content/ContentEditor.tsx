@@ -2429,53 +2429,54 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
             <CardContent className="pt-4">
               <div className="space-y-4">
                 {/* Add Blocks toolbar */}
+                {/* Content — shared across email and web */}
                 <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Base Blocks</h3>
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Content</h3>
                     <div className="flex flex-wrap gap-2">
                       <Button variant="outline" size="sm" onClick={() => addBlock("heading")}>
-                        <Plus className="h-3 w-3 mr-1" />
-                        Heading
+                        <Plus className="h-3 w-3 mr-1" />Heading
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => addBlock("paragraph")}>
-                        <Plus className="h-3 w-3 mr-1" />
-                        Paragraph
+                        <Plus className="h-3 w-3 mr-1" />Paragraph
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => addBlock("image")}>
-                        <Plus className="h-3 w-3 mr-1" />
-                        Image
+                        <Plus className="h-3 w-3 mr-1" />Image
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => addBlock("list")}>
-                        <Plus className="h-3 w-3 mr-1" />
-                        List
+                        <Plus className="h-3 w-3 mr-1" />List
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => addBlock("quote")}>
-                        <Plus className="h-3 w-3 mr-1" />
-                        Quote
+                        <Plus className="h-3 w-3 mr-1" />Quote
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => addBlock("cta")}>
-                        <Plus className="h-3 w-3 mr-1" />
-                        CTA
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => addBlock("divider")}>
-                        <Plus className="h-3 w-3 mr-1" />
-                        Divider
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => addBlock("spacer")}>
-                        <Plus className="h-3 w-3 mr-1" />
-                        Spacer
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => addBlock("banner")}>
-                        <Plus className="h-3 w-3 mr-1" />Banner
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => addBlock("hero")}>
-                        <Plus className="h-3 w-3 mr-1" />Hero
+                        <Plus className="h-3 w-3 mr-1" />CTA
                       </Button>
                     </div>
                   </div>
 
+                  {/* Layout — shared across email and web */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Layout</h3>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" onClick={() => addBlock("hero")}>
+                        <Plus className="h-3 w-3 mr-1" />Hero
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => addBlock("banner")}>
+                        <Plus className="h-3 w-3 mr-1" />Banner
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => addBlock("divider")}>
+                        <Plus className="h-3 w-3 mr-1" />Divider
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => addBlock("spacer")}>
+                        <Plus className="h-3 w-3 mr-1" />Spacer
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Web — web-page-only blocks */}
                   {!isEmailContent && (
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Web Blocks</h3>
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Web</h3>
                     <div className="flex flex-wrap gap-2">
                       <Button variant="outline" size="sm" onClick={() => addBlock("two_column")}>
                         <Plus className="h-3 w-3 mr-1" />2-Column
@@ -2498,14 +2499,6 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                       <Button variant="outline" size="sm" onClick={() => addBlock("app_block")}>
                         <Plus className="h-3 w-3 mr-1" />App Block
                       </Button>
-                    </div>
-                  </div>
-                  )}
-
-                  {!isEmailContent && (
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">HTML</h3>
-                    <div className="flex flex-wrap gap-2">
                       <Button variant="outline" size="sm" onClick={() => addBlock("html_block")}>
                         <Plus className="h-3 w-3 mr-1" />HTML Block
                       </Button>
@@ -2513,15 +2506,16 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                   </div>
                   )}
 
+                  {/* Email — email-only blocks */}
                   {isEmailContent && (
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email Blocks</h3>
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email</h3>
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" size="sm" onClick={() => addBlockWithContent("html_block", { snippetName: "wt_footer" })}>
-                        <Plus className="h-3 w-3 mr-1" />WT Footer
+                      <Button variant="outline" size="sm" onClick={() => addBlock("image_text")}>
+                        <Plus className="h-3 w-3 mr-1" />Image &amp; Text
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => addBlock("html_block")}>
-                        <Plus className="h-3 w-3 mr-1" />HTML Block
+                      <Button variant="outline" size="sm" onClick={() => addBlock("image_row")}>
+                        <Plus className="h-3 w-3 mr-1" />Image Row
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => addBlock("product_feature")}>
                         <Plus className="h-3 w-3 mr-1" />Product Feature
@@ -2538,9 +2532,6 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                       <Button variant="outline" size="sm" onClick={() => addBlock("ugc_review")}>
                         <Plus className="h-3 w-3 mr-1" />UGC / Review
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => addBlock("image_text")}>
-                        <Plus className="h-3 w-3 mr-1" />Image &amp; Text
-                      </Button>
                       <Button variant="outline" size="sm" onClick={() => addBlock("gif_image")}>
                         <Plus className="h-3 w-3 mr-1" />GIF Image
                       </Button>
@@ -2549,6 +2540,12 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => addBlock("progress_loyalty")}>
                         <Plus className="h-3 w-3 mr-1" />Loyalty Bar
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => addBlock("html_block")}>
+                        <Plus className="h-3 w-3 mr-1" />HTML Block
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => addBlockWithContent("html_block", { snippetName: "wt_footer" })}>
+                        <Plus className="h-3 w-3 mr-1" />WT Footer
                       </Button>
                     </div>
                   </div>
