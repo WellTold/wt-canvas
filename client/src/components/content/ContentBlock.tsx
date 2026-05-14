@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useImproveContent, useRefineContent } from "@/lib/ai";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { GripVertical, Trash2, Wand2, Edit3, Plus, X, Bookmark, ShoppingBag, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, ChevronDown, ChevronUp } from "lucide-react";
+import { GripVertical, Trash2, Wand2, Edit3, Plus, X, Bookmark, ShoppingBag, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, ChevronDown, ChevronUp, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ContentBlock as ContentBlockType } from "@shared/schema";
 import { CloudinaryAssetSelector } from "@/components/CloudinaryAssetSelector";
@@ -2717,6 +2717,101 @@ export function ContentBlock({
       case 'app_block':
         return <AppBlockEditor safeContent={safeContent} onUpdate={onUpdate} />;
 
+      case 'image_row': {
+        const o = safeContent || {};
+        const images: Array<{ url: string; alt?: string; caption?: string }> =
+          Array.isArray(o.images) ? o.images : [{ url: "" }];
+        const updateImages = (newImages: typeof images) => onUpdate({ ...o, images: newImages });
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Images ({images.length} of 4)
+              </Label>
+              {images.length < 4 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => updateImages([...images, { url: "" }])}
+                >
+                  <Plus className="h-3 w-3 mr-1" />Add Image
+                </Button>
+              )}
+            </div>
+
+            {images.map((img, idx) => (
+              <div key={idx} className="border border-gray-200 p-3 space-y-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-gray-500">Image {idx + 1}</span>
+                  {images.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => updateImages(images.filter((_, i) => i !== idx))}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+
+                {img.url && (
+                  <img src={img.url} alt={img.alt || ""} className="w-full h-24 object-cover rounded border" />
+                )}
+                <div className="flex gap-2">
+                  <Input
+                    value={img.url || ""}
+                    onChange={(e) => updateImages(images.map((m, i) => i === idx ? { ...m, url: e.target.value } : m))}
+                    placeholder="Image URL"
+                    className="h-7 text-xs flex-1"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs shrink-0"
+                    onClick={() => setImagePickerTarget(`image_row_${idx}`)}
+                  >
+                    Pick
+                  </Button>
+                </div>
+                <CloudinaryAssetSelector
+                  isOpen={imagePickerTarget === `image_row_${idx}`}
+                  onClose={() => setImagePickerTarget(null)}
+                  onSelect={(asset) => {
+                    updateImages(images.map((m, i) => i === idx ? { ...m, url: asset.secure_url } : m));
+                    setImagePickerTarget(null);
+                  }}
+                  title={`Select Image ${idx + 1}`}
+                  context="lifestyle"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs text-muted-foreground">Alt text</Label>
+                    <Input
+                      value={img.alt || ""}
+                      onChange={(e) => updateImages(images.map((m, i) => i === idx ? { ...m, alt: e.target.value } : m))}
+                      placeholder="Describe the image"
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-0.5">
+                    <Label className="text-xs text-muted-foreground">Caption</Label>
+                    <Input
+                      value={img.caption || ""}
+                      onChange={(e) => updateImages(images.map((m, i) => i === idx ? { ...m, caption: e.target.value } : m))}
+                      placeholder="Optional"
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <p className="text-[10px] text-muted-foreground">Up to 4 images side-by-side in one row. Images never stack — they stay in one line on all screen sizes.</p>
+          </div>
+        );
+      }
+
       default:
         return (
           <Textarea
@@ -2756,7 +2851,7 @@ export function ContentBlock({
         </div>
       )}
 
-      <Card className="wt-content-block">
+      <Card className={`wt-content-block${(content as any)?._hidden ? " opacity-50" : ""}`}>
         <div
           className="wt-content-block-header cursor-pointer select-none"
           onClick={() => setIsCollapsed((v) => !v)}
@@ -2785,6 +2880,22 @@ export function ContentBlock({
             </span>
           </div>
           <div className="wt-content-block-actions">
+            <Button
+              variant="outline"
+              size="sm"
+              title={(content as any)?._hidden ? "Block hidden from email — click to show" : "Hide block from email"}
+              onClick={(e) => {
+                e.stopPropagation();
+                const newContent = { ...(content as any), _hidden: !(content as any)?._hidden };
+                setContent(newContent);
+                handleUpdate(newContent);
+              }}
+              className="h-8"
+            >
+              {(content as any)?._hidden
+                ? <EyeOff className="h-4 w-4 text-muted-foreground" />
+                : <Eye className="h-4 w-4" />}
+            </Button>
             <Button
               onClick={generateBlock}
               disabled={isGenerating}

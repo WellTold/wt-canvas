@@ -142,9 +142,24 @@ function ensureInlineMarksVisible(html: string, containerWeight: string): string
     : containerWeight === "normal" ? 400
     : parseInt(containerWeight) || 400;
   const strongWeight = base <= 400 ? 700 : base <= 600 ? 800 : 900;
+  // Inject font-weight into an existing style attribute or add a new one
+  const injectWeight = (attrs: string): string => {
+    const styleMatch = attrs.match(/style="([^"]*)"/i);
+    if (styleMatch) {
+      const cleaned = styleMatch[1].replace(/font-weight\s*:[^;]+;?\s*/gi, "").trim().replace(/;$/, "");
+      const newStyle = cleaned ? `${cleaned};font-weight:${strongWeight}` : `font-weight:${strongWeight}`;
+      return attrs.replace(/style="[^"]*"/i, `style="${newStyle}"`);
+    }
+    return `${attrs} style="font-weight:${strongWeight}"`;
+  };
   return html
-    .replace(/<strong(\s[^>]*)?>/gi, (_, attrs = "") => `<strong${attrs} style="font-weight:${strongWeight}">`)
-    .replace(/<b(\s[^>]*)?>/gi, (_, attrs = "") => `<b${attrs} style="font-weight:${strongWeight}">`);
+    .replace(/<strong(\s[^>]*)?>/gi, (_, attrs = "") => `<strong${injectWeight(attrs)}>`)
+    .replace(/<b(\s[^>]*)?>/gi, (_, attrs = "") => `<b${injectWeight(attrs)}>`);
+}
+
+/** Strip <mark> highlight tags from HTML — email clients show them as yellow highlights */
+function stripMarkTags(html: string): string {
+  return html.replace(/<mark(\s[^>]*)?>/gi, "").replace(/<\/mark>/gi, "");
 }
 
 function resolveFontSize(value: string | undefined, fallback: string): string {
@@ -229,9 +244,9 @@ function renderHeading(c: any, bg?: BlockBg): string {
     fontWeight: "bold", fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.3",
   });
   const bgColor = c.backgroundColor || "#ffffff";
-  // If rich HTML is stored, strip outer <p> wrappers and convert paragraph breaks to <br>
+  // If rich HTML is stored, strip outer <p> wrappers, mark tags, and convert paragraph breaks to <br>
   const rawHeadingContent = c.html
-    ? c.html.replace(/<\/p>\s*<p>/g, "<br>").replace(/^<p>/, "").replace(/<\/p>$/, "")
+    ? stripMarkTags(c.html).replace(/<\/p>\s*<p>/g, "<br>").replace(/^<p>/, "").replace(/<\/p>$/, "")
     : esc(c.text);
   // Ensure <strong>/<b> are visually heavier than the container weight
   const headingContent = c.html
@@ -311,7 +326,9 @@ function renderParagraph(c: any, bg?: BlockBg): string {
     });
   }
 
-  const rawHtml = c.html || (c.text ? c.text.split(/\n\n+/).map((p: string) => `<p>${p}</p>`).join("") : "");
+  const rawHtml = c.html
+    ? stripMarkTags(c.html)
+    : (c.text ? c.text.split(/\n\n+/).map((p: string) => `<p>${p}</p>`).join("") : "");
   // Ensure <strong>/<b> are visually heavier than the container weight before other processing
   const markedHtml = c.html ? ensureInlineMarksVisible(rawHtml, c.fontWeight || "normal") : rawHtml;
   const processedHtml = processHtml(markedHtml);
@@ -627,7 +644,8 @@ function renderCta(c: any, bg?: BlockBg): string {
 
   // Body text — position is 'above' (default) or 'below' the button
   const bodyTextPosition: string = c.bodyTextPosition || "above";
-  const bodyStyle = textStyle(c, {
+  // Use bodyTextTransform (not the button's textTransform) to prevent uppercase button leaking into body text
+  const bodyStyle = textStyle({ ...c, textTransform: c.bodyTextTransform || "none" }, {
     color: "#333333", fontSize: "15px", fontWeight: "normal",
     fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.7",
   });
@@ -1102,12 +1120,41 @@ function sanitizeUrl(url: string): string {
   return url;
 }
 
+function renderImageRow(c: any, bg?: BlockBg): string {
+  const images: Array<{ url: string; alt?: string; caption?: string }> =
+    Array.isArray(c.images) ? c.images.filter((img: any) => img && img.url).slice(0, 4) : [];
+  if (!images.length) return "";
+  const n = images.length;
+  const colW = Math.floor(600 / n);
+  const padInner = n > 1 ? 8 : 0;
+
+  const cols = images.map((img, i) => {
+    const padLeft  = i === 0 ? 0 : padInner;
+    const padRight = i === n - 1 ? 0 : padInner;
+    const imgW = colW - padLeft - padRight;
+    const captionHtml = img.caption
+      ? `<p style="margin:5px 0 0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:11px;color:#888888;text-align:center;line-height:1.4;">${esc(img.caption)}</p>`
+      : "";
+    return `<td width="${colW}" valign="top" style="width:${colW}px;padding:0 ${padRight}px 0 ${padLeft}px;">
+      <img src="${esc(img.url)}" alt="${esc(img.alt || "")}" width="${imgW}" style="display:block;width:100%;height:auto;border:0;" />
+      ${captionHtml}
+    </td>`;
+  }).join("");
+
+  return row(
+    `<table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${cols}</tr></table>`,
+    "#ffffff", "20px 0", bg
+  );
+}
+
 export function renderBlockToEmailHtml(
   block: { type: string; id?: string; content: any; _bg?: BlockBg },
   shopifyData: Map<string, any> = new Map(),
   siteBaseUrl?: string
 ): string {
   const c = block.content || {};
+  // Skip blocks that have been toggled hidden in the editor
+  if (c._hidden) return "";
   const raw = block._bg;
   const bg = raw && (raw.color || raw.imageUrl ||
     raw.paddingTop !== undefined || raw.paddingRight !== undefined ||
@@ -1134,6 +1181,7 @@ export function renderBlockToEmailHtml(
     case "ugc_review":        return renderUgcReview(c, bg);
     case "image_text":        return renderImageText(c, bg);
     case "gif_image":         return renderGifImage(c, bg);
+    case "image_row":         return renderImageRow(c, bg);
     case "countdown_timer":   return renderCountdownTimer(c, bg);
     case "progress_loyalty":  return renderProgressLoyalty(c, bg);
     // Shopify blocks — use pre-fetched data + absolute URLs for email
@@ -1247,7 +1295,7 @@ ${gFontLinks ? `${gFontLinks}\n` : ""}  <!--[if mso]>
     table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;}
     img{-ms-interpolation-mode:bicubic;border:0;outline:none;text-decoration:none;}
     body{margin:0;padding:0;background-color:#f4f1ef;}
-    @media only screen and (max-width:640px){
+    @media only screen and (max-width:480px){
       .email-container{width:100%!important;}
       /* Two-column blocks: stack columns vertically */
       .mobile-stack{width:100%!important;}
