@@ -704,10 +704,15 @@ function renderCta(c: any, bg?: BlockBg): string {
   return row(inner, bgColor, "20px 24px", bg);
 }
 
-function renderHtmlBlock(c: any, _bg?: BlockBg): string {
-  // If a named snippet is selected, resolve it from the registry first
-  if (c.snippetName && SNIPPET_MAP[c.snippetName]) {
-    return SNIPPET_MAP[c.snippetName];
+function renderHtmlBlock(c: any, _bg?: BlockBg, snippetsMap?: Record<string, string>): string {
+  // If a named snippet is selected, resolve it — DB overrides take priority over the hardcoded registry
+  if (c.snippetName) {
+    if (snippetsMap && snippetsMap[c.snippetName] !== undefined) {
+      return snippetsMap[c.snippetName];
+    }
+    if (SNIPPET_MAP[c.snippetName]) {
+      return SNIPPET_MAP[c.snippetName];
+    }
   }
   // Otherwise output the raw custom HTML as-is
   const html: string = c.html || c.rawHtml || "";
@@ -1102,6 +1107,7 @@ export interface EmailRenderOptions {
   footer?: EmailFooter | null;
   title?: string;
   siteBaseUrl?: string;
+  snippetsMap?: Record<string, string>;
 }
 
 /** Make a relative path absolute using siteBaseUrl; leaves absolute URLs and "#" unchanged. */
@@ -1150,7 +1156,8 @@ function renderImageRow(c: any, bg?: BlockBg): string {
 export function renderBlockToEmailHtml(
   block: { type: string; id?: string; content: any; _bg?: BlockBg },
   shopifyData: Map<string, any> = new Map(),
-  siteBaseUrl?: string
+  siteBaseUrl?: string,
+  snippetsMap?: Record<string, string>
 ): string {
   const c = block.content || {};
   // Skip blocks that have been toggled hidden in the editor
@@ -1170,7 +1177,7 @@ export function renderBlockToEmailHtml(
     case "list":          return renderList(c, bg);
     case "quote":         return renderQuote(c, bg);
     case "cta":           return renderCta(c, bg);
-    case "html_block":    return renderHtmlBlock(c, bg);
+    case "html_block":    return renderHtmlBlock(c, bg, snippetsMap);
     case "divider":       return renderDivider(c, bg);
     case "spacer":        return renderSpacer(c, bg);
     // Email-only
@@ -1259,17 +1266,17 @@ export async function renderEmailToHtml(
 
     // Banner and hero blocks are exempt — they manage their own edges
     if (b.type === "banner" || b.type === "hero" || b.type === "spacer" || b.type === "divider") {
-      return renderBlockToEmailHtml(b, shopifyData, opts.siteBaseUrl);
+      return renderBlockToEmailHtml(b, shopifyData, opts.siteBaseUrl, opts.snippetsMap);
     }
 
     if ((prevIsBanner || nextIsBanner) && !hasUserBg(b)) {
       const autoBg: BlockBg = {};
       if (prevIsBanner) autoBg.paddingTop = 0;
       if (nextIsBanner) autoBg.paddingBottom = 0;
-      return renderBlockToEmailHtml({ ...b, _bg: autoBg }, shopifyData, opts.siteBaseUrl);
+      return renderBlockToEmailHtml({ ...b, _bg: autoBg }, shopifyData, opts.siteBaseUrl, opts.snippetsMap);
     }
 
-    return renderBlockToEmailHtml(b, shopifyData, opts.siteBaseUrl);
+    return renderBlockToEmailHtml(b, shopifyData, opts.siteBaseUrl, opts.snippetsMap);
   }).join("\n");
 
   const headerRow   = opts.header ? renderEmailHeader(opts.header) : "";

@@ -15,7 +15,9 @@ import {
   insertKeywordSchema,
   imageTemplates,
   insertImageTemplateSchema,
+  emailSnippets,
 } from "@shared/schema";
+import { SNIPPET_MAP } from "./config/snippets";
 import { z } from "zod";
 import {
   improveContent,
@@ -3122,6 +3124,80 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       res.status(500).json({
         message: "Failed to delete block preset: " + (error as Error).message,
       });
+    }
+  });
+
+  // ── Email Snippets ───────────────────────────────────────────────────────────
+
+  /** Seed the email_snippets table from the hardcoded SNIPPET_MAP if it's empty. */
+  async function seedSnippetsIfEmpty() {
+    try {
+      const existing = await db.select().from(emailSnippets);
+      if (existing.length > 0) return;
+      const SNIPPET_LABELS: Record<string, { label: string; description: string }> = {
+        email_header_standard: {
+          label: "Standard Email Header",
+          description: "Default header with the Well Told logo, used in most marketing emails.",
+        },
+        email_footer_standard: {
+          label: "Standard Email Footer",
+          description: "Light-background footer with social links and unsubscribe text.",
+        },
+        wt_footer: {
+          label: "WT Footer (Klaviyo)",
+          description: "Dark full-width footer with Klaviyo unsubscribe tags, social icons, and legal copy.",
+        },
+      };
+      for (const [name, html] of Object.entries(SNIPPET_MAP)) {
+        const meta = SNIPPET_LABELS[name] ?? { label: name, description: "" };
+        await db.insert(emailSnippets).values({ name, label: meta.label, description: meta.description, html });
+      }
+    } catch {
+      // Non-fatal — snippets will fall back to hardcoded SNIPPET_MAP
+    }
+  }
+
+  app.get("/api/snippets", requireAuth, async (_req, res) => {
+    try {
+      await seedSnippetsIfEmpty();
+      const rows = await db.select().from(emailSnippets);
+      res.json(rows);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch snippets: " + (error as Error).message });
+    }
+  });
+
+  app.get("/api/snippets/:name", requireAuth, async (req, res) => {
+    try {
+      await seedSnippetsIfEmpty();
+      const rows = await db.select().from(emailSnippets).where(eq(emailSnippets.name, req.params.name));
+      if (rows.length === 0) return res.status(404).json({ message: "Snippet not found" });
+      res.json(rows[0]);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch snippet: " + (error as Error).message });
+    }
+  });
+
+  app.put("/api/snippets/:name", requireAuth, async (req, res) => {
+    try {
+      const { label, description, html } = req.body as { label?: string; description?: string; html?: string };
+      const existing = await db.select().from(emailSnippets).where(eq(emailSnippets.name, req.params.name));
+      if (existing.length === 0) {
+        return res.status(404).json({ message: "Snippet not found" });
+      }
+      const [updated] = await db
+        .update(emailSnippets)
+        .set({
+          ...(label !== undefined ? { label } : {}),
+          ...(description !== undefined ? { description } : {}),
+          ...(html !== undefined ? { html } : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(emailSnippets.name, req.params.name))
+        .returning();
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update snippet: " + (error as Error).message });
     }
   });
 

@@ -34,6 +34,7 @@ import Keywords from "@/pages/Keywords";
 import ImageStudio from "@/pages/ImageStudio";
 import ImageTemplates from "@/pages/ImageTemplates";
 import WorkerDeployment from "@/pages/WorkerDeployment";
+import SnippetsEditor from "@/pages/SnippetsEditor";
 import NotFound from "@/pages/not-found";
 
 class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -115,6 +116,7 @@ function Router() {
           <Route path="/content/image-templates" component={ImageTemplates} />
           <Route path="/supabase-test" component={SupabaseTest} />
           <Route path="/tools/worker-deployment" component={WorkerDeployment} />
+          <Route path="/tools/snippets" component={SnippetsEditor} />
           <Route component={NotFound} />
         </Switch>
       </PageErrorBoundary>

@@ -10,6 +10,8 @@
 import type { ContentItem } from "@shared/schema";
 import { renderEmailToHtml } from "./emailToHtml";
 import { getTemplateById, getTemplatesByCategory } from "../services/supabase-templates";
+import { db } from "../db";
+import { emailSnippets } from "@shared/schema";
 
 interface EmailRenderResult {
   html: string;
@@ -37,13 +39,27 @@ async function resolveEmailTemplate(item: ContentItem): Promise<SupabaseTemplate
   return null;
 }
 
+/** Fetch all snippets from the DB and return as a name→html map. */
+async function fetchSnippetsMap(): Promise<Record<string, string>> {
+  try {
+    const rows = await db.select().from(emailSnippets);
+    return Object.fromEntries(rows.map((r) => [r.name, r.html]));
+  } catch {
+    return {};
+  }
+}
+
 /** Render a local email content item to a full HTML string. */
 export async function renderEmailForItem(item: ContentItem): Promise<EmailRenderResult> {
   const blocks: Array<{ type: string; content: unknown }> = Array.isArray(item.content)
     ? (item.content as Array<{ type: string; content: unknown }>)
     : [];
 
-  const template = await resolveEmailTemplate(item);
+  const [template, snippetsMap] = await Promise.all([
+    resolveEmailTemplate(item),
+    fetchSnippetsMap(),
+  ]);
+
   const preheaderText = template?.preheader_text ?? null;
   const emailHeader   = template?.email_header   ?? null;
   const emailFooter   = template?.email_footer   ?? null;
@@ -62,6 +78,7 @@ export async function renderEmailForItem(item: ContentItem): Promise<EmailRender
       footer: emailFooter,
       title: item.title,
       siteBaseUrl: process.env.SITE_BASE_URL || "https://welltolddesign.com",
+      snippetsMap,
     },
     shopifyFetcher,
   );

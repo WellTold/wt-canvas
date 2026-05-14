@@ -409,3 +409,17 @@ export const imageTemplates = pgTable("image_templates", {
 export const insertImageTemplateSchema = createInsertSchema(imageTemplates).omit({ id: true, createdAt: true });
 export type ImageTemplate = typeof imageTemplates.$inferSelect;
 export type InsertImageTemplate = z.infer<typeof insertImageTemplateSchema>;
+
+// ─── Email Snippets ──────────────────────────────────────────────────────────
+export const emailSnippets = pgTable("email_snippets", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  label: text("label").notNull(),
+  description: text("description"),
+  html: text("html").notNull().default(""),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertEmailSnippetSchema = createInsertSchema(emailSnippets).omit({ id: true, updatedAt: true });
+export type EmailSnippet = typeof emailSnippets.$inferSelect;
+export type InsertEmailSnippet = z.infer<typeof insertEmailSnippetSchema>;
