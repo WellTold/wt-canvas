@@ -1580,9 +1580,9 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
 
         const { generateArticleFeaturedImage } = await import("./services/imageGeneration");
 
-        // Run markdown generation + featured image generation in parallel.
-        // Image failure is non-fatal — the markdown always succeeds.
-        const [markdown, imageOutcome] = await Promise.all([
+        // Run markdown, meta description, and featured image generation in parallel.
+        // Meta description and image failures are non-fatal — the markdown always succeeds.
+        const [markdown, metaDescriptionResult, imageOutcome] = await Promise.all([
           generateWebPageMarkdownContent({
             title,
             type,
@@ -1597,6 +1597,10 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
             siteBaseUrl,
             brandContext,
           }),
+          generateMetaDescription(title, type, primaryKeyword, filteredSupportingKeywords).catch((e) => {
+            console.error("[generate-webpage-markdown] meta description generation failed (non-fatal):", e?.message);
+            return null;
+          }),
           (title && primaryKeyword)
             ? generateArticleFeaturedImage(title, primaryKeyword).catch((e) => {
                 console.error("[generate-webpage-markdown] image generation failed (non-fatal):", e?.message);
@@ -1605,6 +1609,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
             : Promise.resolve(null),
         ]);
 
+        const metaDescription = metaDescriptionResult ?? null;
         const featuredImageUrl = imageOutcome?.cloudinaryUrl ?? null;
 
         // Build composite structured data — Article JSON-LD + private _wt_ fields for worker rendering
@@ -1673,7 +1678,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
 
         // FAQ lives only in _wt_faq structured data — rendered as accordion by the worker.
         // Do NOT append to markdown (that prevents accordion rendering on the live site).
-        res.json({ markdown: markdown.trimEnd(), structuredData, featuredImageUrl });
+        res.json({ markdown: markdown.trimEnd(), structuredData, featuredImageUrl, metaDescription });
       } catch (error) {
         console.error("Web page markdown generation error:", error);
         res.status(500).json({

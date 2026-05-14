@@ -710,7 +710,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       }
       const result = await response.json();
       if (!result.markdown) throw new Error("No markdown returned from AI");
-      return result as { markdown: string; structuredData?: object; featuredImageUrl?: string | null };
+      return result as { markdown: string; structuredData?: object; featuredImageUrl?: string | null; metaDescription?: string | null };
     },
     onSuccess: async (result) => {
       setMarkdownContent(result.markdown);
@@ -718,16 +718,21 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
         setGeneratedStructuredData(result.structuredData);
         setStructuredDataType("Article");
       }
+      // Apply auto-generated meta description if the server returned one
+      if (result.metaDescription) {
+        setMetaDescription(result.metaDescription);
+      }
       // Apply auto-generated featured image if the server returned one
       if (result.featuredImageUrl) {
         setFeaturedImage(result.featuredImageUrl);
-        // Persist it to the DB right away so publish always finds it — fire and forget
-        const itemId = contentItemId || currentContentItem?.id;
-        if (itemId) {
-          apiRequest("PATCH", `/api/content-items/${itemId}`, {
-            featuredImage: result.featuredImageUrl,
-          }).catch(() => {});
-        }
+      }
+      // Persist meta description and featured image to the DB right away — fire and forget
+      const itemId = contentItemId || currentContentItem?.id;
+      if (itemId && (result.metaDescription || result.featuredImageUrl)) {
+        apiRequest("PATCH", `/api/content-items/${itemId}`, {
+          ...(result.metaDescription ? { metaDescription: result.metaDescription } : {}),
+          ...(result.featuredImageUrl ? { featuredImage: result.featuredImageUrl } : {}),
+        }).catch(() => {});
       }
       setHasUnsavedChanges(true);
       const { marked } = await import("marked");
@@ -737,7 +742,8 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       const productCount = (result.structuredData as any)?._wt_products?.length ?? 0;
       const extras = [faqCount > 0 && `${faqCount} FAQ`, productCount > 0 && `${productCount} product cards`].filter(Boolean).join(', ');
       const imageNote = result.featuredImageUrl ? " + hero image" : "";
-      toast({ title: "Content Generated", description: extras ? `Article + ${extras}${imageNote} ready. Review and save.` : `Article${imageNote} ready. Review and edit the markdown, then save.` });
+      const metaNote = result.metaDescription ? " + meta description" : "";
+      toast({ title: "Content Generated", description: extras ? `Article + ${extras}${imageNote}${metaNote} ready. Review and save.` : `Article${imageNote}${metaNote} ready. Review and edit the markdown, then save.` });
     },
     onError: (error: any) => {
       toast({ title: "Generation Failed", description: error.message || "Could not generate content", variant: "destructive" });
