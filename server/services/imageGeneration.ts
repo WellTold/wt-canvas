@@ -65,14 +65,18 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 async function buildImagePrompt(topic: string, keyword?: string, brandContext?: BrandContext): Promise<string> {
   const brandHint = brandContext?.voice
     ? `\n\nBrand context: ${brandContext.voice}`
-    : `\n\nBrand context: Well Told Design — a gift brand specialising in story-driven objects: map glassware, constellation gifts, topographic drinkware, and throws. Warm photography, real places, physical objects with meaning. Earthy tones, natural light, emotional resonance.`;
+    : `\n\nBrand context: Well Told Design — a gift brand specialising in story-driven objects: map glassware, constellation gifts, topographic drinkware, and throws. Real places, physical objects with meaning. Earthy tones, emotional resonance.`;
 
   const keywordLine = keyword ? `\nSEO keyword: ${keyword}` : "";
 
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 150,
-    system: `You write image generation prompts for Higgsfield/FLUX. Output ONLY the prompt — no explanation, no quotes, no preamble. Keep it under 120 words. Focus on: warm natural photography, specific real-world setting, beautiful physical objects, soft earthy tones, emotional resonance. Avoid text overlays, faces, logos.`,
+    system: `You write image generation prompts for Higgsfield/FLUX. Output ONLY the prompt — no explanation, no quotes, no preamble. Keep it under 120 words.
+
+Style: photojournalistic editorial photography. Available light — whatever light naturally exists in the scene. Do NOT specify lighting direction, do NOT add window light, do NOT add studio softboxes. Let the scene dictate the light.
+
+Focus on: specific real-world setting, physical objects with texture, earthy tones, emotional resonance. Avoid text overlays, faces, logos.`,
     messages: [
       {
         role: "user",
@@ -218,11 +222,13 @@ async function buildArticleImagePrompt(
     max_tokens: 200,
     system: `You write image generation prompts for Higgsfield/FLUX. Output ONLY the prompt — no explanation, no quotes, no preamble. Keep it under 130 words.
 
-Brand context: Well Told Design is a New England gift brand. Products are map glassware, constellation drinkware, topographic throws, and accessories — objects that tell the story of a place or moment. Photography should feel warm, real, and emotionally grounded.
+Style: photojournalistic editorial photography. Available light only — whatever light naturally exists in the scene. Do NOT specify lighting direction (no "window light from the left", no "golden hour", no studio softboxes, no "soft shadows"). Do NOT specify depth of field. Let the scene and moment dictate how the light falls.
 
-Visual world: Real locations and surfaces (docks, mantles, desks, kitchen counters, outdoor tables, tailgates, porches). Natural light that matches the setting and time of day. Physical objects with texture and weight. Earthy, warm, or moody tones — never sterile or generic. Shallow depth of field. No studio setups unless the article is explicitly professional or corporate.
+Brand context: Well Told Design is a New England gift brand. Products are map glassware, constellation drinkware, topographic throws, and accessories — objects that tell the story of a place or moment. Photography should feel real, unposed, and emotionally honest.
 
-Composition should match the article topic — outdoor and active topics get outdoor settings; sentimental or family topics get warm interiors; celebratory topics get social contexts. Let the topic drive the scene. Be specific: prefer a real moment over a generic setting. A fishing dock beats "outdoor table." A kitchen counter with flour nearby beats "kitchen."
+Visual world: Real locations and surfaces (docks, mantles, desks, kitchen counters, outdoor tables, tailgates, porches). Physical objects with texture and weight. Earthy, warm tones — never sterile or generic. No studio setups.
+
+Composition should match the article topic — outdoor and active topics get outdoor settings; sentimental or family topics get warm interiors; celebratory topics get social contexts. Let the topic drive the scene. Be specific: a fishing dock beats "outdoor table", a kitchen counter with flour nearby beats "kitchen".
 
 Always end with: No text, no people, no faces, no legible writing.`,
     messages: [
@@ -243,7 +249,7 @@ ${truncatedContent}`,
 
   if (!text) {
     console.warn("[buildArticleImagePrompt] Claude returned no text, using fallback prompt.");
-    return "Editorial lifestyle photograph. A kraft-wrapped gift with a natural twine bow resting on a worn oak surface beside a ceramic mug. Soft morning window light, warm shadows, shallow depth of field. Muted earth tones. No text, no people, no faces, no legible writing.";
+    return "Photojournalistic editorial photograph. A kraft-wrapped gift with a natural twine bow resting on a worn oak surface beside a ceramic mug. Available light, earthy tones, unposed. No text, no people, no faces, no legible writing.";
   }
 
   return text;
