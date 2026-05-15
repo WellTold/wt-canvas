@@ -17,18 +17,23 @@ cloudinaryV2.config({
 
 // ---------------------------------------------------------------------------
 // Higgsfield model endpoint slugs
-// Confirmed real slugs — verified by direct API probe returning 403 (not 404):
-//   flux-pro/kontext/max/text-to-image → 403 not_enough_credits  ✅
-//   reve/text-to-image                 → 403 not_enough_credits  ✅
-// All other slugs (bana-pro, nano, chatgpt-image-2, etc.) returned 404 "Model not found".
+// Sources: official Higgsfield CLI (higgsfield model list), JS SDK v2, Python SDK.
 // Base URL: https://platform.higgsfield.ai  Auth: Key ID:SECRET
 // If generation fails with NotEnoughCreditsError, top up credits at cloud.higgsfield.ai.
 // ---------------------------------------------------------------------------
 export const HIGGSFIELD_MODELS = {
-  /** FLUX Pro Kontext Max — confirmed real slug. High quality, context-aware. */
+  /** FLUX Pro Kontext Max — high quality, context-aware. */
   FLUX_KONTEXT_MAX: "flux-pro/kontext/max/text-to-image",
-  /** Reve — confirmed real slug. Fast, high quality text-to-image. */
+  /** Nano Banana 2 — Higgsfield's own fast, high-quality model. */
+  NANO_BANANA: "nano_banana_2",
+  /** Bytedance Seedream v4 — high quality, supports 2K resolution. */
+  SEEDREAM: "bytedance/seedream/v4/text-to-image",
+  /** GPT Image 2 — OpenAI image model via Higgsfield. */
+  GPT_IMAGE: "gpt_image_2",
+  /** Reve — fast text-to-image. */
   REVE: "reve/text-to-image",
+  /** Higgsfield Soul V2 — character-consistent model. */
+  SOUL: "text2image_soul_v2",
 } as const;
 
 export type HiggsfieldModelSlug = typeof HIGGSFIELD_MODELS[keyof typeof HIGGSFIELD_MODELS];

@@ -14,7 +14,11 @@ import type { ImageTemplate, InsertImageTemplate } from "@shared/schema";
 
 const MODELS = [
   { value: "flux-pro/kontext/max/text-to-image", label: "FLUX Kontext Max" },
+  { value: "nano_banana_2", label: "Nano Banana 2" },
+  { value: "bytedance/seedream/v4/text-to-image", label: "Seedream v4" },
+  { value: "gpt_image_2", label: "GPT Image 2" },
   { value: "reve/text-to-image", label: "Reve" },
+  { value: "text2image_soul_v2", label: "Soul V2" },
 ];
 
 function blankForm(): Partial<InsertImageTemplate> {
