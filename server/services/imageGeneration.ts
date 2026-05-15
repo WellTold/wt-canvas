@@ -201,71 +201,61 @@ export async function expandImage(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Article featured image — editorial lifestyle prompt
-// Runs a Claude sub-call to fill the three variable slots, then assembles
-// the fixed editorial shell and calls Higgsfield.
+// Article featured image — full-content prompt builder
 // ---------------------------------------------------------------------------
 
-const ARTICLE_IMAGE_SHELL =
-  "Editorial lifestyle photograph. {subject} placed on {setting}, with {accent} nearby. " +
-  "Soft natural window light from the left, warm shadows, shallow depth of field. " +
-  "Muted earth tones — cream, slate, warm oak. Styled tabletop composition. " +
-  "Shot on medium format film. No text, no people, no faces, no legible text, no readable writing. Quiet and considered.";
-
-async function buildArticleImageSlots(
+async function buildArticleImagePrompt(
   title: string,
   primaryKeyword: string,
-): Promise<{ subject: string; setting: string; accent: string }> {
+  articleContent: string,
+): Promise<string> {
+  // Truncate article content to ~2,000 tokens to keep cost-controlled.
+  // The opening of an article carries the most relevant context.
+  const truncatedContent = articleContent.slice(0, 8000);
+
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 200,
-    system:
-      "You return only valid JSON — no preamble, no code fences, no explanation.",
+    system: `You write image generation prompts for Higgsfield/FLUX. Output ONLY the prompt — no explanation, no quotes, no preamble. Keep it under 130 words.
+
+Brand context: Well Told Design is a New England gift brand. Products are map glassware, constellation drinkware, topographic throws, and accessories — objects that tell the story of a place or moment. Photography should feel warm, real, and emotionally grounded.
+
+Visual world: Real locations and surfaces (docks, mantles, desks, kitchen counters, outdoor tables, tailgates, porches). Natural light that matches the setting and time of day. Physical objects with texture and weight. Earthy, warm, or moody tones — never sterile or generic. Shallow depth of field. No studio setups unless the article is explicitly professional or corporate.
+
+Composition should match the article topic — outdoor and active topics get outdoor settings; sentimental or family topics get warm interiors; celebratory topics get social contexts. Let the topic drive the scene. Be specific: prefer a real moment over a generic setting. A fishing dock beats "outdoor table." A kitchen counter with flour nearby beats "kitchen."
+
+Always end with: No text, no people, no faces, no legible writing.`,
     messages: [
       {
         role: "user",
-        content:
-          `Given an article title and primary keyword for Well Told Design (a gift brand making map glassware, constellation gifts, and topographic drinkware), return a JSON object with exactly three fields:\n\n` +
-          `- "subject": a kraft-wrapped gift with one specific detail that connects to the article topic (e.g. "a kraft-wrapped gift with dark twine bow, tissue paper visible at the opening"). 15 words max.\n` +
-          `- "setting": a surface and one ambient object that suggests the recipient's world (e.g. "a worn walnut desktop beside a weathered leather journal"). 10 words max.\n` +
-          `- "accent": one small prop resting near the gift that connects to the article topic or occasion (e.g. "a handwritten gift tag on cream card stock"). 10 words max.\n\n` +
-          `Return ONLY valid JSON — no preamble, no code fences.\n\n` +
-          `Article title: ${title}\n` +
-          `Primary keyword: ${primaryKeyword}`,
+        content: `Here is the article. Write a Higgsfield image generation prompt for its hero image. The prompt should be grounded in the actual content, tone, and subject matter of this article — not just its title. Be specific: prefer a real moment over a generic setting.
+
+Title: ${title}
+Primary keyword: ${primaryKeyword}
+
+Article:
+${truncatedContent}`,
       },
     ],
   });
 
-  const raw = response.content[0].type === "text" ? response.content[0].text.trim() : "{}";
-  try {
-    const parsed = JSON.parse(raw);
-    return {
-      subject: String(parsed.subject || "a kraft-wrapped gift with a natural twine bow"),
-      setting: String(parsed.setting || "a worn oak surface beside a ceramic mug"),
-      accent: String(parsed.accent || "a small handwritten card on cream paper"),
-    };
-  } catch {
-    console.warn("[generateArticleFeaturedImage] Claude returned non-JSON, using defaults:", raw);
-    return {
-      subject: "a kraft-wrapped gift with a natural twine bow",
-      setting: "a worn oak surface beside a ceramic mug",
-      accent: "a small handwritten card on cream paper",
-    };
+  const text = response.content[0].type === "text" ? response.content[0].text.trim() : null;
+
+  if (!text) {
+    console.warn("[buildArticleImagePrompt] Claude returned no text, using fallback prompt.");
+    return "Editorial lifestyle photograph. A kraft-wrapped gift with a natural twine bow resting on a worn oak surface beside a ceramic mug. Soft morning window light, warm shadows, shallow depth of field. Muted earth tones. No text, no people, no faces, no legible writing.";
   }
+
+  return text;
 }
 
 export async function generateArticleFeaturedImage(
   title: string,
   primaryKeyword: string,
+  articleContent: string,
 ): Promise<GenerateImageResult> {
-  const slots = await buildArticleImageSlots(title, primaryKeyword);
+  const prompt = await buildArticleImagePrompt(title, primaryKeyword, articleContent);
 
-  const prompt = ARTICLE_IMAGE_SHELL
-    .replace("{subject}", slots.subject)
-    .replace("{setting}", slots.setting)
-    .replace("{accent}", slots.accent);
-
-  console.log(`[generateArticleFeaturedImage] slots:`, slots);
   console.log(`[generateArticleFeaturedImage] prompt: "${prompt.substring(0, 100)}…"`);
 
   const higgsInput: Record<string, unknown> = {

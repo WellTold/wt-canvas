@@ -1361,6 +1361,12 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
 
         // Run article content + featured image generation in parallel.
         // Image failure is non-fatal — article always succeeds.
+        // Block-based articles don't have a flat text body available at generation
+        // time, so article content is passed as an empty string and Claude falls
+        // back to reasoning from title and keyword only.
+        if (title && primaryKeyword) {
+          console.warn(`[generate-complete-article] No article body available for image generation of "${title}" — prompt will use title and keyword only.`);
+        }
         const [result, imageOutcome] = await Promise.all([
           generateCompleteArticle({
             title,
@@ -1373,7 +1379,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
             additionalInstructions,
           }),
           (title && primaryKeyword)
-            ? generateArticleFeaturedImage(title, primaryKeyword).catch((e) => {
+            ? generateArticleFeaturedImage(title, primaryKeyword, "").catch((e) => {
                 console.error("[generate-complete-article] image generation failed (non-fatal):", e?.message);
                 return null;
               })
@@ -1582,29 +1588,34 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
 
         const { generateArticleFeaturedImage } = await import("./services/imageGeneration");
 
-        // Run markdown, meta description, and featured image generation in parallel.
-        // Meta description and image failures are non-fatal — the markdown always succeeds.
-        const [markdown, metaDescriptionResult, imageOutcome] = await Promise.all([
-          generateWebPageMarkdownContent({
-            title,
-            type,
-            primaryKeyword,
-            supportingKeywords: filteredSupportingKeywords,
-            articleAngle,
-            mood,
-            additionalInstructions,
-            keywordType,
-            format,
-            productContext,
-            siteBaseUrl,
-            brandContext,
-          }),
+        // Generate markdown first so its content can be passed to the image prompt.
+        // Meta description and image are then generated in parallel — both non-fatal.
+        const markdown = await generateWebPageMarkdownContent({
+          title,
+          type,
+          primaryKeyword,
+          supportingKeywords: filteredSupportingKeywords,
+          articleAngle,
+          mood,
+          additionalInstructions,
+          keywordType,
+          format,
+          productContext,
+          siteBaseUrl,
+          brandContext,
+        });
+
+        if (!markdown) {
+          console.warn(`[generate-webpage-markdown] No article body available for image generation of "${title}" — prompt will use title and keyword only.`);
+        }
+
+        const [metaDescriptionResult, imageOutcome] = await Promise.all([
           generateMetaDescription(title, type, primaryKeyword, filteredSupportingKeywords).catch((e) => {
             console.error("[generate-webpage-markdown] meta description generation failed (non-fatal):", e?.message);
             return null;
           }),
           (title && primaryKeyword)
-            ? generateArticleFeaturedImage(title, primaryKeyword).catch((e) => {
+            ? generateArticleFeaturedImage(title, primaryKeyword, markdown ?? "").catch((e) => {
                 console.error("[generate-webpage-markdown] image generation failed (non-fatal):", e?.message);
                 return null;
               })
