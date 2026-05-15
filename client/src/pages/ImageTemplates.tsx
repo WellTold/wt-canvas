@@ -13,16 +13,13 @@ import { Plus, Pencil, Trash2, X, Image, Upload, Loader2 } from "lucide-react";
 import type { ImageTemplate, InsertImageTemplate } from "@shared/schema";
 
 const MODELS = [
-  { value: "nano_banana_2", label: "Nano Banana 2" },
-  { value: "gpt_image_2", label: "GPT Image 2" },
   { value: "flux-pro/kontext/max/text-to-image", label: "FLUX Kontext Max" },
-  { value: "reve/text-to-image", label: "Reve" },
   { value: "bytedance/seedream/v4/text-to-image", label: "Seedream v4" },
-  { value: "text2image_soul_v2", label: "Soul V2" },
+  { value: "reve/text-to-image", label: "Reve" },
 ];
 
 function blankForm(): Partial<InsertImageTemplate> {
-  return { name: "", prompt: "", model: "nano_banana_2", thumbnailUrl: "", referenceImageUrls: [] };
+  return { name: "", prompt: "", model: "flux-pro/kontext/max/text-to-image", thumbnailUrl: "", referenceImageUrls: [] };
 }
 
 export default function ImageTemplates() {
