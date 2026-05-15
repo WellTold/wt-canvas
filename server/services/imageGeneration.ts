@@ -74,7 +74,7 @@ async function buildImagePrompt(topic: string, keyword?: string, brandContext?: 
     max_tokens: 150,
     system: `You write image generation prompts for Higgsfield/FLUX. Output ONLY the prompt — no explanation, no quotes, no preamble. Keep it under 120 words.
 
-Style: photojournalistic editorial photography. Available light — whatever light naturally exists in the scene. Do NOT specify lighting direction, do NOT add window light, do NOT add studio softboxes. Let the scene dictate the light.
+Style: photojournalistic editorial photography. Shallow depth of field. Available light — whatever light naturally exists in the scene. Do NOT specify lighting direction, do NOT add window light, do NOT add studio softboxes. Let the scene dictate the light.
 
 Focus on: specific real-world setting, physical objects with texture, earthy tones, emotional resonance. Avoid text overlays, faces, logos.`,
     messages: [
@@ -222,7 +222,7 @@ async function buildArticleImagePrompt(
     max_tokens: 200,
     system: `You write image generation prompts for Higgsfield/FLUX. Output ONLY the prompt — no explanation, no quotes, no preamble. Keep it under 130 words.
 
-Style: photojournalistic editorial photography. Available light only — whatever light naturally exists in the scene. Do NOT specify lighting direction (no "window light from the left", no "golden hour", no studio softboxes, no "soft shadows"). Do NOT specify depth of field. Let the scene and moment dictate how the light falls.
+Style: photojournalistic editorial photography. Shallow depth of field. Available light only — whatever light naturally exists in the scene. Do NOT specify lighting direction (no "window light from the left", no "golden hour", no studio softboxes, no "soft shadows"). Let the scene and moment dictate how the light falls.
 
 Brand context: Well Told Design is a New England gift brand. Products are map glassware, constellation drinkware, topographic throws, and accessories — objects that tell the story of a place or moment. Photography should feel real, unposed, and emotionally honest.
 
