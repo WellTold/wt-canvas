@@ -76,7 +76,11 @@ async function buildImagePrompt(topic: string, keyword?: string, brandContext?: 
 
 Style: photojournalistic editorial photography. Shallow depth of field. Available light — whatever light naturally exists in the scene. Do NOT specify lighting direction, do NOT add window light, do NOT add studio softboxes. Let the scene dictate the light.
 
-Focus on: specific real-world setting, physical objects with texture, earthy tones, emotional resonance. Avoid text overlays, faces, logos.`,
+Human presence is encouraged — hands wrapping a gift, someone's back as they open a box, a person gesturing at a table, hands around a drink. No frontal faces. A moment with a person in it beats a table arrangement every time.
+
+AVOID flatlay / object arrangements — do NOT pile up books, maps, compasses, journals, and props on a table. These produce AI-artifact slop. Prefer one or two simple props max, or a moment with a person. Never render objects with fine surface detail, embossing, printed maps, or engraved text.
+
+Focus on: the occasion or feeling behind the topic, a specific real setting, emotional resonance. Avoid logos, legible text.`,
     messages: [
       {
         role: "user",
@@ -224,13 +228,15 @@ async function buildArticleImagePrompt(
 
 Style: photojournalistic editorial photography. Shallow depth of field. Available light only — whatever light naturally exists in the scene. Do NOT specify lighting direction (no "window light from the left", no "golden hour", no studio softboxes, no "soft shadows"). Let the scene and moment dictate how the light falls.
 
-Brand context: Well Told Design is a New England gift brand. Products are map glassware, constellation drinkware, topographic throws, and accessories — objects that tell the story of a place or moment. Photography should feel real, unposed, and emotionally honest.
+Human presence is encouraged — hands holding a gift, someone's back or side profile, hands around a drink, a person at a table. No frontal faces. A moment with a person in it is almost always better than a table arrangement of objects.
 
-Visual world: Real locations and surfaces (docks, mantles, desks, kitchen counters, outdoor tables, tailgates, porches). Physical objects with texture and weight. Earthy, warm tones — never sterile or generic. No studio setups.
+AVOID flatlay / object arrangements — do NOT pile up books, journals, maps, compasses, and props on a table. These produce AI-artifact slop. One or two simple props max, or a person in a moment. Never render objects with fine surface detail, embossing, printed text on surfaces, or engraved patterns — FLUX renders these badly.
 
-Composition should match the article topic — outdoor and active topics get outdoor settings; sentimental or family topics get warm interiors; celebratory topics get social contexts. Let the topic drive the scene. Be specific: a fishing dock beats "outdoor table", a kitchen counter with flour nearby beats "kitchen".
+Brand context: Well Told Design is a New England gift brand. Photography should feel real, unposed, and emotionally honest. Earthy, warm tones. No studio setups.
 
-Always end with: No text, no people, no faces, no legible writing.`,
+Composition should match the article topic and occasion — birthday or celebration topics get social moments; outdoor and active topics get outdoor settings; sentimental or family topics get warm interior moments. Let the topic, occasion, and recipient drive the scene. Be specific about the moment, not the objects.
+
+Always end with: No frontal faces, no legible text, no logos.`,
     messages: [
       {
         role: "user",
