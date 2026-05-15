@@ -84,6 +84,8 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
   const [selectedKeyword, setSelectedKeyword] = useState<Keyword | null>(null);
   const [keywordSearch, setKeywordSearch] = useState("");
   const [showKeywordDropdown, setShowKeywordDropdown] = useState(false);
+  const [keywordEntryMode, setKeywordEntryMode] = useState<"search" | "new">("search");
+  const [newKeywordInput, setNewKeywordInput] = useState("");
   const [topicText, setTopicText] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [recommendation, setRecommendation] = useState<RecommendResult | null>(null);
@@ -134,6 +136,9 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
       setMode("choose");
       setSelectedKeyword(null);
       setKeywordSearch("");
+      setShowKeywordDropdown(false);
+      setKeywordEntryMode("search");
+      setNewKeywordInput("");
       setTopicText("");
       setSelectedTemplate(null);
       setRecommendation(null);
@@ -435,83 +440,185 @@ export function NewPageModal({ open, onClose, initialType }: NewPageModalProps) 
     );
   };
 
-  const renderKeywordStep = () => (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-bold uppercase tracking-wider mb-2 block">
-          Search your keyword library
-        </Label>
-        <div className="relative" ref={dropdownRef}>
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            className="pl-9 rounded-none border-black"
-            placeholder="Search keywords..."
-            value={keywordSearch}
-            onChange={(e) => {
-              setKeywordSearch(e.target.value);
-              setShowKeywordDropdown(true);
-              setSelectedKeyword(null);
+  const renderKeywordStep = () => {
+    const untargetedKeywords = keywords.filter((k) => k.status === "untargeted");
+    const filteredUntargeted = keywordSearch
+      ? untargetedKeywords.filter((k) => k.keyword.toLowerCase().includes(keywordSearch.toLowerCase()))
+      : untargetedKeywords;
+
+    const trimmedNew = newKeywordInput.trim();
+    const exactDuplicate = trimmedNew
+      ? keywords.find((k) => k.keyword.toLowerCase() === trimmedNew.toLowerCase())
+      : null;
+    const duplicateIsAvailable = exactDuplicate?.status === "untargeted";
+
+    return (
+      <div className="space-y-4">
+        {/* Mode toggle */}
+        <div className="flex border border-black">
+          <button
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${keywordEntryMode === "search" ? "bg-black text-white" : "bg-white text-black hover:bg-[#f0ebe7]"}`}
+            onClick={() => {
+              setKeywordEntryMode("search");
+              setNewKeywordInput("");
             }}
-            onFocus={() => setShowKeywordDropdown(true)}
-          />
-          {showKeywordDropdown && filteredKeywords.length > 0 && (
-            <div className="absolute z-50 w-full bg-white border border-black mt-1 max-h-52 overflow-y-auto shadow-lg">
-              {filteredKeywords.slice(0, 20).map((kw) => (
-                <button
-                  key={kw.id}
-                  className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-[#f0ebe7] text-left"
-                  onClick={() => handleSelectKeyword(kw)}
-                >
-                  <span>{kw.keyword}</span>
-                  <div className="flex items-center gap-2">
-                    {(kw as any).search_volume != null && (
-                      <span className="text-xs text-gray-400">{(kw as any).search_volume.toLocaleString()}/mo</span>
-                    )}
-                    <Badge variant="outline" className="text-xs capitalize">{kw.status}</Badge>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+          >
+            Search Library
+          </button>
+          <button
+            className={`flex-1 py-2 text-sm font-medium border-l border-black transition-colors ${keywordEntryMode === "new" ? "bg-black text-white" : "bg-white text-black hover:bg-[#f0ebe7]"}`}
+            onClick={() => {
+              setKeywordEntryMode("new");
+              setSelectedKeyword(null);
+              setKeywordSearch("");
+              setShowKeywordDropdown(false);
+            }}
+          >
+            Add New Keyword
+          </button>
         </div>
-        {keywordsLoading && <p className="text-xs text-gray-400 mt-1">Loading keywords...</p>}
-        {!keywordsLoading && keywords.length === 0 && (
-          <p className="text-xs text-gray-500 mt-1">No keywords in your library yet.</p>
+
+        {keywordEntryMode === "search" ? (
+          <>
+            <div>
+              <Label className="text-sm font-bold uppercase tracking-wider mb-2 block">
+                Pick an unassigned keyword
+              </Label>
+              <div className="relative" ref={dropdownRef}>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  className="pl-9 rounded-none border-black"
+                  placeholder="Search keywords..."
+                  value={keywordSearch}
+                  onChange={(e) => {
+                    setKeywordSearch(e.target.value);
+                    setShowKeywordDropdown(true);
+                    setSelectedKeyword(null);
+                  }}
+                  onFocus={() => setShowKeywordDropdown(true)}
+                />
+                {showKeywordDropdown && filteredUntargeted.length > 0 && (
+                  <div className="absolute z-50 w-full bg-white border border-black mt-1 max-h-52 overflow-y-auto shadow-lg">
+                    {filteredUntargeted.slice(0, 20).map((kw) => (
+                      <button
+                        key={kw.id}
+                        className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-[#f0ebe7] text-left"
+                        onClick={() => handleSelectKeyword(kw)}
+                      >
+                        <span>{kw.keyword}</span>
+                        <div className="flex items-center gap-2">
+                          {kw.cluster && (
+                            <span className="text-xs text-gray-400">{kw.cluster}</span>
+                          )}
+                          {kw.priority === "supporting" && (
+                            <Badge variant="outline" className="text-xs">supporting</Badge>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {showKeywordDropdown && keywordSearch && filteredUntargeted.length === 0 && !keywordsLoading && (
+                  <div className="absolute z-50 w-full bg-white border border-black mt-1 px-3 py-2 text-sm text-gray-500">
+                    No unassigned keywords match "{keywordSearch}". Try the Add New Keyword tab.
+                  </div>
+                )}
+              </div>
+              {keywordsLoading && <p className="text-xs text-gray-400 mt-1">Loading keywords...</p>}
+              {!keywordsLoading && untargetedKeywords.length === 0 && (
+                <p className="text-xs text-gray-500 mt-1">No unassigned keywords in your library. Use the Add New Keyword tab.</p>
+              )}
+            </div>
+
+            {selectedKeyword && selectedKeyword.priority === "supporting" && (
+              <div className="flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-300 text-amber-800 text-xs">
+                <span className="mt-0.5">⚠</span>
+                <span>
+                  <strong>{selectedKeyword.keyword}</strong> is a <strong>supporting</strong> keyword. Primary keywords usually produce better results.
+                </span>
+              </div>
+            )}
+
+            {selectedKeyword && (
+              <div className="border border-black p-4 bg-[#f0ebe7] space-y-3">
+                <div className="text-sm">
+                  <span className="text-gray-500">Selected:</span>{" "}
+                  <span className="font-bold">{selectedKeyword.keyword}</span>
+                  {selectedKeyword.cluster && (
+                    <span className="text-gray-400 text-xs ml-2">· {selectedKeyword.cluster}</span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500">
+                  AI will pick the content type, write the full page, and drop you into the editor. This takes about 20 seconds.
+                </p>
+                <Button
+                  className="w-full rounded-none bg-black hover:bg-gray-800 text-white"
+                  onClick={() => handleAiPickForMe({ keywordId: selectedKeyword.id })}
+                  disabled={isQuickCreating}
+                >
+                  {isQuickCreating
+                    ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Generating page…</>
+                    : <><Sparkles className="h-4 w-4 mr-2" />Generate Full Page</>
+                  }
+                </Button>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div>
+              <Label className="text-sm font-bold uppercase tracking-wider mb-2 block">
+                New keyword to target
+              </Label>
+              <Input
+                className="rounded-none border-black"
+                placeholder="e.g. 50th birthday gifts for him"
+                value={newKeywordInput}
+                onChange={(e) => setNewKeywordInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && trimmedNew && !exactDuplicate && !isQuickCreating) {
+                    handleAiPickForMe({ topic: trimmedNew });
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+
+            {exactDuplicate && (
+              <div className="flex items-start gap-2 px-3 py-2 border text-xs border-amber-300 bg-amber-50 text-amber-800">
+                <span className="mt-0.5 shrink-0">⚠</span>
+                <span>
+                  <strong>"{exactDuplicate.keyword}"</strong> already exists in your keyword library
+                  {exactDuplicate.cluster ? ` (cluster: ${exactDuplicate.cluster})` : ""} with
+                  status <strong>{exactDuplicate.status}</strong>.
+                  {duplicateIsAvailable
+                    ? " Switch to Search Library to use it."
+                    : " It's already assigned to an article."}
+                </span>
+              </div>
+            )}
+
+            {!exactDuplicate && trimmedNew.length > 2 && (
+              <div className="px-3 py-2 bg-[#f0ebe7] border border-black text-xs text-gray-600">
+                AI will create this keyword, generate supporting keywords, and write a full article. Everything will be added to your keyword library automatically.
+              </div>
+            )}
+
+            <Button
+              className="w-full rounded-none bg-black hover:bg-gray-800 text-white"
+              onClick={() => handleAiPickForMe({ topic: trimmedNew })}
+              disabled={!trimmedNew || !!exactDuplicate || isQuickCreating}
+            >
+              {isQuickCreating
+                ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Generating page…</>
+                : <><Sparkles className="h-4 w-4 mr-2" />Add Keyword & Generate Page</>
+              }
+            </Button>
+          </>
         )}
       </div>
-
-      {selectedKeyword && selectedKeyword.priority === "supporting" && (
-        <div className="flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-300 text-amber-800 text-xs">
-          <span className="mt-0.5">⚠</span>
-          <span>
-            <strong>{selectedKeyword.keyword}</strong> is a <strong>supporting</strong> keyword. Primary keywords usually produce better results.
-          </span>
-        </div>
-      )}
-
-      {selectedKeyword && (
-        <div className="border border-black p-4 bg-[#f0ebe7] space-y-3">
-          <div className="text-sm">
-            <span className="text-gray-500">Selected:</span>{" "}
-            <span className="font-bold">{selectedKeyword.keyword}</span>
-          </div>
-          <p className="text-xs text-gray-500">
-            AI will pick the content type, write the full page, and drop you into the editor. This takes about 20 seconds.
-          </p>
-          <Button
-            className="w-full rounded-none bg-black hover:bg-gray-800 text-white"
-            onClick={() => handleAiPickForMe({ keywordId: selectedKeyword.id })}
-            disabled={isQuickCreating}
-          >
-            {isQuickCreating
-              ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Generating page…</>
-              : <><Sparkles className="h-4 w-4 mr-2" />Generate Full Page</>
-            }
-          </Button>
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   const renderTopicStep = () => (
     <div className="space-y-4">
