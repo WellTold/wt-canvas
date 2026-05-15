@@ -1026,6 +1026,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       review:           { quote: "", author: "", rating: 5 },
       ugc_review:       { layout: "left", backgroundColor: "#e8643a", textColor: "#ffffff", rating: 5, title: "", body: "", attribution: "" },
       image_text:       { layout: "image_left", imageUrl: "", imageAlt: "", heading: "", body: "", textAlign: "left", textColor: "#333333", textBgColor: "#ffffff", ctaText: "", ctaLink: "" },
+      image_row:        { images: [{ url: "", alt: "", caption: "" }] },
       gif_image:        { url: "", fallbackUrl: "", alt: "", width: 552 },
       email_countdown_timer:  { endDatetime: "", label: "", style: "light" },
       progress_loyalty: { label: "", current: 0, goal: 100, unit: "", color: "#c9a227" },
@@ -1134,7 +1135,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
 
           // Safely copy content properties
           const EMAIL_COMPLEX_TYPES = new Set([
-            'product_feature', 'product_row', 'promo_code', 'review', 'ugc_review', 'image_text',
+            'product_feature', 'product_row', 'promo_code', 'review', 'ugc_review', 'image_text', 'image_row',
             'gif_image', 'countdown_timer', 'progress_loyalty',
             'hero', 'two_column', 'accordion', 'banner', 'icon_text_row',
             'author_bio', 'breadcrumb', 'related_content',
@@ -2464,6 +2465,12 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                       <Button variant="outline" size="sm" onClick={() => addBlock("banner")}>
                         <Plus className="h-3 w-3 mr-1" />Banner
                       </Button>
+                      <Button variant="outline" size="sm" onClick={() => addBlock("image_text")}>
+                        <Plus className="h-3 w-3 mr-1" />Image &amp; Text
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => addBlock("image_row")}>
+                        <Plus className="h-3 w-3 mr-1" />Image Row
+                      </Button>
                       <Button variant="outline" size="sm" onClick={() => addBlock("divider")}>
                         <Plus className="h-3 w-3 mr-1" />Divider
                       </Button>
@@ -2511,12 +2518,6 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email</h3>
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" size="sm" onClick={() => addBlock("image_text")}>
-                        <Plus className="h-3 w-3 mr-1" />Image &amp; Text
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => addBlock("image_row")}>
-                        <Plus className="h-3 w-3 mr-1" />Image Row
-                      </Button>
                       <Button variant="outline" size="sm" onClick={() => addBlock("product_feature")}>
                         <Plus className="h-3 w-3 mr-1" />Product Feature
                       </Button>

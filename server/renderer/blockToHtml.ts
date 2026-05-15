@@ -385,6 +385,57 @@ export function renderBlock(block: ContentBlock, shopifyData: Map<string, Shopif
       </div>`;
     }
 
+    // ── Media layout blocks (Tier 3 — shared email/web) ─────────────────────
+
+    case "image_text": {
+      const layout    = c.layout || "image_left";
+      const imageUrl  = c.imageUrl  || "";
+      const imageAlt  = c.imageAlt  || "";
+      const heading   = c.heading   || "";
+      const body      = c.body      || "";
+      const textAlign = c.textAlign || "left";
+      const textColor = c.textColor || "#333333";
+      const textBg    = c.textBgColor || "#ffffff";
+      const ctaText   = c.ctaText   || "";
+      const ctaLink   = sanitizeUrl(c.ctaLink || "#");
+      const hSize     = c.headingFontSize  || "18";
+      const hWeight   = c.headingFontWeight || "700";
+      const bSize     = c.bodyFontSize     || "15";
+
+      const headingHtml = heading
+        ? `<p class="wt-image-text-heading" style="margin:0 0 10px;font-size:${escAttr(hSize)}px;font-weight:${escAttr(hWeight)};color:${escAttr(textColor)};text-align:${escAttr(textAlign)};">${escHtml(heading)}</p>`
+        : "";
+      const bodyHtml = body
+        ? `<p class="wt-image-text-body" style="margin:0;font-size:${escAttr(bSize)}px;line-height:1.65;color:${escAttr(textColor)};text-align:${escAttr(textAlign)};">${escHtml(body)}</p>`
+        : "";
+      const ctaHtml = ctaText
+        ? `<p style="margin:16px 0 0;text-align:${escAttr(textAlign)};"><a href="${escAttr(ctaLink)}" style="color:${escAttr(textColor)};text-decoration:underline;font-weight:600;">${escHtml(ctaText)}</a></p>`
+        : "";
+      const imgEl = imageUrl
+        ? `<div class="wt-image-text-img"><img src="${escAttr(imageUrl)}" alt="${escAttr(imageAlt)}" loading="lazy" style="display:block;width:100%;height:auto;" /></div>`
+        : `<div class="wt-image-text-img wt-image-text-img--empty"></div>`;
+      const textEl = `<div class="wt-image-text-content" style="background-color:${escAttr(textBg)};">${headingHtml}${bodyHtml}${ctaHtml}</div>`;
+      const [first, second] = layout === "image_right" ? [textEl, imgEl] : [imgEl, textEl];
+      return `<div class="wt-image-text wt-image-text--${escAttr(layout)}">${first}${second}</div>`;
+    }
+
+    case "image_row": {
+      const images: Array<{ url: string; alt?: string; caption?: string }> =
+        Array.isArray(c.images) ? c.images.filter((img: any) => img && img.url).slice(0, 4) : [];
+      if (!images.length) return "";
+      const n = images.length;
+      const cols = images.map((img) => {
+        const captionHtml = img.caption
+          ? `<figcaption class="wt-image-row-caption">${escHtml(img.caption)}</figcaption>`
+          : "";
+        return `<figure class="wt-image-row-item">
+          <img src="${escAttr(img.url)}" alt="${escAttr(img.alt || "")}" loading="lazy" style="display:block;width:100%;height:auto;" />
+          ${captionHtml}
+        </figure>`;
+      }).join("\n");
+      return `<div class="wt-image-row wt-image-row--${n}">${cols}</div>`;
+    }
+
     // ── Shopify blocks (Tier 4) ──────────────────────────────────────────────
 
     case "shopify_product_card": {
