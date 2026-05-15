@@ -1064,7 +1064,19 @@ export async function selectKeywordsForTopic(
     const response = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 256,
-      system: `You are an SEO strategist. Given a content topic and a list of available target keywords, select the single best primary keyword and up to 5 supporting keywords that are semantically relevant to the topic. Only choose keywords that genuinely appear in the provided list — do not invent or paraphrase. If no keyword is a good match, return null for primary. Respond with JSON only, no explanation:\n{"primary": "exact keyword from list or null", "supporting": ["kw1", "kw2"]}`,
+      system: `You are an SEO strategist. Given a content topic and a list of available target keywords, select the single best primary keyword and up to 5 supporting keywords.
+
+CRITICAL RULES — read these carefully before selecting:
+1. The keyword must target the EXACT SAME search intent as the topic. Same audience, same occasion, same purpose.
+   - "birthday gifts for travelers" does NOT match "50th birthday gifts for him" — different audience (travelers vs. a specific man), different specificity.
+   - "gifts for dad" does NOT match "gifts for grandpa" — different recipient.
+   - "anniversary gifts" does NOT match "birthday gifts" — different occasion.
+2. Only match if you are at least 80% confident the keyword serves the same searcher with the same need.
+3. Only choose keywords that appear verbatim in the provided list — do not invent or paraphrase.
+4. If no keyword is a strong match for the exact intent, return null for primary — do NOT pick the closest-sounding option.
+
+Respond with JSON only, no explanation:
+{"primary": "exact keyword from list or null", "supporting": ["kw1", "kw2"]}`,
       messages: [{ role: "user", content: `Topic: "${topic}"\n\nAvailable keywords:\n${kwList}` }],
     });
     const raw = response.content[0].type === "text" ? response.content[0].text : "";
@@ -1077,6 +1089,56 @@ export async function selectKeywordsForTopic(
     };
   } catch {
     return { primaryKeyword: null, supportingKeywords: [] };
+  }
+}
+
+// ── Keyword Generator for New Topics ─────────────────────────────────────────
+// When a user creates an article from a freeform topic and no existing library
+// keyword matches, this generates a proper primary keyword, supporting keywords,
+// and a cluster name to add to the keyword library.
+export async function generateKeywordsForTopic(topic: string): Promise<{
+  primaryKeyword: string;
+  supportingKeywords: string[];
+  clusterName: string;
+}> {
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 400,
+    system: `You are an SEO strategist for Well Told Design, a New England gift brand selling map glassware, constellation gifts, topographic drinkware, and story-driven keepsakes. You specialise in gift-focused, occasion-based, and recipient-based keyword research.
+
+Given a content topic or article title, return the most appropriate SEO keywords and a cluster name. Respond with JSON only — no preamble, no explanation:
+
+{
+  "primaryKeyword": "the single best target keyword phrase (3-6 words, high intent, exactly what this article should rank for)",
+  "supportingKeywords": ["3 to 5 long-tail variants or related phrases that support the same intent"],
+  "clusterName": "a short 2-4 word cluster label grouping these keywords (e.g. '50th birthday gifts', 'gifts for dad', 'anniversary gifts')"
+}
+
+Rules:
+- The primary keyword should be the most specific, high-intent phrase — not too broad, not too narrow
+- Supporting keywords should be real search variants (different phrasing, related facets)
+- The cluster name should be a short, human-readable label for this topic group
+- All keywords should be lowercase, no quotation marks`,
+    messages: [{ role: "user", content: `Topic: "${topic}"` }],
+  });
+
+  const raw = response.content[0].type === "text" ? response.content[0].text.trim() : "";
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    // Fallback: use the topic itself as a keyword
+    return { primaryKeyword: topic.toLowerCase(), supportingKeywords: [], clusterName: topic.toLowerCase() };
+  }
+  try {
+    const parsed = JSON.parse(jsonMatch[0]);
+    return {
+      primaryKeyword: typeof parsed.primaryKeyword === "string" ? parsed.primaryKeyword : topic.toLowerCase(),
+      supportingKeywords: Array.isArray(parsed.supportingKeywords)
+        ? parsed.supportingKeywords.filter((s: any) => typeof s === "string")
+        : [],
+      clusterName: typeof parsed.clusterName === "string" ? parsed.clusterName : topic.toLowerCase(),
+    };
+  } catch {
+    return { primaryKeyword: topic.toLowerCase(), supportingKeywords: [], clusterName: topic.toLowerCase() };
   }
 }
 

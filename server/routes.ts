@@ -32,6 +32,7 @@ import {
   generateFAQ,
   generateCTAs,
   selectKeywordsForTopic,
+  generateKeywordsForTopic,
   generatePhilosophyIntro,
 } from "./services/claude";
 import { marked } from "marked";
@@ -4444,9 +4445,45 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         }
 
         if (!topicMatched) {
-          console.log(`[ai-quick-create] topic "${inputTopic}" → no keyword match, using topic as seed`);
-          kw = { keyword: inputTopic, cluster: null, contentTypeTarget: "blog_article", articleAngle: null, type: null };
-          clusterSupportingKeywords = [];
+          // No library keyword matched — generate new keywords and add them to the library
+          // so this topic gets tracked and the article gets real SEO keyword context.
+          console.log(`[ai-quick-create] topic "${inputTopic}" → no keyword match, generating new keywords`);
+          try {
+            const generated = await generateKeywordsForTopic(inputTopic);
+            console.log(
+              `[ai-quick-create] generated keywords: primary="${generated.primaryKeyword}", cluster="${generated.clusterName}", supporting=${JSON.stringify(generated.supportingKeywords)}`,
+            );
+
+            const kwInserts = [
+              {
+                keyword: generated.primaryKeyword,
+                type: "primary" as const,
+                priority: "primary" as const,
+                cluster: generated.clusterName,
+                contentTypeTarget: "blog_article",
+                status: "untargeted" as const,
+              },
+              ...generated.supportingKeywords.map((s) => ({
+                keyword: s,
+                type: "secondary" as const,
+                priority: "supporting" as const,
+                cluster: generated.clusterName,
+                contentTypeTarget: "blog_article",
+                status: "untargeted" as const,
+              })),
+            ];
+
+            const saved = await storage.createKeywordsBulk(kwInserts);
+            const savedPrimary = saved.find((k) => k.priority === "primary") ?? saved[0];
+            const savedSupporting = saved.filter((k) => k.id !== savedPrimary.id);
+
+            kw = savedPrimary;
+            clusterSupportingKeywords = savedSupporting;
+          } catch (genErr) {
+            console.warn(`[ai-quick-create] keyword generation failed, falling back to topic seed:`, (genErr as Error)?.message);
+            kw = { keyword: inputTopic, cluster: null, contentTypeTarget: "blog_article", articleAngle: null, type: null };
+            clusterSupportingKeywords = [];
+          }
         }
       } else {
         // AI Pick: auto-select the best untargeted keyword
@@ -4484,12 +4521,21 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       // 3. Determine content type
       const contentType = kw.contentTypeTarget || "blog_article";
 
-      // 4. Generate a title
+      // 4. Determine the article title.
+      // When the user typed a topic/title (topic mode), honour it exactly —
+      // never discard or regenerate the user's own wording.
+      // When triggered from the keyword library or AI-pick, generate a title
+      // from the keyword as before.
       let title: string;
-      try {
-        title = await generateTitle(kw.keyword, contentType, kw.keyword);
-      } catch {
-        title = `${kw.keyword.charAt(0).toUpperCase() + kw.keyword.slice(1)}: A Complete Guide`;
+      if (inputTopic) {
+        // Use the user's input directly as the article title
+        title = inputTopic;
+      } else {
+        try {
+          title = await generateTitle(kw.keyword, contentType, kw.keyword);
+        } catch {
+          title = `${kw.keyword.charAt(0).toUpperCase() + kw.keyword.slice(1)}: A Complete Guide`;
+        }
       }
 
       // 5. Load brand context + Shopify products in parallel (both needed before markdown)
