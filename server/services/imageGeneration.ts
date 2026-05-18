@@ -110,9 +110,10 @@ async function callFal(modelId: string, input: Record<string, unknown>): Promise
   const result = await fal.subscribe(modelId, {
     input,
     logs: false,
-  }) as { images?: Array<{ url: string }> };
+  }) as { data?: { images?: Array<{ url: string }> }; images?: Array<{ url: string }> };
 
-  const imageUrl = result?.images?.[0]?.url;
+  // fal.ai wraps the response in a `data` envelope; fall back to top-level for older models
+  const imageUrl = result?.data?.images?.[0]?.url ?? result?.images?.[0]?.url;
   if (!imageUrl) {
     throw new Error(`fal.ai returned no image URL for ${modelId}. Response: ${JSON.stringify(result)}`);
   }
