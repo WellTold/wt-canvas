@@ -903,16 +903,22 @@ export async function generateTitle(
     max_tokens: 120,
     system: `You write article titles for Well Told Design — a New England gift brand known for story-driven, meaningful objects (map glassware, constellation gifts, topographic drinkware). The writing voice is warm, specific, and editorial — not corporate or generic.
 
-Your titles should feel human and varied. Rotate the angle: sometimes lead with the recipient ("For the Dad Who'd Rather Be Outside"), sometimes with the occasion ("What to Give Someone Who Has Everything"), sometimes with a specific feeling or detail ("Gifts That Actually Feel Like You Thought About It"). Avoid always leading with the keyword.
+Every title MUST be a grammatically correct, natural English sentence or phrase that a native speaker would actually say or write. If it sounds awkward when read aloud, rewrite it.
+
+Vary the structure — avoid always opening with the keyword. Good patterns:
+- Lead with who it's for: "Gifts for the Dad Who Loves the Mountains"
+- Lead with the occasion: "What to Give Someone Who Has Everything"
+- Lead with a feeling or insight: "Gifts That Feel Like You Actually Thought About It"
+- Direct and specific: "Stargazing Gifts That Go Beyond the Telescope"
 
 BANNED structures — never use these:
 - "[Keyword]: A Complete Guide"
-- "The Ultimate Guide to [Keyword]"  
+- "The Ultimate Guide to [Keyword]"
 - "Best [Keyword]: Top X Ideas for [Year]"
-- "[Number] [Keyword] Ideas That [Superlative]"
-- Any title starting with a number followed immediately by the keyword
+- Any title starting with a number list format ("10 Best...", "7 Unique...")
+- Invented verb phrases or non-standard English
 
-${primaryKeyword ? `The primary keyword "${primaryKeyword}" must appear naturally somewhere in the title — it does not have to be the first word.` : ""}
+${primaryKeyword ? `The primary keyword "${primaryKeyword}" must appear naturally somewhere in the title.` : ""}
 
 Aim for 50–70 characters. ${NO_EMDASH} Return only the title — no quotes, no explanation.`,
     messages: [{ role: "user", content: userPrompt }],
