@@ -17,6 +17,8 @@ import { SiShopify as SiShopifyIcon } from "react-icons/si";
 const MODELS = [
   { value: "fal-ai/nano-banana-pro",             label: "Nano Banana Pro" },
   { value: "fal-ai/nano-banana",                 label: "Nano Banana" },
+  { value: "fal-ai/gpt-image-1",                 label: "GPT Image 1" },
+  { value: "fal-ai/gpt-image-2",                 label: "GPT Image 2" },
   { value: "flux-pro/kontext/max/text-to-image", label: "FLUX Kontext Max" },
   { value: "reve/text-to-image",                 label: "Reve" },
 ];
