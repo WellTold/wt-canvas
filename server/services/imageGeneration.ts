@@ -1,10 +1,17 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { higgsfield, config as higgsfieldConfig } from "@higgsfield/client/v2";
+import { higgsfield, config as higgsfieldConfig, createHiggsfieldClient } from "@higgsfield/client/v2";
 import type { V2Response } from "@higgsfield/client/v2";
 import { v2 as cloudinaryV2 } from "cloudinary";
 
-// Configure Higgsfield credentials at module load time
+// Configure the default SDK client (platform.higgsfield.ai — path-style slugs)
 higgsfieldConfig({ credentials: process.env.HIGGSFIELD_CREDENTIALS });
+
+// Second client pointing at fnf.higgsfield.ai — used for job-set-type slugs
+// (underscore format: nano_banana_2, gpt_image_2, etc. as used by the Higgsfield CLI)
+const fnfClient = createHiggsfieldClient({
+  credentials: process.env.HIGGSFIELD_CREDENTIALS,
+  baseURL: "https://fnf.higgsfield.ai",
+});
 
 // Cloudinary is configured globally in cloudinary.ts; we configure it here
 // as well so this service works standalone without the main app import order.
@@ -49,7 +56,7 @@ export const HIGGSFIELD_MODELS = {
 
 export type HiggsfieldModelSlug = typeof HIGGSFIELD_MODELS[keyof typeof HIGGSFIELD_MODELS];
 
-const DEFAULT_MODEL: HiggsfieldModelSlug = HIGGSFIELD_MODELS.FLUX_KONTEXT_MAX;
+const DEFAULT_MODEL: HiggsfieldModelSlug = HIGGSFIELD_MODELS.NANO_BANANA_PRO;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -110,7 +117,14 @@ Focus on: the occasion or feeling behind the topic, a specific real setting, emo
 }
 
 async function callHiggsfield(modelSlug: string, input: Record<string, unknown>): Promise<string> {
-  const response: V2Response = await higgsfield.subscribe(modelSlug, {
+  // Job-set-type slugs (underscore format e.g. nano_banana_2, gpt_image_2) are served by
+  // fnf.higgsfield.ai — the same base the Higgsfield CLI uses.
+  // Path-style slugs (e.g. flux-pro/kontext/max/text-to-image) are served by
+  // platform.higgsfield.ai — the default SDK base URL.
+  const isJobSetType = /^[a-z0-9_]+$/.test(modelSlug);
+  const client = isJobSetType ? fnfClient : higgsfield;
+
+  const response: V2Response = await client.subscribe(modelSlug, {
     input,
     withPolling: true,
   });

@@ -37,7 +37,7 @@ const MODELS = [
 ];
 
 function blankForm(): Partial<InsertImageTemplate> {
-  return { name: "", prompt: "", model: "flux-pro/kontext/max/text-to-image", thumbnailUrl: "", referenceImageUrls: [] };
+  return { name: "", prompt: "", model: "nano_banana_2", thumbnailUrl: "", referenceImageUrls: [] };
 }
 
 export default function ImageTemplates() {
