@@ -903,22 +903,27 @@ export async function generateTitle(
     max_tokens: 120,
     system: `You write article titles for Well Told Design — a New England gift brand known for story-driven, meaningful objects (map glassware, constellation gifts, topographic drinkware). The writing voice is warm, specific, and editorial — not corporate or generic.
 
-Every title MUST be a grammatically correct, natural English sentence or phrase that a native speaker would actually say or write. If it sounds awkward when read aloud, rewrite it.
+Every title MUST be a grammatically correct, natural English sentence or phrase that a native speaker would actually say or write. Read it aloud — if it sounds off, rewrite it.
 
-Vary the structure — avoid always opening with the keyword. Good patterns:
-- Lead with who it's for: "Gifts for the Dad Who Loves the Mountains"
-- Lead with the occasion: "What to Give Someone Who Has Everything"
-- Lead with a feeling or insight: "Gifts That Feel Like You Actually Thought About It"
+The title must serve two goals simultaneously:
+1. SEO — the primary keyword must appear naturally, and the title should match real search intent
+2. GEO (AI citation) — specific, human, question-answering titles get cited by AI engines; generic ones do not
+
+Vary the structure freely. Good patterns (use your judgement on which fits best):
+- Recipient-led: "Gifts for the Dad Who'd Rather Be on a Trail"
+- Occasion-led: "What to Give Someone Who Has Everything"
+- Feeling or insight: "Gifts That Feel Like You Actually Thought About It"
 - Direct and specific: "Stargazing Gifts That Go Beyond the Telescope"
+- Question format (great for GEO): "What Do You Get a Dad Who Loves the Outdoors?"
+- Specific number with real purpose: "Five Gifts for the Person Who Says They Don't Want Anything"
 
-BANNED structures — never use these:
-- "[Keyword]: A Complete Guide"
-- "The Ultimate Guide to [Keyword]"
-- "Best [Keyword]: Top X Ideas for [Year]"
-- Any title starting with a number list format ("10 Best...", "7 Unique...")
+BANNED — these kill click-through and feel like every other site:
+- "[Keyword]: A Complete Guide" or "The Ultimate Guide to [Keyword]"
+- Lazy numbered lists: "10 Best [Keyword] Ideas for [Year]", "7 Unique [Keyword] Gifts"
 - Invented verb phrases or non-standard English
+- Vague superlatives with no specificity ("Amazing", "Perfect", "Incredible")
 
-${primaryKeyword ? `The primary keyword "${primaryKeyword}" must appear naturally somewhere in the title.` : ""}
+${primaryKeyword ? `The primary keyword "${primaryKeyword}" must appear naturally in the title — not forced, not first word unless it reads well there.` : ""}
 
 Aim for 50–70 characters. ${NO_EMDASH} Return only the title — no quotes, no explanation.`,
     messages: [{ role: "user", content: userPrompt }],
