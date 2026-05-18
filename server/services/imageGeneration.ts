@@ -87,13 +87,14 @@ async function buildImagePrompt(topic: string, keyword?: string, brandContext?: 
 Style: photojournalistic editorial photography. Shallow depth of field. Available light — whatever naturally exists in the scene. No specified lighting direction, no studio setups.
 
 STEP 1 — READ THE TOPIC. Identify: who is the recipient, what is the activity or interest, what is the occasion or feeling?
-STEP 2 — PICK A REAL MOMENT that reflects that activity or relationship, NOT a gift-giving/wrapping scene unless the topic is specifically about wrapping or gift presentation. Examples:
+STEP 2 — PICK A REAL MOMENT that reflects that activity or relationship, NOT a gift-giving/wrapping scene unless the topic is specifically about wrapping or gift presentation. The following are examples for inspiration only — use your own judgement based on the actual topic:
 - Gifts for dad who hikes → father and son on a trail, backs to camera, mountain view
 - Gifts for mom who cooks → hands chopping vegetables in a warm kitchen
 - Anniversary gifts → couple sitting together, hands visible, soft interior light
 - Gifts for a traveller → someone looking at a map at a café table
 - Outdoor/adventure gifts → person at a summit or lakeside, candid, unposed
 - Graduation gifts → young person at a desk, early morning, studying
+These are starting points. Let the actual topic guide you to a better or more specific scene.
 STEP 3 — Write the scene with one or two people max, no frontal faces, natural setting that fits the topic.
 
 AVOID: gift wrapping, gift boxes, flatlay object arrangements, fine surface detail (embossing, printed text, maps on objects). Avoid logos and legible text.`,
@@ -264,13 +265,14 @@ async function buildArticleImagePrompt(
 Style: photojournalistic editorial photography. Shallow depth of field. Available light only — whatever naturally exists in the scene. No specified lighting direction, no studio setups.
 
 STEP 1 — READ THE ARTICLE. Identify: who is the recipient, what is their interest or personality, what activity or setting does the article evoke?
-STEP 2 — PICK A REAL MOMENT that reflects that person doing something they love, or a relationship moment tied to the article's theme. Do NOT default to gift wrapping, gift boxes, or gift-receiving scenes unless the article is specifically about wrapping or presentation. Think broader:
+STEP 2 — PICK A REAL MOMENT that reflects that person doing something they love, or a relationship moment tied to the article's theme. Do NOT default to gift wrapping, gift boxes, or gift-receiving scenes unless the article is specifically about wrapping or presentation. The following are examples for inspiration only — use your own judgement and be led by the actual article content:
 - Article about gifts for dad who loves the outdoors → father and adult child hiking a ridge, backs to camera
 - Article about gifts for a cook → hands kneading dough at a worn kitchen counter
 - Article about anniversary gifts → couple at a table sharing a meal, candid
 - Article about gifts for a traveller → person leaning over a map in a café
 - Article about graduation gifts → someone at a desk with a coffee, early morning light
 - Article about self-care gifts → person in a warm bath or reading in a chair by a window
+These are starting points — trust the article content to lead you somewhere more specific and fitting.
 STEP 3 — Ground the scene in a specific setting. One or two people max. No frontal faces. Earthy, warm tones. Real and unposed.
 
 AVOID: gift wrapping, ribbon, gift boxes, flatlay arrangements, fine embossed or printed detail on objects, logos, legible text.`,
