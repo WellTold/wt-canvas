@@ -13,13 +13,31 @@ import { Plus, Pencil, Trash2, X, Image, Upload, Loader2 } from "lucide-react";
 import type { ImageTemplate, InsertImageTemplate } from "@shared/schema";
 
 const MODELS = [
-  { value: "flux-pro/kontext/max/text-to-image", label: "FLUX Kontext Max" },
-  { value: "bytedance/seedream/v4/text-to-image", label: "Seedream v4" },
-  { value: "reve/text-to-image", label: "Reve" },
+  { value: "nano_banana_2",                       label: "Nano Banana Pro" },
+  { value: "gpt_image_2",                         label: "GPT Image 2" },
+  { value: "cinematic_studio_2_5",                label: "Cinematic Studio 2.5" },
+  { value: "flux_2",                              label: "FLUX.2" },
+  { value: "flux_kontext",                        label: "Flux Kontext" },
+  { value: "flux-pro/kontext/max/text-to-image",  label: "FLUX Kontext Max" },
+  { value: "grok_image",                          label: "Grok Image" },
+  { value: "image_auto",                          label: "Image Auto" },
+  { value: "kling_omni_image",                    label: "Kling O1 Image" },
+  { value: "marketing_studio_image",              label: "Marketing Studio Image" },
+  { value: "ms_image",                            label: "MS Image" },
+  { value: "nano_banana",                         label: "Nano Banana" },
+  { value: "nano_banana_flash",                   label: "Nano Banana 2" },
+  { value: "openai_hazel",                        label: "OpenAI Hazel" },
+  { value: "reve/text-to-image",                  label: "Reve" },
+  { value: "seedream_v4_5",                       label: "Seedream 4.5" },
+  { value: "seedream_v5_lite",                    label: "Seedream V5 Lite" },
+  { value: "soul_cinematic",                      label: "Soul Cinematic" },
+  { value: "soul_location",                       label: "Soul Location" },
+  { value: "text2image_soul_v2",                  label: "Soul V2" },
+  { value: "z_image",                             label: "Z Image" },
 ];
 
 function blankForm(): Partial<InsertImageTemplate> {
-  return { name: "", prompt: "", model: "flux-pro/kontext/max/text-to-image", thumbnailUrl: "", referenceImageUrls: [] };
+  return { name: "", prompt: "", model: "nano_banana_2", thumbnailUrl: "", referenceImageUrls: [] };
 }
 
 export default function ImageTemplates() {

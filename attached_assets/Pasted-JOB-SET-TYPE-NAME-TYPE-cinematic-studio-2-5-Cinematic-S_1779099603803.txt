@@ -1,0 +1,38 @@
+JOB SET TYPE               NAME                       TYPE
+cinematic_studio_2_5       Cinematic Studio 2.5       image
+flux_2                     FLUX.2                     image
+flux_kontext               Flux Kontext               image
+imagegen_2_0               GPT Image 2                image
+gpt_image_2                GPT Image 2                image
+grok_image                 Grok Image                 image
+text2image_soul_v2         Higgsfield Soul V2         image
+image_auto                 Image Auto                 image
+kling_omni_image           Kling O1 Image             image
+ms_image                   MS Image                   image
+marketing_studio_image     Marketing Studio Image     image
+nano_banana                Nano Banana                image
+nano_banana_flash          Nano Banana 2              image
+nano_banana_2              Nano Banana Pro            image
+openai_hazel               OpenAI Hazel               image
+seedream_v4_5              Seedream 4.5               image
+seedream_v5_lite           Seedream V5 Lite           image
+soul_cinematic             Soul Cinematic             image
+soul_location              Soul Location              image
+z_image                    Z Image                    image
+brain_activity             Virality Predictor         text
+cinematic_studio_3_0       Cinematic Studio 3.0       video
+cinematic_studio_video     Cinematic Studio Video     video
+cinematic_studio_video_v2  Cinematic Studio Video V2  video
+veo3                       Google Veo 3               video
+veo3_1                     Google Veo 3.1             video
+veo3_1_lite                Google Veo 3.1 Lite        video
+grok_video                 Grok Video                 video
+kling2_6                   Kling 2.6 Video            video
+kling3_0                   Kling v3.0                 video
+marketing_studio_video     Marketing Studio Video     video
+minimax_hailuo             Minimax Hailuo             video
+seedance1_5                Seedance 1.5 Pro           video
+seedance_2_0               Seedance 2.0               video
+soul_cast                  Soul Cast                  video
+wan2_6                     Wan 2.6 Video              video
+wan2_7                     Wan 2.7                    video

@@ -21,18 +21,35 @@ cloudinaryV2.config({
 // Base URL: https://platform.higgsfield.ai  Auth: Key ID:SECRET
 // If generation fails with NotEnoughCreditsError, top up credits at cloud.higgsfield.ai.
 // ---------------------------------------------------------------------------
+// Slugs sourced from official Higgsfield model reference (server/services/higgsfield-models.md).
+// Use JOB SET TYPE column values exactly as listed.
 export const HIGGSFIELD_MODELS = {
-  /** FLUX Pro Kontext Max — confirmed working with v2 SDK. */
-  FLUX_KONTEXT_MAX: "flux-pro/kontext/max/text-to-image",
-  /** Bytedance Seedream v4 — confirmed slug pattern from official SDK docs. */
-  SEEDREAM: "bytedance/seedream/v4/text-to-image",
-  /** Reve — confirmed working with v2 SDK. */
-  REVE: "reve/text-to-image",
+  NANO_BANANA_PRO:       "nano_banana_2",           // Nano Banana Pro
+  NANO_BANANA_2:         "nano_banana_flash",        // Nano Banana 2 (fast)
+  NANO_BANANA:           "nano_banana",              // Nano Banana (original)
+  GPT_IMAGE_2:           "gpt_image_2",              // GPT Image 2
+  CINEMATIC_STUDIO:      "cinematic_studio_2_5",     // Cinematic Studio 2.5
+  FLUX_2:                "flux_2",                   // FLUX.2
+  FLUX_KONTEXT:          "flux_kontext",             // Flux Kontext
+  FLUX_KONTEXT_MAX:      "flux-pro/kontext/max/text-to-image", // FLUX Kontext Max (legacy confirmed slug)
+  GROK_IMAGE:            "grok_image",               // Grok Image
+  IMAGE_AUTO:            "image_auto",               // Image Auto
+  KLING_IMAGE:           "kling_omni_image",         // Kling O1 Image
+  MARKETING_STUDIO:      "marketing_studio_image",   // Marketing Studio Image
+  MS_IMAGE:              "ms_image",                 // MS Image
+  OPENAI_HAZEL:          "openai_hazel",             // OpenAI Hazel
+  REVE:                  "reve/text-to-image",       // Reve (legacy confirmed slug)
+  SEEDREAM_45:           "seedream_v4_5",            // Seedream 4.5
+  SEEDREAM_V5_LITE:      "seedream_v5_lite",         // Seedream V5 Lite
+  SOUL_V2:               "text2image_soul_v2",       // Higgsfield Soul V2
+  SOUL_CINEMATIC:        "soul_cinematic",           // Soul Cinematic
+  SOUL_LOCATION:         "soul_location",            // Soul Location
+  Z_IMAGE:               "z_image",                  // Z Image
 } as const;
 
 export type HiggsfieldModelSlug = typeof HIGGSFIELD_MODELS[keyof typeof HIGGSFIELD_MODELS];
 
-const DEFAULT_MODEL: HiggsfieldModelSlug = HIGGSFIELD_MODELS.FLUX_KONTEXT_MAX;
+const DEFAULT_MODEL: HiggsfieldModelSlug = HIGGSFIELD_MODELS.NANO_BANANA_PRO;
 
 // ---------------------------------------------------------------------------
 // Types
