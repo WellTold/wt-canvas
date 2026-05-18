@@ -401,7 +401,7 @@ export const imageTemplates = pgTable("image_templates", {
   name: text("name").notNull(),
   thumbnailUrl: text("thumbnail_url"),
   prompt: text("prompt").notNull(),
-  model: text("model").notNull().default("flux-pro/kontext/max/text-to-image"),
+  model: text("model").notNull().default("fal-ai/nano-banana-pro"),
   referenceImageUrls: text("reference_image_urls").array().notNull().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
