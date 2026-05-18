@@ -4765,6 +4765,31 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         cluster: kw.cluster || null,
         supportingKeywordsCount: filteredSupportingObjects.length,
       });
+
+      // Fire-and-forget: generate hero image in background after responding
+      if (!newItem.featuredImage) {
+        (async () => {
+          try {
+            const { generateImage } = await import("./services/imageGeneration");
+            const topic = newItem.primaryKeyword || title;
+            const result = await generateImage({
+              mode: "ai-prompt",
+              topic,
+              keyword: newItem.primaryKeyword ?? undefined,
+              brandContext: {
+                voice: "Well Told Design — a gift brand specialising in story-driven objects: map glassware, constellation gifts, topographic drinkware, and throws. Warm photography, real places, physical objects with meaning.",
+              },
+            });
+            await storage.updateContentItem(newItem.id, {
+              featuredImage: result.cloudinaryUrl,
+              ...(!newItem.ogImage ? { ogImage: result.cloudinaryUrl } : {}),
+            });
+            console.log(`[ai-quick-create] background hero image generated for ${newItem.id}: ${result.cloudinaryUrl}`);
+          } catch (err) {
+            console.error(`[ai-quick-create] background hero image failed for ${newItem.id}:`, err);
+          }
+        })();
+      }
     } catch (error) {
       console.error("AI quick-create error:", error);
       res.status(500).json({
