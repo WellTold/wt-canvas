@@ -386,6 +386,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json(item);
+
+      // Fire-and-forget: generate a hero image in the background for new articles/pages.
+      // The editor will pick it up via its normal data refresh once generation completes.
+      const HERO_IMAGE_TYPES = ["blog", "blog_article", "webpage", "landing_page", "lead_magnet"];
+      const hasUsableTitle = item.title && item.title.trim().toLowerCase() !== "untitled";
+      if (HERO_IMAGE_TYPES.includes(item.type) && !item.featuredImage && hasUsableTitle) {
+        (async () => {
+          try {
+            const { generateImage } = await import("./services/imageGeneration");
+            const topic = item.primaryKeyword || item.title || "gift guide";
+            const keyword = item.primaryKeyword ?? undefined;
+            const result = await generateImage({
+              mode: "ai-prompt",
+              topic,
+              keyword,
+              brandContext: {
+                voice: "Well Told Design — a gift brand specialising in story-driven objects: map glassware, constellation gifts, topographic drinkware, and throws. Warm photography, real places, physical objects with meaning.",
+              },
+            });
+            await storage.updateContentItem(item.id, {
+              featuredImage: result.cloudinaryUrl,
+              ...(!item.ogImage ? { ogImage: result.cloudinaryUrl } : {}),
+            });
+            console.log(`[createContentItem] background hero image generated for ${item.id}: ${result.cloudinaryUrl}`);
+          } catch (err) {
+            console.error(`[createContentItem] background hero image failed for ${item.id}:`, err);
+          }
+        })();
+      }
     } catch (error) {
       console.error("Content item creation error:", error);
       res
