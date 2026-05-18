@@ -84,13 +84,19 @@ async function buildImagePrompt(topic: string, keyword?: string, brandContext?: 
     max_tokens: 150,
     system: `You write image generation prompts for FLUX/Nano Banana. Output ONLY the prompt — no explanation, no quotes, no preamble. Keep it under 120 words.
 
-Style: photojournalistic editorial photography. Shallow depth of field. Available light — whatever light naturally exists in the scene. Do NOT specify lighting direction, do NOT add window light, do NOT add studio softboxes. Let the scene dictate the light.
+Style: photojournalistic editorial photography. Shallow depth of field. Available light — whatever naturally exists in the scene. No specified lighting direction, no studio setups.
 
-Human presence is encouraged — hands wrapping a gift, someone's back as they open a box, a person gesturing at a table, hands around a drink. No frontal faces. A moment with a person in it beats a table arrangement every time.
+STEP 1 — READ THE TOPIC. Identify: who is the recipient, what is the activity or interest, what is the occasion or feeling?
+STEP 2 — PICK A REAL MOMENT that reflects that activity or relationship, NOT a gift-giving/wrapping scene unless the topic is specifically about wrapping or gift presentation. Examples:
+- Gifts for dad who hikes → father and son on a trail, backs to camera, mountain view
+- Gifts for mom who cooks → hands chopping vegetables in a warm kitchen
+- Anniversary gifts → couple sitting together, hands visible, soft interior light
+- Gifts for a traveller → someone looking at a map at a café table
+- Outdoor/adventure gifts → person at a summit or lakeside, candid, unposed
+- Graduation gifts → young person at a desk, early morning, studying
+STEP 3 — Write the scene with one or two people max, no frontal faces, natural setting that fits the topic.
 
-AVOID flatlay / object arrangements — do NOT pile up books, maps, compasses, journals, and props on a table. These produce AI-artifact slop. Prefer one or two simple props max, or a moment with a person. Never render objects with fine surface detail, embossing, printed maps, or engraved text.
-
-Focus on: the occasion or feeling behind the topic, a specific real setting, emotional resonance. Avoid logos, legible text.`,
+AVOID: gift wrapping, gift boxes, flatlay object arrangements, fine surface detail (embossing, printed text, maps on objects). Avoid logos and legible text.`,
     messages: [
       {
         role: "user",
@@ -255,21 +261,23 @@ async function buildArticleImagePrompt(
     max_tokens: 200,
     system: `You write image generation prompts for FLUX/Nano Banana. Output ONLY the prompt — no explanation, no quotes, no preamble. Keep it under 130 words.
 
-Style: photojournalistic editorial photography. Shallow depth of field. Available light only — whatever light naturally exists in the scene. Do NOT specify lighting direction (no "window light from the left", no "golden hour", no studio softboxes, no "soft shadows"). Let the scene and moment dictate how the light falls.
+Style: photojournalistic editorial photography. Shallow depth of field. Available light only — whatever naturally exists in the scene. No specified lighting direction, no studio setups.
 
-Human presence is encouraged — hands holding a gift, someone's back or side profile, hands around a drink, a person at a table. No frontal faces. A moment with a person in it is almost always better than a table arrangement of objects.
+STEP 1 — READ THE ARTICLE. Identify: who is the recipient, what is their interest or personality, what activity or setting does the article evoke?
+STEP 2 — PICK A REAL MOMENT that reflects that person doing something they love, or a relationship moment tied to the article's theme. Do NOT default to gift wrapping, gift boxes, or gift-receiving scenes unless the article is specifically about wrapping or presentation. Think broader:
+- Article about gifts for dad who loves the outdoors → father and adult child hiking a ridge, backs to camera
+- Article about gifts for a cook → hands kneading dough at a worn kitchen counter
+- Article about anniversary gifts → couple at a table sharing a meal, candid
+- Article about gifts for a traveller → person leaning over a map in a café
+- Article about graduation gifts → someone at a desk with a coffee, early morning light
+- Article about self-care gifts → person in a warm bath or reading in a chair by a window
+STEP 3 — Ground the scene in a specific setting. One or two people max. No frontal faces. Earthy, warm tones. Real and unposed.
 
-AVOID flatlay / object arrangements — do NOT pile up books, journals, maps, compasses, and props on a table. These produce AI-artifact slop. One or two simple props max, or a person in a moment. Never render objects with fine surface detail, embossing, printed text on surfaces, or engraved patterns.
-
-Brand context: Well Told Design is a New England gift brand. Photography should feel real, unposed, and emotionally honest. Earthy, warm tones. No studio setups.
-
-Composition should match the article topic and occasion — birthday or celebration topics get social moments; outdoor and active topics get outdoor settings; sentimental or family topics get warm interior moments. Let the topic, occasion, and recipient drive the scene. Be specific about the moment, not the objects.
-
-Always end with: No frontal faces, no legible text, no logos.`,
+AVOID: gift wrapping, ribbon, gift boxes, flatlay arrangements, fine embossed or printed detail on objects, logos, legible text.`,
     messages: [
       {
         role: "user",
-        content: `Here is the article. Write an image generation prompt for its hero image. The prompt should be grounded in the actual content, tone, and subject matter of this article — not just its title. Be specific: prefer a real moment over a generic setting.
+        content: `Here is the article. Write an image generation prompt for its hero image grounded in the actual subject, recipient, and tone — not just the title. Choose a scene that shows the recipient's world or activity, not the act of giving.
 
 Title: ${title}
 Primary keyword: ${primaryKeyword}
