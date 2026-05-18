@@ -54,7 +54,7 @@ export default function ImageStudio() {
   const { toast } = useToast();
 
   const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState("nano_banana_2");
+  const [model, setModel] = useState("flux-pro/kontext/max/text-to-image");
   const [selectedRatios, setSelectedRatios] = useState<AspectRatio[]>(["1:1"]);
   const [referenceUrls, setReferenceUrls] = useState<string[]>([]);
   const [imageSourceTab, setImageSourceTab] = useState<ImageSourceTab>("url");
