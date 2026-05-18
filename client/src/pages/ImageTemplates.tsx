@@ -12,14 +12,15 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, X, Image, Upload, Loader2 } from "lucide-react";
 import type { ImageTemplate, InsertImageTemplate } from "@shared/schema";
 
-// Only models confirmed to work via API key on platform.higgsfield.ai.
 const MODELS = [
+  { value: "fal-ai/nano-banana-pro",             label: "Nano Banana Pro" },
+  { value: "fal-ai/nano-banana",                 label: "Nano Banana" },
   { value: "flux-pro/kontext/max/text-to-image", label: "FLUX Kontext Max" },
   { value: "reve/text-to-image",                 label: "Reve" },
 ];
 
 function blankForm(): Partial<InsertImageTemplate> {
-  return { name: "", prompt: "", model: "flux-pro/kontext/max/text-to-image", thumbnailUrl: "", referenceImageUrls: [] };
+  return { name: "", prompt: "", model: "fal-ai/nano-banana-pro", thumbnailUrl: "", referenceImageUrls: [] };
 }
 
 export default function ImageTemplates() {

@@ -1,20 +1,16 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { higgsfield, config as higgsfieldConfig, createHiggsfieldClient } from "@higgsfield/client/v2";
+import { higgsfield, config as higgsfieldConfig } from "@higgsfield/client/v2";
 import type { V2Response } from "@higgsfield/client/v2";
+import { fal } from "@fal-ai/client";
 import { v2 as cloudinaryV2 } from "cloudinary";
 
-// Configure the default SDK client (platform.higgsfield.ai — path-style slugs)
+// Configure Higgsfield (platform.higgsfield.ai — path-style slugs only)
 higgsfieldConfig({ credentials: process.env.HIGGSFIELD_CREDENTIALS });
 
-// Second client pointing at fnf.higgsfield.ai — used for job-set-type slugs
-// (underscore format: nano_banana_2, gpt_image_2, etc. as used by the Higgsfield CLI)
-const fnfClient = createHiggsfieldClient({
-  credentials: process.env.HIGGSFIELD_CREDENTIALS,
-  baseURL: "https://fnf.higgsfield.ai",
-});
+// Configure fal.ai (Nano Banana Pro and other models)
+fal.config({ credentials: process.env.FAL_KEY });
 
-// Cloudinary is configured globally in cloudinary.ts; we configure it here
-// as well so this service works standalone without the main app import order.
+// Cloudinary
 cloudinaryV2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -23,40 +19,31 @@ cloudinaryV2.config({
 });
 
 // ---------------------------------------------------------------------------
-// Higgsfield model endpoint slugs
-// Sources: official Higgsfield CLI (higgsfield model list), JS SDK v2, Python SDK.
-// Base URL: https://platform.higgsfield.ai  Auth: Key ID:SECRET
-// If generation fails with NotEnoughCreditsError, top up credits at cloud.higgsfield.ai.
+// Model registry
 // ---------------------------------------------------------------------------
-// Slugs sourced from official Higgsfield model reference (server/services/higgsfield-models.md).
-// Use JOB SET TYPE column values exactly as listed.
-export const HIGGSFIELD_MODELS = {
-  NANO_BANANA_PRO:       "nano_banana_2",           // Nano Banana Pro
-  NANO_BANANA_2:         "nano_banana_flash",        // Nano Banana 2 (fast)
-  NANO_BANANA:           "nano_banana",              // Nano Banana (original)
-  GPT_IMAGE_2:           "gpt_image_2",              // GPT Image 2
-  CINEMATIC_STUDIO:      "cinematic_studio_2_5",     // Cinematic Studio 2.5
-  FLUX_2:                "flux_2",                   // FLUX.2
-  FLUX_KONTEXT:          "flux_kontext",             // Flux Kontext
-  FLUX_KONTEXT_MAX:      "flux-pro/kontext/max/text-to-image", // FLUX Kontext Max (legacy confirmed slug)
-  GROK_IMAGE:            "grok_image",               // Grok Image
-  IMAGE_AUTO:            "image_auto",               // Image Auto
-  KLING_IMAGE:           "kling_omni_image",         // Kling O1 Image
-  MARKETING_STUDIO:      "marketing_studio_image",   // Marketing Studio Image
-  MS_IMAGE:              "ms_image",                 // MS Image
-  OPENAI_HAZEL:          "openai_hazel",             // OpenAI Hazel
-  REVE:                  "reve/text-to-image",       // Reve (legacy confirmed slug)
-  SEEDREAM_45:           "seedream_v4_5",            // Seedream 4.5
-  SEEDREAM_V5_LITE:      "seedream_v5_lite",         // Seedream V5 Lite
-  SOUL_V2:               "text2image_soul_v2",       // Higgsfield Soul V2
-  SOUL_CINEMATIC:        "soul_cinematic",           // Soul Cinematic
-  SOUL_LOCATION:         "soul_location",            // Soul Location
-  Z_IMAGE:               "z_image",                  // Z Image
+// FAL models use "fal-ai/..." IDs and are routed through fal.ai.
+// Higgsfield models use path-style slugs and go through platform.higgsfield.ai.
+// ---------------------------------------------------------------------------
+
+export const FAL_MODELS = {
+  NANO_BANANA_PRO:   "fal-ai/nano-banana-pro",  // Nano Banana Pro (best quality)
+  NANO_BANANA:       "fal-ai/nano-banana",       // Nano Banana (standard)
 } as const;
 
-export type HiggsfieldModelSlug = typeof HIGGSFIELD_MODELS[keyof typeof HIGGSFIELD_MODELS];
+export const HIGGSFIELD_MODELS = {
+  FLUX_KONTEXT_MAX:  "flux-pro/kontext/max/text-to-image",
+  REVE:              "reve/text-to-image",
+} as const;
 
-const DEFAULT_MODEL: HiggsfieldModelSlug = HIGGSFIELD_MODELS.FLUX_KONTEXT_MAX;
+export type FalModelId = typeof FAL_MODELS[keyof typeof FAL_MODELS];
+export type HiggsfieldModelSlug = typeof HIGGSFIELD_MODELS[keyof typeof HIGGSFIELD_MODELS];
+export type ModelId = FalModelId | HiggsfieldModelSlug;
+
+const DEFAULT_MODEL: ModelId = FAL_MODELS.NANO_BANANA_PRO;
+
+function isFalModel(model: string): boolean {
+  return model.startsWith("fal-ai/");
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -95,7 +82,7 @@ async function buildImagePrompt(topic: string, keyword?: string, brandContext?: 
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 150,
-    system: `You write image generation prompts for Higgsfield/FLUX. Output ONLY the prompt — no explanation, no quotes, no preamble. Keep it under 120 words.
+    system: `You write image generation prompts for FLUX/Nano Banana. Output ONLY the prompt — no explanation, no quotes, no preamble. Keep it under 120 words.
 
 Style: photojournalistic editorial photography. Shallow depth of field. Available light — whatever light naturally exists in the scene. Do NOT specify lighting direction, do NOT add window light, do NOT add studio softboxes. Let the scene dictate the light.
 
@@ -116,20 +103,31 @@ Focus on: the occasion or feeling behind the topic, a specific real setting, emo
   return text;
 }
 
-async function callHiggsfield(modelSlug: string, input: Record<string, unknown>): Promise<string> {
-  // Job-set-type slugs (underscore format e.g. nano_banana_2, gpt_image_2) are served by
-  // fnf.higgsfield.ai — the same base the Higgsfield CLI uses.
-  // Path-style slugs (e.g. flux-pro/kontext/max/text-to-image) are served by
-  // platform.higgsfield.ai — the default SDK base URL.
-  const isJobSetType = /^[a-z0-9_]+$/.test(modelSlug);
-  const client = isJobSetType ? fnfClient : higgsfield;
+// ---------------------------------------------------------------------------
+// fal.ai generation
+// ---------------------------------------------------------------------------
+async function callFal(modelId: string, input: Record<string, unknown>): Promise<string> {
+  const result = await fal.subscribe(modelId, {
+    input,
+    logs: false,
+  }) as { images?: Array<{ url: string }> };
 
-  const response: V2Response = await client.subscribe(modelSlug, {
+  const imageUrl = result?.images?.[0]?.url;
+  if (!imageUrl) {
+    throw new Error(`fal.ai returned no image URL for ${modelId}. Response: ${JSON.stringify(result)}`);
+  }
+  return imageUrl;
+}
+
+// ---------------------------------------------------------------------------
+// Higgsfield generation (path-style slugs only — platform.higgsfield.ai)
+// ---------------------------------------------------------------------------
+async function callHiggsfield(modelSlug: string, input: Record<string, unknown>): Promise<string> {
+  const response: V2Response = await higgsfield.subscribe(modelSlug, {
     input,
     withPolling: true,
   });
 
-  // V2Response exposes images[] for image generation endpoints
   const imageUrl = response?.images?.[0]?.url;
   if (!imageUrl) {
     throw new Error(`Higgsfield returned no image URL. Response: ${JSON.stringify(response)}`);
@@ -137,10 +135,20 @@ async function callHiggsfield(modelSlug: string, input: Record<string, unknown>)
   return imageUrl;
 }
 
+// ---------------------------------------------------------------------------
+// Unified generation dispatcher
+// ---------------------------------------------------------------------------
+async function callModel(modelId: string, input: Record<string, unknown>): Promise<string> {
+  if (isFalModel(modelId)) {
+    return callFal(modelId, input);
+  }
+  return callHiggsfield(modelId, input);
+}
+
+// ---------------------------------------------------------------------------
+// Cloudinary upload
+// ---------------------------------------------------------------------------
 async function downloadAndUploadToCloudinary(sourceUrl: string, folder = "wt-generated"): Promise<string> {
-  // Explicitly fetch the image bytes from the provider URL before uploading,
-  // so we are not reliant on Cloudinary's remote-fetch behaviour (which may
-  // fail for short-lived signed provider URLs).
   const fetched = await fetch(sourceUrl);
   if (!fetched.ok) {
     throw new Error(`Failed to download generated image from provider (${fetched.status}): ${sourceUrl}`);
@@ -172,8 +180,15 @@ const ASPECT_RATIO_DIMENSIONS: Record<string, { width: number; height: number }>
   "16:9": { width: 2048, height: 1152 },
 };
 
+// Fal.ai uses "aspect_ratio" string directly (e.g. "16:9") but some models
+// may also accept width/height. We send both to be safe.
+function buildDimInput(aspectRatio: string): Record<string, unknown> {
+  const dims = ASPECT_RATIO_DIMENSIONS[aspectRatio] ?? { width: 1024, height: 1024 };
+  return { aspect_ratio: aspectRatio, image_size: { width: dims.width, height: dims.height } };
+}
+
 // ---------------------------------------------------------------------------
-// Image Studio — generate a single image for a given aspect ratio
+// Image Studio
 // ---------------------------------------------------------------------------
 export async function generateStudioImage(params: {
   prompt: string;
@@ -182,40 +197,26 @@ export async function generateStudioImage(params: {
   referenceImageUrls: string[];
 }): Promise<string> {
   const { prompt, model, aspectRatio, referenceImageUrls } = params;
-  const dims = ASPECT_RATIO_DIMENSIONS[aspectRatio] ?? { width: 1024, height: 1024 };
 
   const input: Record<string, unknown> = {
     prompt,
-    aspect_ratio: aspectRatio,
-    width: dims.width,
-    height: dims.height,
+    ...buildDimInput(aspectRatio),
     safety_tolerance: 2,
   };
 
-  // Higgsfield's image_url field accepts a single conditioning URL.
-  // If multiple reference images are provided, only the first is used for
-  // composition conditioning — multi-image conditioning is not supported by
-  // the current Higgsfield API.
   if (referenceImageUrls.length > 0) {
     input.image_url = referenceImageUrls[0];
   }
 
-  console.log(`[imageGeneration] studio mode=${model} ratio=${aspectRatio} prompt="${prompt.substring(0, 60)}…"`);
-  const providerUrl = await callHiggsfield(model, input);
+  console.log(`[imageGeneration] studio model=${model} ratio=${aspectRatio} prompt="${prompt.substring(0, 60)}…"`);
+  const providerUrl = await callModel(model, input);
   const cloudinaryUrl = await downloadAndUploadToCloudinary(providerUrl, "wt-generated");
   return cloudinaryUrl;
 }
 
 // ---------------------------------------------------------------------------
-// Expand/resize an existing image to a different aspect ratio.
-// Uses the FLUX Kontext Max model (context-aware image-conditioned generation)
-// which accepts image_url as a conditioning input and re-renders it at a new
-// aspect ratio while preserving composition.  The expand_image_url parameter
-// is sent when the endpoint supports explicit outpainting; image_url is the
-// standard field and provides visual context for composition consistency.
+// Image expand/resize (always uses FLUX Kontext Max via Higgsfield)
 // ---------------------------------------------------------------------------
-const EXPAND_MODEL = HIGGSFIELD_MODELS.FLUX_KONTEXT_MAX;
-
 export async function expandImage(params: {
   sourceUrl: string;
   targetAspectRatio: string;
@@ -232,35 +233,32 @@ export async function expandImage(params: {
     prompt: "expand the image to fill the new aspect ratio, preserving the original composition and style",
   };
 
-  console.log(`[imageGeneration] expand to ${targetAspectRatio} using ${EXPAND_MODEL}`);
-  const providerUrl = await callHiggsfield(EXPAND_MODEL, input);
+  console.log(`[imageGeneration] expand to ${targetAspectRatio} using ${HIGGSFIELD_MODELS.FLUX_KONTEXT_MAX}`);
+  const providerUrl = await callHiggsfield(HIGGSFIELD_MODELS.FLUX_KONTEXT_MAX, input);
   const cloudinaryUrl = await downloadAndUploadToCloudinary(providerUrl, "wt-generated");
   return cloudinaryUrl;
 }
 
 // ---------------------------------------------------------------------------
-// Article featured image — full-content prompt builder
+// Article featured image
 // ---------------------------------------------------------------------------
-
 async function buildArticleImagePrompt(
   title: string,
   primaryKeyword: string,
   articleContent: string,
 ): Promise<string> {
-  // Truncate article content to ~2,000 tokens to keep cost-controlled.
-  // The opening of an article carries the most relevant context.
   const truncatedContent = articleContent.slice(0, 8000);
 
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 200,
-    system: `You write image generation prompts for Higgsfield/FLUX. Output ONLY the prompt — no explanation, no quotes, no preamble. Keep it under 130 words.
+    system: `You write image generation prompts for FLUX/Nano Banana. Output ONLY the prompt — no explanation, no quotes, no preamble. Keep it under 130 words.
 
 Style: photojournalistic editorial photography. Shallow depth of field. Available light only — whatever light naturally exists in the scene. Do NOT specify lighting direction (no "window light from the left", no "golden hour", no studio softboxes, no "soft shadows"). Let the scene and moment dictate how the light falls.
 
 Human presence is encouraged — hands holding a gift, someone's back or side profile, hands around a drink, a person at a table. No frontal faces. A moment with a person in it is almost always better than a table arrangement of objects.
 
-AVOID flatlay / object arrangements — do NOT pile up books, journals, maps, compasses, and props on a table. These produce AI-artifact slop. One or two simple props max, or a person in a moment. Never render objects with fine surface detail, embossing, printed text on surfaces, or engraved patterns — FLUX renders these badly.
+AVOID flatlay / object arrangements — do NOT pile up books, journals, maps, compasses, and props on a table. These produce AI-artifact slop. One or two simple props max, or a person in a moment. Never render objects with fine surface detail, embossing, printed text on surfaces, or engraved patterns.
 
 Brand context: Well Told Design is a New England gift brand. Photography should feel real, unposed, and emotionally honest. Earthy, warm tones. No studio setups.
 
@@ -270,7 +268,7 @@ Always end with: No frontal faces, no legible text, no logos.`,
     messages: [
       {
         role: "user",
-        content: `Here is the article. Write a Higgsfield image generation prompt for its hero image. The prompt should be grounded in the actual content, tone, and subject matter of this article — not just its title. Be specific: prefer a real moment over a generic setting.
+        content: `Here is the article. Write an image generation prompt for its hero image. The prompt should be grounded in the actual content, tone, and subject matter of this article — not just its title. Be specific: prefer a real moment over a generic setting.
 
 Title: ${title}
 Primary keyword: ${primaryKeyword}
@@ -297,30 +295,28 @@ export async function generateArticleFeaturedImage(
   articleContent: string,
 ): Promise<GenerateImageResult> {
   const prompt = await buildArticleImagePrompt(title, primaryKeyword, articleContent);
+  const model = DEFAULT_MODEL;
 
-  console.log(`[generateArticleFeaturedImage] prompt: "${prompt.substring(0, 100)}…"`);
+  console.log(`[generateArticleFeaturedImage] model=${model} prompt: "${prompt.substring(0, 100)}…"`);
 
-  const higgsInput: Record<string, unknown> = {
+  const input: Record<string, unknown> = {
     prompt,
-    aspect_ratio: "16:9",
-    width: 2048,
-    height: 1152,
+    ...buildDimInput("16:9"),
     safety_tolerance: 2,
   };
 
-  const providerUrl = await callHiggsfield(HIGGSFIELD_MODELS.FLUX_KONTEXT_MAX, higgsInput);
+  const providerUrl = await callModel(model, input);
   const cloudinaryUrl = await downloadAndUploadToCloudinary(providerUrl, "wt-article-hero");
 
   console.log(`[generateArticleFeaturedImage] Cloudinary URL: ${cloudinaryUrl}`);
-  return { cloudinaryUrl, providerUrl, model: HIGGSFIELD_MODELS.FLUX_KONTEXT_MAX };
+  return { cloudinaryUrl, providerUrl, model };
 }
 
 // ---------------------------------------------------------------------------
 // Public entry point
 // ---------------------------------------------------------------------------
-
 export async function generateImage(request: GenerateImageRequest): Promise<GenerateImageResult> {
-  const modelSlug = request.model ?? DEFAULT_MODEL;
+  const modelId = request.model ?? DEFAULT_MODEL;
 
   let prompt: string;
   let extraInput: Record<string, unknown> = {};
@@ -345,22 +341,20 @@ export async function generateImage(request: GenerateImageRequest): Promise<Gene
       break;
   }
 
-  console.log(`[imageGeneration] mode=${request.mode} model=${modelSlug} prompt="${prompt.substring(0, 80)}…"`);
+  console.log(`[imageGeneration] mode=${request.mode} model=${modelId} prompt="${prompt.substring(0, 80)}…"`);
 
-  const higgsInput: Record<string, unknown> = {
+  const input: Record<string, unknown> = {
     prompt,
-    aspect_ratio: "16:9",
-    width: 2048,
-    height: 1152,
+    ...buildDimInput("16:9"),
     safety_tolerance: 2,
     ...extraInput,
   };
 
-  const providerUrl = await callHiggsfield(modelSlug, higgsInput);
+  const providerUrl = await callModel(modelId, input);
   console.log(`[imageGeneration] provider URL: ${providerUrl}`);
 
   const cloudinaryUrl = await downloadAndUploadToCloudinary(providerUrl);
   console.log(`[imageGeneration] Cloudinary URL: ${cloudinaryUrl}`);
 
-  return { cloudinaryUrl, providerUrl, model: modelSlug };
+  return { cloudinaryUrl, providerUrl, model: modelId };
 }

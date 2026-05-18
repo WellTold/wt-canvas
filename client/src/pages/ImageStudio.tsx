@@ -14,10 +14,9 @@ import { Loader2, Upload, X, Download, CloudUpload, Image, Package } from "lucid
 import type { ImageTemplate } from "@shared/schema";
 import { SiShopify as SiShopifyIcon } from "react-icons/si";
 
-// Only models confirmed to work via API key on platform.higgsfield.ai.
-// Job-set-type slugs (nano_banana_2, gpt_image_2, etc.) require a device session
-// token from 'higgsfield auth login' — they do not work with the API key.
 const MODELS = [
+  { value: "fal-ai/nano-banana-pro",             label: "Nano Banana Pro" },
+  { value: "fal-ai/nano-banana",                 label: "Nano Banana" },
   { value: "flux-pro/kontext/max/text-to-image", label: "FLUX Kontext Max" },
   { value: "reve/text-to-image",                 label: "Reve" },
 ];
@@ -38,7 +37,7 @@ export default function ImageStudio() {
   const { toast } = useToast();
 
   const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState("flux-pro/kontext/max/text-to-image");
+  const [model, setModel] = useState("fal-ai/nano-banana-pro");
   const [selectedRatios, setSelectedRatios] = useState<AspectRatio[]>(["1:1"]);
   const [referenceUrls, setReferenceUrls] = useState<string[]>([]);
   const [imageSourceTab, setImageSourceTab] = useState<ImageSourceTab>("url");

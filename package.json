@@ -13,6 +13,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
     "@cloudflare/workers-types": "^4.20260331.1",
+    "@fal-ai/client": "^1.10.1",
     "@higgsfield/client": "^0.2.1",
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
