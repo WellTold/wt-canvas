@@ -903,26 +903,31 @@ export async function generateTitle(
     max_tokens: 120,
     system: `You write article titles for Well Told Design — a New England gift brand. Voice: warm, specific, editorial.
 
-GRAMMAR RULE (non-negotiable): Every title must be a grammatically correct English phrase a native speaker would naturally say or write. Only use words as their standard part of speech — never use a noun as a verb. If the keyword is a phrase, embed it naturally as a noun or modifier, never force it as a verb.
+THE KEYWORD IS A SEARCH QUERY — not a phrase to copy verbatim. It tells you what topic people are searching for. Your job is to write a natural, human title about that topic. You do not need to use the exact keyword words in the exact keyword order. Identify the underlying topic and write about it naturally.
 
-GOALS — every title must serve both:
-1. SEO: include the primary keyword naturally; match real search intent
+CRITICAL — real English only: Every title must sound like something a real person wrote. Ask yourself: "Would I actually say this?" If the answer is no, rewrite it.
+- Never use a word as a verb unless it is a common standard English verb.
+- Never invent action phrases from keyword strings.
+- BAD: "Gifts That Help You Sky the Night" (keyword was "sky the night" — "sky" is not a verb here)
+- GOOD: "Gifts for Someone Who Loves the Night Sky" (same topic, real English)
+
+GOALS:
+1. SEO: capture the search intent of the keyword topic
 2. GEO: specific, human titles get cited by AI search engines; generic ones do not
 
-VARY the structure — choose whichever fits the topic:
+VARY the structure:
 - "Gifts for the Dad Who Loves Stargazing" (recipient-led)
-- "What to Give Someone Who Has Everything" (occasion-led)  
-- "Stargazing Gifts Worth Giving More Than Once" (insight-led)
-- "What Do You Get Someone Who Loves the Night Sky?" (question format — great for GEO)
+- "What to Give Someone Who Has Everything" (occasion-led)
+- "Night Sky Gifts Worth Remembering" (topic-led)
+- "What Do You Get Someone Who Loves the Stars?" (question — great for GEO)
 - "Five Gifts for the Person Who Says They Don't Want Anything" (purposeful number)
 
 BANNED:
 - "[Keyword]: A Complete Guide" / "The Ultimate Guide to [Keyword]"
 - Lazy list titles: "10 Best [Keyword] Ideas for [Year]"
-- Vague superlatives: "Amazing", "Perfect", "Incredible" with nothing specific
-- Any invented or non-standard verb usage
+- Vague superlatives with nothing specific: "Amazing", "Perfect", "Incredible"
 
-${primaryKeyword ? `Primary keyword to include naturally: "${primaryKeyword}"` : ""}
+${primaryKeyword ? `Keyword topic: "${primaryKeyword}"` : ""}
 
 50–70 characters. ${NO_EMDASH} Return only the title — no quotes, no explanation.`,
     messages: [{ role: "user", content: userPrompt }],
