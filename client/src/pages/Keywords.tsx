@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Trash2, Pencil, Plus, Upload, Sparkles, Check, X, ExternalLink, Loader2, Zap, LayoutList, Library, ChevronRight, ChevronDown } from "lucide-react";
+import { Trash2, Pencil, Plus, Upload, Download, Sparkles, Check, X, ExternalLink, Loader2, Zap, LayoutList, Library, ChevronRight, ChevronDown } from "lucide-react";
 import type { Keyword, ContentItem } from "@shared/schema";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -498,6 +498,49 @@ export default function Keywords() {
     return () => clearInterval(interval);
   }, [batchJobId]);
 
+  const handleExportCsv = () => {
+    const headers = [
+      "keyword", "type", "priority", "status", "volume", "kd",
+      "cluster", "article_angle", "content_type_target",
+      "linked_article_id", "linked_article_title",
+    ];
+
+    const escape = (v: string | number | null | undefined) => {
+      const s = v == null ? "" : String(v);
+      return s.includes(",") || s.includes('"') || s.includes("\n")
+        ? `"${s.replace(/"/g, '""')}"`
+        : s;
+    };
+
+    const rows = sortedKeywords.map((kw) => [
+      escape(kw.keyword),
+      escape(kw.type),
+      escape(kw.priority),
+      escape(kw.status),
+      escape(kw.volume),
+      escape(kw.kd),
+      escape(kw.cluster),
+      escape(kw.articleAngle),
+      escape(kw.contentTypeTarget),
+      escape(kw.contentItemId),
+      escape(kw.contentItemTitle),
+    ].join(","));
+
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const filterLabel = [
+      filterStatus && filterStatus,
+      filterPriority && filterPriority,
+      filterCluster && filterCluster,
+    ].filter(Boolean).join("-");
+    a.download = `keywords${filterLabel ? `-${filterLabel}` : ""}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleBulkSubmit = () => {
     const lines = bulkText
       .split(/[\n,]+/)
@@ -714,6 +757,10 @@ export default function Keywords() {
               <Button variant="outline" size="sm" onClick={() => setShowSuggestPanel(true)}>
                 <Sparkles size={15} className="mr-1.5" />
                 AI Suggest
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={sortedKeywords.length === 0}>
+                <Download size={15} className="mr-1.5" />
+                Export CSV
               </Button>
               <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()}>
                 <Upload size={15} className="mr-1.5" />
