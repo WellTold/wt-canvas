@@ -1051,8 +1051,10 @@ export class DatabaseStorage implements IStorage {
           articleAngle: sql`excluded.article_angle`,
           priority: sql`excluded.priority`,
           cluster: sql`excluded.cluster`,
+          subcluster: sql`excluded.subcluster`,
           contentTypeTarget: sql`excluded.content_type_target`,
           status: sql`excluded.status`,
+          campaign: sql`excluded.campaign`,
         },
       })
       .returning();
