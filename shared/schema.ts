@@ -362,6 +362,7 @@ export const keywords = pgTable("keywords", {
   volume: bigint("volume", { mode: "number" }), // monthly search volume
   kd: integer("kd"), // keyword difficulty 0-100
   cluster: text("cluster"),
+  subcluster: text("subcluster"), // tighter sub-grouping within a cluster for AI keyword selection
   articleAngle: text("article_angle"), // tone/angle direction for AI generation
   priority: text("priority").notNull().default("supporting"), // primary | supporting
   contentTypeTarget: text("content_type_target"), // blog_article | landing_page | lead_magnet

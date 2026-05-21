@@ -3681,12 +3681,13 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
   // List keywords with optional filters
   app.get("/api/keywords", requireAuth, async (req, res) => {
     try {
-      const { cluster, type, status, priority, campaign, search } = req.query as Record<
+      const { cluster, subcluster, type, status, priority, campaign, search } = req.query as Record<
         string,
         string
       >;
       const filters: Record<string, string> = {};
       if (cluster) filters.cluster = cluster;
+      if (subcluster) filters.subcluster = subcluster;
       if (type) filters.type = type;
       if (status && status !== "all") filters.status = status;
       if (priority && priority !== "all") filters.priority = priority;
@@ -4296,6 +4297,16 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       });
     } catch (err) {
       res.status(500).json({ message: (err as Error).message });
+    }
+  });
+
+  // Distinct subcluster names
+  app.get("/api/keywords/subclusters", requireAuth, async (_req, res) => {
+    try {
+      const subclusters = await storage.getKeywordSubclusters();
+      res.json(subclusters);
+    } catch {
+      res.status(500).json({ message: "Failed to fetch subclusters" });
     }
   });
 

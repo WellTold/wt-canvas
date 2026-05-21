@@ -86,6 +86,7 @@ interface RowState {
   volume: string;
   kd: string;
   cluster: string;
+  subcluster: string;
   articleAngle: string;
   priority: string;
   contentTypeTarget: string;
@@ -99,6 +100,7 @@ const BLANK_ROW: RowState = {
   volume: "",
   kd: "",
   cluster: "",
+  subcluster: "",
   articleAngle: "none",
   priority: "supporting",
   contentTypeTarget: "none",
@@ -115,6 +117,7 @@ function rowStateToPayload(r: RowState) {
     volume: Number.isFinite(vol as number) ? vol : null,
     kd: Number.isFinite(kdVal as number) ? kdVal : null,
     cluster: r.cluster.trim() || null,
+    subcluster: r.subcluster.trim() || null,
     articleAngle: r.articleAngle === "none" ? null : r.articleAngle,
     priority: r.priority,
     contentTypeTarget: r.contentTypeTarget === "none" ? null : r.contentTypeTarget,
@@ -130,6 +133,7 @@ function keywordToRowState(kw: Keyword): RowState {
     volume: kw.volume != null ? String(kw.volume) : "",
     kd: kw.kd != null ? String(kw.kd) : "",
     cluster: kw.cluster ?? "",
+    subcluster: kw.subcluster ?? "",
     articleAngle: kw.articleAngle ?? "none",
     priority: kw.priority ?? "supporting",
     contentTypeTarget: kw.contentTypeTarget ?? "none",
@@ -195,6 +199,14 @@ function InlineRowFields({
         />
       </TableCell>
       <TableCell>
+        <Input
+          value={row.subcluster}
+          onChange={(e) => onChange({ ...row, subcluster: e.target.value })}
+          placeholder="Subcluster…"
+          className="h-8 text-xs"
+        />
+      </TableCell>
+      <TableCell>
         <Select value={row.articleAngle} onValueChange={(v) => onChange({ ...row, articleAngle: v })}>
           <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Angle…" /></SelectTrigger>
           <SelectContent>
@@ -254,6 +266,7 @@ export default function Keywords() {
   const { toast } = useToast();
 
   const [filterCluster, setFilterCluster] = useState("");
+  const [filterSubcluster, setFilterSubcluster] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
@@ -307,6 +320,7 @@ export default function Keywords() {
   const buildQuery = () => {
     const params = new URLSearchParams();
     if (filterCluster) params.set("cluster", filterCluster);
+    if (filterSubcluster) params.set("subcluster", filterSubcluster);
     if (filterType) params.set("type", filterType);
     if (filterStatus) params.set("status", filterStatus);
     if (filterPriority) params.set("priority", filterPriority);
@@ -324,8 +338,17 @@ export default function Keywords() {
     staleTime: 30_000,
   });
 
+  const { data: subclusters = [] } = useQuery<string[]>({
+    queryKey: ["/api/keywords/subclusters"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/keywords/subclusters");
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+
   const { data: keywords = [], isLoading } = useQuery<Keyword[]>({
-    queryKey: ["/api/keywords", filterCluster, filterType, filterStatus, filterPriority, activeCampaign],
+    queryKey: ["/api/keywords", filterCluster, filterSubcluster, filterType, filterStatus, filterPriority, activeCampaign],
     queryFn: async () => {
       const res = await apiRequest("GET", buildQuery());
       return res.json();
@@ -378,6 +401,7 @@ export default function Keywords() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/keywords"] });
       queryClient.invalidateQueries({ queryKey: ["/api/keywords/campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/keywords/subclusters"] });
       setShowAddRow(false);
       setNewKw(blankRowForContext());
       toast({ title: "Keyword added" });
@@ -423,6 +447,7 @@ export default function Keywords() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/keywords"] });
       queryClient.invalidateQueries({ queryKey: ["/api/keywords/campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/keywords/subclusters"] });
       setShowBulkPanel(false);
       setBulkText("");
       toast({ title: `${data.length} keywords added` });
@@ -533,7 +558,7 @@ export default function Keywords() {
   const handleExportCsv = () => {
     const headers = [
       "keyword", "type", "priority", "status", "volume", "kd",
-      "cluster", "article_angle", "content_type_target",
+      "cluster", "subcluster", "article_angle", "content_type_target",
       "campaign", "linked_article_id", "linked_article_title",
     ];
 
@@ -552,6 +577,7 @@ export default function Keywords() {
       escape(kw.volume),
       escape(kw.kd),
       escape(kw.cluster),
+      escape(kw.subcluster),
       escape(kw.articleAngle),
       escape(kw.contentTypeTarget),
       escape(kw.campaign),
@@ -645,6 +671,7 @@ export default function Keywords() {
     const volumeIdx = col("volume");
     const kdIdx = col("kd");
     const clusterIdx = col("cluster");
+    const subclusterIdx = col("subcluster");
     const angleIdx = col("articleAngle") ?? col("article_angle") ?? col("articleangle");
     const priorityIdx = col("priority");
     const ctIdx = col("contentTypeTarget") ?? col("content_type_target") ?? col("contenttypetarget");
@@ -691,6 +718,7 @@ export default function Keywords() {
           volume: volumeIdx !== null ? parseMaybeInt(cols[volumeIdx] ?? "") : null,
           kd: kdIdx !== null ? parseMaybePositiveInt(cols[kdIdx] ?? "") : null,
           cluster: clusterIdx !== null ? cols[clusterIdx] || null : null,
+          subcluster: subclusterIdx !== null ? cols[subclusterIdx] || null : null,
           articleAngle: rawAngle && validAngles.has(rawAngle) ? rawAngle : null,
           priority: validPriorities.has(rawPriority) ? rawPriority : "supporting",
           contentTypeTarget: ctIdx !== null ? cols[ctIdx] || null : null,
@@ -1308,6 +1336,22 @@ export default function Keywords() {
             ))}
           </SelectContent>
         </Select>
+        {subclusters.length > 0 && (
+          <Select
+            value={filterSubcluster || "all"}
+            onValueChange={(v) => setFilterSubcluster(v === "all" ? "" : v)}
+          >
+            <SelectTrigger className="w-44 h-8 text-xs">
+              <SelectValue placeholder="All subclusters" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All subclusters</SelectItem>
+              {subclusters.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Select
           value={filterType || "all"}
           onValueChange={(v) => setFilterType(v === "all" ? "" : v)}
@@ -1373,21 +1417,22 @@ export default function Keywords() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[20%]">Keyword</TableHead>
-              <TableHead className="w-[6%]">Type</TableHead>
-              <TableHead className="w-[6%] text-right cursor-pointer select-none" onClick={() => toggleSort("volume")}>
+              <TableHead className="w-[18%]">Keyword</TableHead>
+              <TableHead className="w-[5%]">Type</TableHead>
+              <TableHead className="w-[5%] text-right cursor-pointer select-none" onClick={() => toggleSort("volume")}>
                 Vol {sortCol === "volume" ? (sortDir === "desc" ? "↓" : "↑") : ""}
               </TableHead>
               <TableHead className="w-[4%] text-right cursor-pointer select-none" onClick={() => toggleSort("kd")}>
                 KD {sortCol === "kd" ? (sortDir === "desc" ? "↓" : "↑") : ""}
               </TableHead>
-              <TableHead className="w-[9%]">Cluster</TableHead>
-              <TableHead className="w-[12%]">Article Angle</TableHead>
-              <TableHead className="w-[7%]">Priority</TableHead>
-              <TableHead className="w-[9%]">Content Target</TableHead>
-              <TableHead className="w-[7%]">Status</TableHead>
-              <TableHead className="w-[8%]">Campaign</TableHead>
-              <TableHead className="w-[6%] text-right">Actions</TableHead>
+              <TableHead className="w-[8%]">Cluster</TableHead>
+              <TableHead className="w-[7%]">Subcluster</TableHead>
+              <TableHead className="w-[11%]">Article Angle</TableHead>
+              <TableHead className="w-[6%]">Priority</TableHead>
+              <TableHead className="w-[8%]">Content Target</TableHead>
+              <TableHead className="w-[6%]">Status</TableHead>
+              <TableHead className="w-[7%]">Campaign</TableHead>
+              <TableHead className="w-[5%] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1480,6 +1525,9 @@ export default function Keywords() {
                     </TableCell>
                     <TableCell className="text-sm text-gray-600 dark:text-gray-400">
                       {kw.cluster || "—"}
+                    </TableCell>
+                    <TableCell className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[100px]" title={kw.subcluster ?? undefined}>
+                      {kw.subcluster || "—"}
                     </TableCell>
                     <TableCell className="text-xs text-gray-500 dark:text-gray-400 max-w-[140px] truncate" title={kw.articleAngle ?? undefined}>
                       {kw.articleAngle
