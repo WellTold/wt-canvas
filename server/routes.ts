@@ -3758,12 +3758,14 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
             articleAngle: z.enum(ARTICLE_ANGLES).nullish(),
             priority: z.enum(["primary", "supporting"]).optional(),
             cluster: z.string().nullish(),
+            subcluster: z.string().nullish(),
             contentTypeTarget: z
               .enum(["blog_article", "landing_page", "lead_magnet"])
               .nullish(),
             status: z
               .enum(["untargeted", "in_progress", "published"])
               .optional(),
+            campaign: z.string().nullish(),
           }),
         ]),
       )
@@ -3771,10 +3773,12 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
     type: z.enum(["primary", "secondary"]).optional(),
     priority: z.enum(["primary", "supporting"]).optional(),
     cluster: z.string().nullish(),
+    subcluster: z.string().nullish(),
     contentTypeTarget: z
       .enum(["blog_article", "landing_page", "lead_magnet"])
       .nullish(),
     status: z.enum(["untargeted", "in_progress", "published"]).optional(),
+    campaign: z.string().nullish(),
   });
 
   app.post("/api/keywords/bulk", requireAuth, async (req, res) => {
@@ -3802,9 +3806,11 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           articleAngle: k.articleAngle ?? null,
           priority: k.priority ?? parsed.priority ?? "supporting",
           cluster: k.cluster ?? parsed.cluster ?? null,
+          subcluster: k.subcluster ?? null,
           contentTypeTarget:
             k.contentTypeTarget ?? parsed.contentTypeTarget ?? null,
           status: k.status ?? parsed.status ?? "untargeted",
+          campaign: k.campaign ?? parsed.campaign ?? null,
         });
       });
       const created = await storage.createKeywordsBulk(inserts);
