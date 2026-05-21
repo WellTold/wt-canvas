@@ -244,6 +244,7 @@ export default function Keywords() {
   const [filterCluster, setFilterCluster] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [filterPriority, setFilterPriority] = useState("");
   const [sortCol, setSortCol] = useState<"volume" | "kd" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -295,12 +296,13 @@ export default function Keywords() {
     if (filterCluster) params.set("cluster", filterCluster);
     if (filterType) params.set("type", filterType);
     if (filterStatus) params.set("status", filterStatus);
+    if (filterPriority) params.set("priority", filterPriority);
     const qs = params.toString();
     return `/api/keywords${qs ? `?${qs}` : ""}`;
   };
 
   const { data: keywords = [], isLoading } = useQuery<Keyword[]>({
-    queryKey: ["/api/keywords", filterCluster, filterType, filterStatus],
+    queryKey: ["/api/keywords", filterCluster, filterType, filterStatus, filterPriority],
     queryFn: async () => {
       const res = await apiRequest("GET", buildQuery());
       return res.json();
@@ -1207,6 +1209,17 @@ export default function Keywords() {
           </SelectContent>
         </Select>
         <Select
+          value={filterPriority || "all"}
+          onValueChange={(v) => setFilterPriority(v === "all" ? "" : v)}
+        >
+          <SelectTrigger className="w-36 h-8 text-xs"><SelectValue placeholder="All priorities" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All priorities</SelectItem>
+            <SelectItem value="primary">Primary</SelectItem>
+            <SelectItem value="supporting">Supporting</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
           value={filterStatus || "all"}
           onValueChange={(v) => setFilterStatus(v === "all" ? "" : v)}
         >
@@ -1218,12 +1231,12 @@ export default function Keywords() {
             <SelectItem value="published">Published</SelectItem>
           </SelectContent>
         </Select>
-        {(filterCluster || filterType || filterStatus) && (
+        {(filterCluster || filterType || filterStatus || filterPriority) && (
           <Button
             size="sm"
             variant="ghost"
             className="h-8 text-xs"
-            onClick={() => { setFilterCluster(""); setFilterType(""); setFilterStatus(""); }}
+            onClick={() => { setFilterCluster(""); setFilterType(""); setFilterStatus(""); setFilterPriority(""); }}
           >
             <X size={12} className="mr-1" /> Clear filters
           </Button>

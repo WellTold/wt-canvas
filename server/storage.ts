@@ -982,12 +982,13 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getKeywords(filters?: { cluster?: string; type?: string; status?: string }): Promise<Keyword[]> {
+  async getKeywords(filters?: { cluster?: string; type?: string; status?: string; priority?: string }): Promise<Keyword[]> {
     let query = db.select().from(keywordsTable).$dynamic();
     const conditions = [];
     if (filters?.cluster) conditions.push(eq(keywordsTable.cluster, filters.cluster));
     if (filters?.type) conditions.push(eq(keywordsTable.type, filters.type));
     if (filters?.status) conditions.push(eq(keywordsTable.status, filters.status));
+    if (filters?.priority) conditions.push(eq(keywordsTable.priority, filters.priority));
     if (conditions.length > 0) query = query.where(and(...conditions));
     return query.orderBy(desc(keywordsTable.createdAt));
   }
