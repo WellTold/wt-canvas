@@ -3,10 +3,11 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileText, Magnet, Rocket, Edit, Trash2 } from "lucide-react";
+import { Plus, FileText, Magnet, Rocket, Edit, Trash2, Copy } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { NewPageModal } from "@/components/content/NewPageModal";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const CONTENT_TYPE_LABELS: Record<string, string> = {
   blog_article: "Blog Article",
@@ -69,6 +70,20 @@ export default function SavedPages() {
     if (confirm("Delete this page permanently?")) {
       deleteMutation.mutate(id);
     }
+  };
+
+  const handleCopyKeywords = (item: any) => {
+    const parts = [
+      item.primaryKeyword,
+      ...(item.supportingKeywords ? item.supportingKeywords.split(",").map((s: string) => s.trim()).filter(Boolean) : []),
+    ].filter(Boolean);
+    if (parts.length === 0) {
+      toast({ title: "No keywords to copy", variant: "destructive" });
+      return;
+    }
+    navigator.clipboard.writeText(parts.join(", ")).then(() => {
+      toast({ title: "Keywords copied", description: `${parts.length} keyword${parts.length !== 1 ? "s" : ""} copied to clipboard` });
+    });
   };
 
   const webpageTypes = ["blog_article", "landing_page", "lead_magnet"];
@@ -147,6 +162,24 @@ export default function SavedPages() {
                   {item.status}
                 </span>
                 <div className="flex gap-1 shrink-0">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCopyKeywords(item)}
+                          className="h-7 w-7 p-0 text-gray-400 hover:text-gray-700"
+                          disabled={!item.primaryKeyword && !item.supportingKeywords}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p className="text-xs">Copy keywords</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <Button
                     variant="ghost"
                     size="sm"
