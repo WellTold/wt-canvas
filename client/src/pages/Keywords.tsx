@@ -90,6 +90,7 @@ interface RowState {
   priority: string;
   contentTypeTarget: string;
   status: string;
+  campaign: string;
 }
 
 const BLANK_ROW: RowState = {
@@ -102,6 +103,7 @@ const BLANK_ROW: RowState = {
   priority: "supporting",
   contentTypeTarget: "none",
   status: "untargeted",
+  campaign: "",
 };
 
 function rowStateToPayload(r: RowState) {
@@ -117,6 +119,7 @@ function rowStateToPayload(r: RowState) {
     priority: r.priority,
     contentTypeTarget: r.contentTypeTarget === "none" ? null : r.contentTypeTarget,
     status: r.status,
+    campaign: r.campaign.trim() || null,
   };
 }
 
@@ -131,6 +134,7 @@ function keywordToRowState(kw: Keyword): RowState {
     priority: kw.priority ?? "supporting",
     contentTypeTarget: kw.contentTypeTarget ?? "none",
     status: kw.status,
+    campaign: kw.campaign ?? "",
   };
 }
 
@@ -234,6 +238,14 @@ function InlineRowFields({
           </SelectContent>
         </Select>
       </TableCell>
+      <TableCell>
+        <Input
+          value={row.campaign}
+          onChange={(e) => onChange({ ...row, campaign: e.target.value })}
+          placeholder="Campaign…"
+          className="h-8 text-xs"
+        />
+      </TableCell>
     </>
   );
 }
@@ -245,6 +257,7 @@ export default function Keywords() {
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
+  const [activeCampaign, setActiveCampaign] = useState<string | null>(null);
   const [sortCol, setSortCol] = useState<"volume" | "kd" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -297,12 +310,22 @@ export default function Keywords() {
     if (filterType) params.set("type", filterType);
     if (filterStatus) params.set("status", filterStatus);
     if (filterPriority) params.set("priority", filterPriority);
+    if (activeCampaign) params.set("campaign", activeCampaign);
     const qs = params.toString();
     return `/api/keywords${qs ? `?${qs}` : ""}`;
   };
 
+  const { data: campaigns = [] } = useQuery<string[]>({
+    queryKey: ["/api/keywords/campaigns"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/keywords/campaigns");
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+
   const { data: keywords = [], isLoading } = useQuery<Keyword[]>({
-    queryKey: ["/api/keywords", filterCluster, filterType, filterStatus, filterPriority],
+    queryKey: ["/api/keywords", filterCluster, filterType, filterStatus, filterPriority, activeCampaign],
     queryFn: async () => {
       const res = await apiRequest("GET", buildQuery());
       return res.json();
@@ -341,6 +364,12 @@ export default function Keywords() {
     return res;
   }
 
+  // When a campaign is active, default new keywords to that campaign
+  const blankRowForContext = (): RowState => ({
+    ...BLANK_ROW,
+    campaign: activeCampaign ?? "",
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: RowState) => {
       const res = await checkResponse(await apiRequest("POST", "/api/keywords", rowStateToPayload(data)));
@@ -348,8 +377,9 @@ export default function Keywords() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/keywords"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/keywords/campaigns"] });
       setShowAddRow(false);
-      setNewKw({ ...BLANK_ROW });
+      setNewKw(blankRowForContext());
       toast({ title: "Keyword added" });
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
@@ -386,11 +416,13 @@ export default function Keywords() {
         type: bulkType,
         cluster: bulkCluster.trim() || undefined,
         contentTypeTarget: bulkContentType === "none" ? undefined : bulkContentType,
+        campaign: activeCampaign ?? undefined,
       }));
       return res.json() as Promise<Keyword[]>;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/keywords"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/keywords/campaigns"] });
       setShowBulkPanel(false);
       setBulkText("");
       toast({ title: `${data.length} keywords added` });
@@ -502,7 +534,7 @@ export default function Keywords() {
     const headers = [
       "keyword", "type", "priority", "status", "volume", "kd",
       "cluster", "article_angle", "content_type_target",
-      "linked_article_id", "linked_article_title",
+      "campaign", "linked_article_id", "linked_article_title",
     ];
 
     const escape = (v: string | number | null | undefined) => {
@@ -522,6 +554,7 @@ export default function Keywords() {
       escape(kw.cluster),
       escape(kw.articleAngle),
       escape(kw.contentTypeTarget),
+      escape(kw.campaign),
       escape(kw.contentItemId),
       escape(kw.contentItemTitle),
     ].join(","));
@@ -616,6 +649,7 @@ export default function Keywords() {
     const priorityIdx = col("priority");
     const ctIdx = col("contentTypeTarget") ?? col("content_type_target") ?? col("contenttypetarget");
     const statusIdx = col("status");
+    const campaignIdx = col("campaign");
 
     // Strip thousands-separator commas before parsing (e.g. "1,234,567" → 1234567)
     const cleanNum = (v: string) => v.replace(/,/g, "").trim();
@@ -661,6 +695,7 @@ export default function Keywords() {
           priority: validPriorities.has(rawPriority) ? rawPriority : "supporting",
           contentTypeTarget: ctIdx !== null ? cols[ctIdx] || null : null,
           status: normaliseStatus(rawStatus),
+          campaign: campaignIdx !== null ? cols[campaignIdx] || null : (activeCampaign ?? null),
         };
       })
       .filter((item): item is NonNullable<typeof item> => item !== null);
@@ -775,7 +810,7 @@ export default function Keywords() {
                 size="sm"
                 onClick={() => {
                   setShowAddRow(true);
-                  setNewKw({ ...BLANK_ROW });
+                  setNewKw(blankRowForContext());
                   setEditingId(null);
                 }}
               >
@@ -786,6 +821,35 @@ export default function Keywords() {
           )}
         </div>
       </div>
+
+      {/* Campaign switcher */}
+      {campaigns.length > 0 && (
+        <div className="flex gap-1.5 flex-wrap mb-3">
+          <button
+            onClick={() => setActiveCampaign(null)}
+            className={`px-3 py-1 text-xs font-medium border transition-colors ${
+              activeCampaign === null
+                ? "bg-black text-white border-black"
+                : "bg-white text-gray-600 border-gray-300 hover:border-black hover:text-black"
+            }`}
+          >
+            All Campaigns
+          </button>
+          {campaigns.map((c) => (
+            <button
+              key={c}
+              onClick={() => setActiveCampaign(c)}
+              className={`px-3 py-1 text-xs font-medium border transition-colors ${
+                activeCampaign === c
+                  ? "bg-black text-white border-black"
+                  : "bg-white text-gray-600 border-gray-300 hover:border-black hover:text-black"
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 dark:border-gray-700">
@@ -1309,20 +1373,21 @@ export default function Keywords() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[22%]">Keyword</TableHead>
-              <TableHead className="w-[7%]">Type</TableHead>
-              <TableHead className="w-[7%] text-right cursor-pointer select-none" onClick={() => toggleSort("volume")}>
+              <TableHead className="w-[20%]">Keyword</TableHead>
+              <TableHead className="w-[6%]">Type</TableHead>
+              <TableHead className="w-[6%] text-right cursor-pointer select-none" onClick={() => toggleSort("volume")}>
                 Vol {sortCol === "volume" ? (sortDir === "desc" ? "↓" : "↑") : ""}
               </TableHead>
-              <TableHead className="w-[5%] text-right cursor-pointer select-none" onClick={() => toggleSort("kd")}>
+              <TableHead className="w-[4%] text-right cursor-pointer select-none" onClick={() => toggleSort("kd")}>
                 KD {sortCol === "kd" ? (sortDir === "desc" ? "↓" : "↑") : ""}
               </TableHead>
-              <TableHead className="w-[10%]">Cluster</TableHead>
-              <TableHead className="w-[14%]">Article Angle</TableHead>
-              <TableHead className="w-[8%]">Priority</TableHead>
-              <TableHead className="w-[11%]">Content Target</TableHead>
-              <TableHead className="w-[9%]">Status</TableHead>
-              <TableHead className="w-[7%] text-right">Actions</TableHead>
+              <TableHead className="w-[9%]">Cluster</TableHead>
+              <TableHead className="w-[12%]">Article Angle</TableHead>
+              <TableHead className="w-[7%]">Priority</TableHead>
+              <TableHead className="w-[9%]">Content Target</TableHead>
+              <TableHead className="w-[7%]">Status</TableHead>
+              <TableHead className="w-[8%]">Campaign</TableHead>
+              <TableHead className="w-[6%] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1435,6 +1500,9 @@ export default function Keywords() {
                           ? "In Progress"
                           : kw.status.charAt(0).toUpperCase() + kw.status.slice(1)}
                       </span>
+                    </TableCell>
+                    <TableCell className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[120px]" title={kw.campaign ?? undefined}>
+                      {kw.campaign ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">

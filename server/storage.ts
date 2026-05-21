@@ -276,7 +276,8 @@ export interface IStorage {
   updateBrandContext(context: Partial<BrandContext>): Promise<BrandContext>;
 
   // Keywords
-  getKeywords(filters?: { cluster?: string; type?: string; status?: string }): Promise<Keyword[]>;
+  getKeywords(filters?: { cluster?: string; type?: string; status?: string; priority?: string; campaign?: string }): Promise<Keyword[]>;
+  getKeywordCampaigns(): Promise<string[]>;
   getKeyword(id: number): Promise<Keyword | null>;
   getKeywordByContentItemId(contentItemId: string): Promise<Keyword | null>;
   getKeywordsByContentItemId(contentItemId: string): Promise<Keyword[]>;
@@ -982,15 +983,25 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getKeywords(filters?: { cluster?: string; type?: string; status?: string; priority?: string }): Promise<Keyword[]> {
+  async getKeywords(filters?: { cluster?: string; type?: string; status?: string; priority?: string; campaign?: string }): Promise<Keyword[]> {
     let query = db.select().from(keywordsTable).$dynamic();
     const conditions = [];
     if (filters?.cluster) conditions.push(eq(keywordsTable.cluster, filters.cluster));
     if (filters?.type) conditions.push(eq(keywordsTable.type, filters.type));
     if (filters?.status) conditions.push(eq(keywordsTable.status, filters.status));
     if (filters?.priority) conditions.push(eq(keywordsTable.priority, filters.priority));
+    if (filters?.campaign) conditions.push(eq(keywordsTable.campaign, filters.campaign));
     if (conditions.length > 0) query = query.where(and(...conditions));
     return query.orderBy(desc(keywordsTable.createdAt));
+  }
+
+  async getKeywordCampaigns(): Promise<string[]> {
+    const rows = await db
+      .selectDistinct({ campaign: keywordsTable.campaign })
+      .from(keywordsTable)
+      .where(sql`${keywordsTable.campaign} is not null and ${keywordsTable.campaign} != ''`)
+      .orderBy(keywordsTable.campaign);
+    return rows.map((r) => r.campaign!);
   }
 
   async getKeyword(id: number): Promise<Keyword | null> {

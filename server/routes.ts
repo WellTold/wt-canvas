@@ -3681,7 +3681,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
   // List keywords with optional filters
   app.get("/api/keywords", requireAuth, async (req, res) => {
     try {
-      const { cluster, type, status, priority, search } = req.query as Record<
+      const { cluster, type, status, priority, campaign, search } = req.query as Record<
         string,
         string
       >;
@@ -3690,6 +3690,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       if (type) filters.type = type;
       if (status && status !== "all") filters.status = status;
       if (priority && priority !== "all") filters.priority = priority;
+      if (campaign && campaign !== "all") filters.campaign = campaign;
       let kws = await storage.getKeywords(
         Object.keys(filters).length ? filters : undefined,
       );
@@ -4295,6 +4296,16 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       });
     } catch (err) {
       res.status(500).json({ message: (err as Error).message });
+    }
+  });
+
+  // Distinct campaign names (for the campaign switcher)
+  app.get("/api/keywords/campaigns", requireAuth, async (_req, res) => {
+    try {
+      const campaigns = await storage.getKeywordCampaigns();
+      res.json(campaigns);
+    } catch {
+      res.status(500).json({ message: "Failed to fetch campaigns" });
     }
   });
 

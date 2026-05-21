@@ -368,6 +368,7 @@ export const keywords = pgTable("keywords", {
   status: text("status").notNull().default("untargeted"), // untargeted | in_progress | published
   contentItemId: text("content_item_id"), // linked content item (local int id or Supabase UUID)
   contentItemTitle: text("content_item_title"), // cached title of the linked article
+  campaign: text("campaign"), // optional campaign / sprint grouping
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
