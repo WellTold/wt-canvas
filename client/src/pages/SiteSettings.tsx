@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Save, Plus, Trash2, Navigation, Image as ImageIcon, ExternalLink, Megaphone, Palette, Share2, Mail, ChevronDown, ChevronUp, Check, X } from "lucide-react";
+import { Save, Plus, Trash2, Navigation, Image as ImageIcon, ExternalLink, Megaphone, Palette, Share2, Mail, ChevronDown, ChevronUp, Check, X, Code2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 interface NavLink { label: string; href: string }
@@ -526,6 +526,9 @@ export default function SiteSettings() {
         {/* Email Styles */}
         <EmailStylesSection />
 
+        {/* HTML Snippets */}
+        <HtmlSnippetsSection />
+
         {/* Info */}
         <div className="border border-black bg-white p-4">
           <div className="flex items-center gap-2 mb-2">
@@ -629,6 +632,123 @@ function EmailStyleForm({ initial, onSave, onCancel }: {
         <Button size="sm" variant="outline" className="border-black" onClick={onCancel}>
           <X className="h-3.5 w-3.5 mr-1" />Cancel
         </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── HTML Snippets sub-component ───────────────────────────────────────────────
+
+function HtmlSnippetsSection() {
+  const { toast } = useToast();
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+
+  const { data: snippets = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/snippets"],
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: ({ name, html }: { name: string; html: string }) =>
+      apiRequest("PUT", `/api/snippets/${name}`, { html }).then(r => r.json()),
+    onSuccess: (_, { name }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/snippets"] });
+      toast({ title: "Snippet saved", description: `"${name}" updated successfully.` });
+    },
+    onError: () => toast({ title: "Failed to save snippet", variant: "destructive" }),
+  });
+
+  const handleExpand = (name: string, html: string) => {
+    if (expanded === name) {
+      setExpanded(null);
+    } else {
+      setExpanded(name);
+      if (!(name in drafts)) setDrafts(d => ({ ...d, [name]: html }));
+    }
+  };
+
+  const handleSave = (name: string) => {
+    saveMutation.mutate({ name, html: drafts[name] ?? "" });
+  };
+
+  const handleReset = (name: string, html: string) => {
+    setDrafts(d => ({ ...d, [name]: html }));
+  };
+
+  return (
+    <div className="border border-black bg-[#f0ebe7] p-5 space-y-4">
+      <div className="flex items-center gap-2 mb-1">
+        <Code2 className="h-4 w-4" />
+        <h2 className="font-semibold text-sm">HTML Snippets</h2>
+      </div>
+      <p className="text-xs text-gray-500">
+        Reusable HTML blocks used in the email editor (headers, footers, etc.). Edit the raw HTML here and save to update them across all future uses.
+      </p>
+
+      {isLoading && <p className="text-sm text-gray-400">Loading…</p>}
+
+      <div className="space-y-2">
+        {snippets.map((snippet: any) => {
+          const isOpen = expanded === snippet.name;
+          const draft = drafts[snippet.name] ?? snippet.html ?? "";
+          const isDirty = draft !== snippet.html;
+
+          return (
+            <div key={snippet.name} className="border border-black bg-white">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[#f0ebe7] transition-colors"
+                onClick={() => handleExpand(snippet.name, snippet.html ?? "")}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm">{snippet.label || snippet.name}</p>
+                  {snippet.description && (
+                    <p className="text-xs text-gray-500 truncate mt-0.5">{snippet.description}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  {isDirty && isOpen && (
+                    <span className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide">Unsaved</span>
+                  )}
+                  <code className="text-[10px] text-gray-400 font-mono hidden sm:block">{snippet.name}</code>
+                  {isOpen ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                </div>
+              </button>
+
+              {isOpen && (
+                <div className="border-t border-black px-4 pb-4 pt-3 space-y-3">
+                  <Textarea
+                    value={draft}
+                    onChange={e => setDrafts(d => ({ ...d, [snippet.name]: e.target.value }))}
+                    className="font-mono text-xs min-h-[320px] resize-y border-black"
+                    spellCheck={false}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="bg-black text-white hover:bg-gray-800"
+                      onClick={() => handleSave(snippet.name)}
+                      disabled={saveMutation.isPending || !isDirty}
+                    >
+                      <Save className="h-3.5 w-3.5 mr-1" />
+                      {saveMutation.isPending ? "Saving…" : "Save"}
+                    </Button>
+                    {isDirty && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-black"
+                        onClick={() => handleReset(snippet.name, snippet.html ?? "")}
+                      >
+                        <X className="h-3.5 w-3.5 mr-1" />Discard
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
