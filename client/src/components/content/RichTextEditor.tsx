@@ -117,6 +117,11 @@ export function RichTextEditor({
         class: "rte-content focus:outline-none",
         style: `min-height:${minHeight};padding:8px 10px;`,
       },
+      transformPastedHTML(html) {
+        // Strip <mark> tags (highlight) — no Highlight extension is active so
+        // they would render as yellow blobs via browser/Tailwind preflight.
+        return html.replace(/<\/?mark[^>]*>/gi, "");
+      },
       handleKeyDown(view, event) {
         if (singleLine && event.key === "Enter") {
           event.preventDefault();
