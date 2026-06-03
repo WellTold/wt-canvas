@@ -2972,8 +2972,10 @@ export function ContentBlock({
                 size="sm"
                 title="Save as preset"
                 onClick={() => onSaveAsPreset(block)}
+                className="gap-1.5"
               >
                 <Bookmark className="h-4 w-4" />
+                <span className="hidden sm:inline text-xs">Save as preset</span>
               </Button>
             )}
             <Button variant="outline" size="sm">

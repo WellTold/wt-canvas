@@ -2583,12 +2583,16 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                     </div>
                   </div>
 
-                  {blockPresetsData.length > 0 && (
-                    <div className="space-y-2 border-t pt-3">
-                      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                        <BookMarked className="h-3 w-3" />
-                        Saved Presets
-                      </h3>
+                  <div className="space-y-2 border-t pt-3">
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                      <BookMarked className="h-3 w-3" />
+                      Saved Presets
+                    </h3>
+                    {blockPresetsData.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        No presets yet. Click the <Bookmark className="inline h-3 w-3 mx-0.5 align-text-bottom" /> <span className="font-medium">Save as preset</span> button on any block to save it here for reuse.
+                      </p>
+                    ) : (
                       <div className="flex flex-wrap gap-2">
                         {blockPresetsData.map((preset: any) => (
                           <div key={preset.id} className="flex items-center gap-0.5">
@@ -2615,8 +2619,8 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                           </div>
                         ))}
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {localBlocks.length > 0 && (
                     <div className="flex justify-end mb-1">
