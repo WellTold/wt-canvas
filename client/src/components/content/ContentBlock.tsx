@@ -3063,7 +3063,14 @@ export function ContentBlock({
                     variant="outline"
                     size="sm"
                     title="Detach from preset (make independent copy)"
-                    onClick={() => onDetachPreset(block.id)}
+                    onClick={() => {
+                      // Strip preset markers from local state so badge disappears immediately
+                      const { _presetId: _pid, _presetName: _pn, ...detached } = content;
+                      setContent(detached);
+                      detachConfirmed.current = true;
+                      if (onChange) onChange(block.id, detached);
+                      onDetachPreset(block.id);
+                    }}
                     className="px-2 rounded-l-none border-l-0 text-muted-foreground hover:text-foreground"
                   >
                     <Link2Off className="h-3.5 w-3.5" />
