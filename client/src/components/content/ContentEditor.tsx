@@ -91,7 +91,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const [presetBlock, setPresetBlock] = useState<any>(null);
   const [presetName, setPresetName] = useState("");
   const [editingPresetId, setEditingPresetId] = useState<number | null>(null);
-  const [editPresetDraft, setEditPresetDraft] = useState("");
+  const [editPresetContent, setEditPresetContent] = useState<any>(null);
   const [blockStates, setBlockStates] = useState<Record<string, BlockState>>({});
   const [imageSuggestions, setImageSuggestions] = useState<Record<string, ImageSuggestion>>({});
   const [allCollapsed, setAllCollapsed] = useState(false);
@@ -184,28 +184,14 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   });
 
   const openEditPreset = (preset: any) => {
+    const { _presetId: _pid, _presetName: _pn, ...cleanContent } = preset.content || {};
+    setEditPresetContent(cleanContent);
     setEditingPresetId(preset.id);
-    if (preset.blockType === "html_block") {
-      setEditPresetDraft((preset.content?.html) ?? "");
-    } else {
-      const { _presetId: _pid, _presetName: _pn, ...cleanContent } = preset.content || {};
-      setEditPresetDraft(JSON.stringify(cleanContent, null, 2));
-    }
   };
 
   const handleSaveEditedPreset = () => {
-    const preset = (blockPresetsData as any[]).find((p: any) => p.id === editingPresetId);
-    if (!preset) return;
-    let newContent: any;
-    if (preset.blockType === "html_block") {
-      newContent = { ...(preset.content || {}), html: editPresetDraft };
-    } else {
-      try { newContent = JSON.parse(editPresetDraft); } catch {
-        toast({ title: "Invalid JSON", description: "Fix the JSON before saving.", variant: "destructive" });
-        return;
-      }
-    }
-    updatePresetMutation.mutate({ id: editingPresetId!, content: newContent });
+    if (editPresetContent === null || editingPresetId === null) return;
+    updatePresetMutation.mutate({ id: editingPresetId, content: editPresetContent });
   };
 
   const handleEditPresetGlobally = (presetId: number, presetName: string) => {
@@ -2663,73 +2649,36 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                     ) : (
                       <div className="space-y-1.5">
                         {blockPresetsData.map((preset: any) => (
-                          <div key={preset.id}>
-                            <div className="flex items-center gap-0.5">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs rounded-r-none border-r-0 flex-1 justify-start"
-                                onClick={() => addBlockFromPreset(preset)}
-                              >
-                                <Plus className="h-3 w-3 mr-1 shrink-0" />
-                                <span className="truncate">{preset.name}</span>
-                                <Badge variant="outline" className="ml-1.5 text-[10px] px-1 py-0 h-4 shrink-0">
-                                  {preset.blockType}
-                                </Badge>
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs px-2 border-r-0 rounded-none"
-                                title="Edit preset content"
-                                onClick={() => openEditPreset(preset)}
-                              >
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs rounded-l-none px-1.5 text-red-500 hover:text-red-600"
-                                onClick={() => deletePresetMutation.mutate(preset.id)}
-                              >
-                                ×
-                              </Button>
-                            </div>
-                            {/* Inline editor — shown when this preset is being edited */}
-                            {editingPresetId === preset.id && (
-                              <div className="border border-t-0 border-input bg-muted/30 p-3 space-y-2">
-                                <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">
-                                  {preset.blockType === "html_block" ? "HTML content" : "Block content (JSON)"}
-                                </p>
-                                <Textarea
-                                  value={editPresetDraft}
-                                  onChange={e => setEditPresetDraft(e.target.value)}
-                                  className="font-mono text-xs min-h-[200px] resize-y"
-                                  spellCheck={false}
-                                />
-                                <p className="text-[10px] text-muted-foreground">
-                                  Saving will update this preset <strong>and push the new content to every template that uses it.</strong>
-                                </p>
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    className="bg-black text-white hover:bg-gray-800 h-7 text-xs"
-                                    onClick={handleSaveEditedPreset}
-                                    disabled={updatePresetMutation.isPending}
-                                  >
-                                    {updatePresetMutation.isPending ? "Saving…" : "Save & sync"}
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 text-xs"
-                                    onClick={() => setEditingPresetId(null)}
-                                  >
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
+                          <div key={preset.id} className="flex items-center gap-0.5">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs rounded-r-none border-r-0 flex-1 justify-start"
+                              onClick={() => addBlockFromPreset(preset)}
+                            >
+                              <Plus className="h-3 w-3 mr-1 shrink-0" />
+                              <span className="truncate">{preset.name}</span>
+                              <Badge variant="outline" className="ml-1.5 text-[10px] px-1 py-0 h-4 shrink-0">
+                                {preset.blockType}
+                              </Badge>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs px-2 border-r-0 rounded-none"
+                              title="Edit preset content"
+                              onClick={() => openEditPreset(preset)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs rounded-l-none px-1.5 text-red-500 hover:text-red-600"
+                              onClick={() => deletePresetMutation.mutate(preset.id)}
+                            >
+                              ×
+                            </Button>
                           </div>
                         ))}
                       </div>
@@ -3002,6 +2951,59 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Preset Dialog — uses a live ContentBlock for the same fields as the block itself */}
+      {(() => {
+        const editingPreset = editingPresetId !== null
+          ? (blockPresetsData as any[]).find((p: any) => p.id === editingPresetId)
+          : null;
+        return (
+          <Dialog
+            open={editingPresetId !== null}
+            onOpenChange={(open) => { if (!open) { setEditingPresetId(null); setEditPresetContent(null); } }}
+          >
+            <DialogContent className="sm:max-w-[760px] max-h-[85vh] flex flex-col gap-0 p-0 overflow-hidden">
+              <DialogHeader className="px-5 pt-5 pb-3 shrink-0 border-b">
+                <DialogTitle className="flex items-center gap-2 text-sm">
+                  <Pencil className="h-4 w-4" />
+                  Edit Preset: {editingPreset?.name}
+                  {editingPreset && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-mono font-normal">
+                      {editingPreset.blockType}
+                    </Badge>
+                  )}
+                </DialogTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Changes will be saved to this preset <strong>and pushed to every template that uses it.</strong>
+                </p>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto p-4">
+                {editingPreset && editPresetContent !== null && (
+                  <ContentBlock
+                    block={{ id: "__preset_edit__", type: editingPreset.blockType, content: editPresetContent }}
+                    onChange={(_, newContent) => {
+                      const { _presetId: _pid, _presetName: _pn, ...clean } = newContent;
+                      setEditPresetContent(clean);
+                    }}
+                  />
+                )}
+              </div>
+              <DialogFooter className="px-5 py-3 border-t shrink-0">
+                <Button variant="outline" onClick={() => { setEditingPresetId(null); setEditPresetContent(null); }}>
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-black hover:bg-gray-800 text-white"
+                  onClick={handleSaveEditedPreset}
+                  disabled={updatePresetMutation.isPending}
+                >
+                  {updatePresetMutation.isPending ? "Saving…" : "Save & sync"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
 
       {/* Save as Preset Dialog */}
       <Dialog open={showPresetDialog} onOpenChange={(open) => { setShowPresetDialog(open); if (!open) setPresetBlock(null); }}>

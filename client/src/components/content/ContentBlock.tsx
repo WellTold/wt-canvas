@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useImproveContent, useRefineContent } from "@/lib/ai";
@@ -268,6 +269,17 @@ export function ContentBlock({
   React.useEffect(() => {
     if (collapsed !== undefined) setIsCollapsed(collapsed);
   }, [collapsed]);
+
+  // Sync local content when parent propagates a preset update (identified by _presetId presence)
+  const blockContentKey = block.content?._presetId
+    ? JSON.stringify(block.content)
+    : null;
+  React.useEffect(() => {
+    if (block.content?._presetId && !detachConfirmed.current) {
+      setContent(block.content);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blockContentKey]);
 
   const fetchShopifyProduct = async (productId: string) => {
     if (!productId?.trim()) return;
@@ -3040,44 +3052,42 @@ export function ContentBlock({
               </Button>
             )}
             {content._presetId && (
-              <div className="flex items-center gap-0.5">
-                <div
-                  className="flex items-center gap-1 px-2 h-8 border border-input bg-background text-xs text-muted-foreground select-none"
-                  title={`Linked to preset "${content._presetName}"`}
-                >
-                  <Link2 className="h-3 w-3 shrink-0" />
-                  <span className="hidden sm:inline truncate max-w-[100px]">{content._presetName}</span>
-                </div>
-                {onEditPreset && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
                     size="sm"
-                    title="Edit this preset everywhere"
-                    onClick={() => onEditPreset(content._presetId, content._presetName)}
-                    className="px-2 rounded-none border-l-0"
+                    className="gap-1.5 text-xs max-w-[160px]"
+                    title={`Linked to preset "${content._presetName}" — click for options`}
                   >
-                    <Pencil className="h-3.5 w-3.5" />
+                    <Link2 className="h-3.5 w-3.5 shrink-0" />
+                    <span className="hidden sm:inline truncate">{content._presetName}</span>
                   </Button>
-                )}
-                {onDetachPreset && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    title="Detach from preset (make independent copy)"
-                    onClick={() => {
-                      // Strip preset markers from local state so badge disappears immediately
-                      const { _presetId: _pid, _presetName: _pn, ...detached } = content;
-                      setContent(detached);
-                      detachConfirmed.current = true;
-                      if (onChange) onChange(block.id, detached);
-                      onDetachPreset(block.id);
-                    }}
-                    className="px-2 rounded-l-none border-l-0 text-muted-foreground hover:text-foreground"
-                  >
-                    <Link2Off className="h-3.5 w-3.5" />
-                  </Button>
-                )}
-              </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {onEditPreset && (
+                    <DropdownMenuItem onClick={() => onEditPreset(content._presetId, content._presetName)}>
+                      <Pencil className="h-3.5 w-3.5 mr-2" />
+                      Edit preset globally
+                    </DropdownMenuItem>
+                  )}
+                  {onDetachPreset && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const { _presetId: _pid, _presetName: _pn, ...detached } = content;
+                        setContent(detached);
+                        detachConfirmed.current = true;
+                        if (onChange) onChange(block.id, detached);
+                        onDetachPreset(block.id);
+                      }}
+                      className="text-muted-foreground"
+                    >
+                      <Link2Off className="h-3.5 w-3.5 mr-2" />
+                      Detach from preset
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             <Button variant="outline" size="sm">
               <GripVertical className="h-4 w-4" />
