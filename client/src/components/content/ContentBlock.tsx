@@ -1,4 +1,4 @@
-import React, { useState, type ReactNode } from "react";
+import React, { useState, useRef, type ReactNode } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -242,6 +242,10 @@ export function ContentBlock({
   });
   const [feedback, setFeedback] = useState("");
   const [showRefineDialog, setShowRefineDialog] = useState(false);
+  const [showDetachConfirm, setShowDetachConfirm] = useState(false);
+  const pendingDetachContent = useRef<any>(null);
+  const originalLinkedContent = useRef<any>(null);
+  const detachConfirmed = useRef(false);
   const [imagePickerTarget, setImagePickerTarget] = useState<string | null>(null);
   const [showResourcePicker, setShowResourcePicker] = useState(false);
   const [blockBg, setBlockBg] = useState<{ color?: string; imageUrl?: string; imageSize?: 'cover' | 'contain'; fallbackColor?: string; paddingTop?: number; paddingRight?: number; paddingBottom?: number; paddingLeft?: number }>(() => block._bg || {});
@@ -299,12 +303,42 @@ export function ContentBlock({
 
   // Update block using local callback if provided, otherwise use API
   const handleUpdate = (newContent: any) => {
-    setContent(newContent);
+    // If this block is still linked to a preset, intercept the first edit
+    if (newContent._presetId && !detachConfirmed.current) {
+      originalLinkedContent.current = content; // save pre-edit state for revert on cancel
+      pendingDetachContent.current = newContent;
+      setShowDetachConfirm(true);
+      return; // hold — don't propagate to parent until user confirms
+    }
     if (onChange) {
       onChange(block.id, newContent);
     } else if (contentItemId) {
       updateMutation.mutate(newContent);
     }
+  };
+
+  const handleConfirmDetach = () => {
+    detachConfirmed.current = true;
+    const pending = pendingDetachContent.current;
+    if (pending) {
+      const { _presetId: _pid, _presetName: _pn, ...detachedContent } = pending;
+      setContent(detachedContent);
+      if (onChange) onChange(block.id, detachedContent);
+      else if (contentItemId) updateMutation.mutate(detachedContent);
+      onDetachPreset?.(block.id);
+    }
+    setShowDetachConfirm(false);
+    pendingDetachContent.current = null;
+    originalLinkedContent.current = null;
+  };
+
+  const handleCancelDetach = () => {
+    if (originalLinkedContent.current !== null) {
+      setContent(originalLinkedContent.current); // revert visual state
+    }
+    setShowDetachConfirm(false);
+    pendingDetachContent.current = null;
+    originalLinkedContent.current = null;
   };
 
   // Delete block using local callback if provided, otherwise use API
@@ -2970,6 +3004,28 @@ export function ContentBlock({
                 </Dialog>
               </>
             )}
+
+            {/* Detach-from-preset confirmation */}
+            <Dialog open={showDetachConfirm} onOpenChange={(open) => { if (!open) handleCancelDetach(); }}>
+              <DialogContent className="sm:max-w-[400px]">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Link2Off className="h-4 w-4" />
+                    Detach from preset?
+                  </DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground py-1">
+                  This block is linked to the <strong>"{content._presetName || "preset"}"</strong> preset. Editing it will make it an independent copy — future updates to the preset won't apply here.
+                </p>
+                <DialogFooter>
+                  <Button variant="outline" onClick={handleCancelDetach}>Keep linked</Button>
+                  <Button className="bg-black text-white hover:bg-gray-800" onClick={handleConfirmDetach}>
+                    Detach and edit
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             {onSaveAsPreset && !content._presetId && (
               <Button
                 variant="outline"
