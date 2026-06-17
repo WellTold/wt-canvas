@@ -3,14 +3,16 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { ContentBlock } from "@/components/content/ContentBlock";
 import {
   Heading2, AlignLeft, Image, List, Quote, MousePointerClick, Minus,
   ChevronsUpDown, Bookmark, Trash2, Search, Monitor, Megaphone,
   Layers, Code, ShoppingBag, ShoppingCart, Grid3X3, Tag, Timer,
   Award, Film, Star, User, Navigation, Link2, Settings, GalleryHorizontal,
-  Columns2, ChevronDown, LayoutTemplate,
+  Columns2, ChevronDown, LayoutTemplate, Pencil,
 } from "lucide-react";
 
 interface BlockDef {
@@ -101,11 +103,22 @@ export default function BlockLibrary() {
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [editContentPreset, setEditContentPreset] = useState<any>(null);
+  const [editContentObj, setEditContentObj] = useState<any>(null);
   const { toast } = useToast();
 
   const { data: presets = [], isLoading: presetsLoading } = useQuery<any[]>({
     queryKey: ["/api/block-presets"],
     enabled: activeTab === "presets",
+  });
+
+  const { data: linkedBlocksData } = useQuery<{ count: number; titles: string[] }>({
+    queryKey: ["/api/block-presets", editContentPreset?.id, "linked-blocks"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/block-presets/${editContentPreset.id}/linked-blocks`);
+      return res.json();
+    },
+    enabled: editContentPreset !== null,
   });
 
   const deleteMutation = useMutation({
@@ -127,6 +140,32 @@ export default function BlockLibrary() {
       toast({ title: "Preset renamed" });
     },
   });
+
+  const updateContentMutation = useMutation({
+    mutationFn: async ({ id, content }: { id: number; content: any }) => {
+      const res = await apiRequest("PUT", `/api/block-presets/${id}`, { content });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/block-presets"] });
+      const count = data.updatedBlockCount ?? 0;
+      toast({
+        title: "Preset updated",
+        description: count > 0
+          ? `Content saved and synced to ${count} linked block${count === 1 ? "" : "s"} across all templates.`
+          : "Preset content saved.",
+      });
+      setEditContentPreset(null);
+      setEditContentObj(null);
+    },
+    onError: () => toast({ title: "Failed to update preset", variant: "destructive" }),
+  });
+
+  const openEditContent = (preset: any) => {
+    const { _presetId: _pid, _presetName: _pn, ...cleanContent } = preset.content || {};
+    setEditContentObj(cleanContent);
+    setEditContentPreset(preset);
+  };
 
   const filteredPresets = presets.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -256,7 +295,7 @@ export default function BlockLibrary() {
                               if (e.key === "Escape") setEditingId(null);
                             }}
                           />
-                          <Button size="sm" className="h-7 text-xs" onClick={() => renameMutation.mutate({ id: preset.id, name: editingName })}>
+                          <Button size="sm" className="h-7 text-xs bg-black text-white hover:bg-gray-800" onClick={() => renameMutation.mutate({ id: preset.id, name: editingName })}>
                             Save
                           </Button>
                           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditingId(null)}>
@@ -281,30 +320,98 @@ export default function BlockLibrary() {
                         </span>
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-black text-red-500 hover:text-red-700 shrink-0"
-                      onClick={() => { if (window.confirm(`Delete "${preset.name}"?`)) deleteMutation.mutate(preset.id); }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-
-                  {preset.content && Object.keys(preset.content).length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-black/10">
-                      <p className="text-xs text-gray-500 font-mono truncate">
-                        {JSON.stringify(preset.content).slice(0, 120)}
-                        {JSON.stringify(preset.content).length > 120 ? "…" : ""}
-                      </p>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-black gap-1.5"
+                        title="Edit block content"
+                        onClick={() => openEditContent(preset)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        <span className="text-xs">Edit</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-black text-red-500 hover:text-red-700"
+                        onClick={() => { if (window.confirm(`Delete "${preset.name}"?`)) deleteMutation.mutate(preset.id); }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </>
       )}
+
+      {/* Edit Preset Content Dialog */}
+      <Dialog
+        open={editContentPreset !== null}
+        onOpenChange={(open) => { if (!open) { setEditContentPreset(null); setEditContentObj(null); } }}
+      >
+        <DialogContent className="sm:max-w-[760px] max-h-[85vh] flex flex-col gap-0 p-0 overflow-hidden">
+          <DialogHeader className="px-5 pt-5 pb-3 shrink-0 border-b">
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <Pencil className="h-4 w-4" />
+              Edit Preset: {editContentPreset?.name}
+              {editContentPreset && (
+                <code className="text-[11px] bg-white border border-gray-200 px-1.5 py-0.5 font-mono text-gray-500 font-normal">
+                  {editContentPreset.blockType}
+                </code>
+              )}
+            </DialogTitle>
+            {linkedBlocksData && (
+              <div className="mt-2 px-3 py-2 border border-black bg-[#f0ebe7] text-xs">
+                {linkedBlocksData.count > 0 ? (
+                  <>
+                    <span className="font-semibold">Used in {linkedBlocksData.count} block{linkedBlocksData.count === 1 ? "" : "s"}</span>
+                    {linkedBlocksData.titles.length > 0 && (
+                      <> across: {linkedBlocksData.titles.join(", ")}</>
+                    )}
+                    <span className="text-gray-500 ml-1">— saving will sync all of them.</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500">This preset is not currently used in any articles.</span>
+                )}
+              </div>
+            )}
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto p-4">
+            {editContentPreset && editContentObj !== null && (
+              <ContentBlock
+                block={{ id: "__preset_edit__", type: editContentPreset.blockType, content: editContentObj }}
+                onChange={(_, newContent) => {
+                  const { _presetId: _pid, _presetName: _pn, ...clean } = newContent;
+                  setEditContentObj(clean);
+                }}
+              />
+            )}
+          </div>
+          <DialogFooter className="px-5 py-3 border-t shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => { setEditContentPreset(null); setEditContentObj(null); }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-black hover:bg-gray-800 text-white"
+              onClick={() => {
+                if (editContentPreset && editContentObj !== null) {
+                  updateContentMutation.mutate({ id: editContentPreset.id, content: editContentObj });
+                }
+              }}
+              disabled={updateContentMutation.isPending}
+            >
+              {updateContentMutation.isPending ? "Saving…" : "Save & sync"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
