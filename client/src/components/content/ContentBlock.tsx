@@ -310,6 +310,7 @@ export function ContentBlock({
       setShowDetachConfirm(true);
       return; // hold — don't propagate to parent until user confirms
     }
+    setContent(newContent); // keep local state in sync for all non-intercepted paths
     if (onChange) {
       onChange(block.id, newContent);
     } else if (contentItemId) {
