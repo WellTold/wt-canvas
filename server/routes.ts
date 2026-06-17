@@ -7,6 +7,7 @@ import {
   insertContentItemSchema,
   insertContentBlockSchema,
   contentBlocks,
+  contentItems,
   blockPresets,
   siteSettings,
   integrations,
@@ -3170,6 +3171,23 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
     } catch (error) {
       res.status(500).json({
         message: "Failed to update block preset: " + (error as Error).message,
+      });
+    }
+  });
+
+  app.get("/api/block-presets/:id/linked-blocks", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const rows = await db
+        .select({ title: contentItems.title })
+        .from(contentBlocks)
+        .innerJoin(contentItems, eq(contentBlocks.contentItemId, contentItems.id))
+        .where(sql`(${contentBlocks.content}->>'_presetId')::int = ${id}`);
+      const titles = [...new Set(rows.map((r) => r.title))];
+      res.json({ count: rows.length, titles });
+    } catch (error) {
+      res.status(500).json({
+        message: "Failed to fetch linked blocks: " + (error as Error).message,
       });
     }
   });

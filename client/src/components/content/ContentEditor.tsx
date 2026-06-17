@@ -127,6 +127,20 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
     queryKey: ["/api/block-presets"],
   });
 
+  // Linked blocks for the preset currently being edited (lazy — only fetches when a preset is open)
+  const { data: linkedBlocksData } = useQuery<{ count: number; titles: string[] }>({
+    queryKey: ["/api/block-presets", editingPresetId, "linked-blocks"],
+    queryFn: async () => {
+      const res = await fetch(`/api/block-presets/${editingPresetId}/linked-blocks`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch linked blocks");
+      return res.json();
+    },
+    enabled: editingPresetId !== null,
+    staleTime: 0,
+  });
+
   const savePresetMutation = useMutation({
     mutationFn: async ({ name, block }: { name: string; block: any }) => {
       const res = await apiRequest("POST", "/api/block-presets", {
@@ -2976,6 +2990,16 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                 <p className="text-xs text-muted-foreground mt-1">
                   Changes will be saved to this preset <strong>and pushed to every template that uses it.</strong>
                 </p>
+                {linkedBlocksData && (
+                  <p className="text-xs mt-1.5 px-2.5 py-1.5 border border-black bg-[#f0ebe7]">
+                    {linkedBlocksData.count === 0
+                      ? "This preset is not currently used in any articles."
+                      : linkedBlocksData.count === 1
+                        ? `This preset is used in 1 block: ${linkedBlocksData.titles.join(", ")}`
+                        : `This preset is used in ${linkedBlocksData.count} blocks across: ${linkedBlocksData.titles.join(", ")}`
+                    }
+                  </p>
+                )}
               </DialogHeader>
               <div className="flex-1 overflow-y-auto p-4">
                 {editingPreset && editPresetContent !== null && (
