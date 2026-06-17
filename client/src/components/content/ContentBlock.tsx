@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useImproveContent, useRefineContent } from "@/lib/ai";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { GripVertical, Trash2, Wand2, Edit3, Plus, X, Bookmark, ShoppingBag, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, ChevronDown, ChevronUp, Eye, EyeOff } from "lucide-react";
+import { GripVertical, Trash2, Wand2, Edit3, Plus, X, Bookmark, ShoppingBag, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, ChevronDown, ChevronUp, Eye, EyeOff, Link2, Link2Off, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ContentBlock as ContentBlockType } from "@shared/schema";
 import { CloudinaryAssetSelector } from "@/components/CloudinaryAssetSelector";
@@ -187,6 +187,8 @@ interface ContentBlockProps {
   onBlockUpdate?: (blockId: string, patch: Record<string, any>) => void;
   onDelete?: (blockId: string) => void;
   onSaveAsPreset?: (block: any) => void;
+  onEditPreset?: (presetId: number, presetName: string) => void;
+  onDetachPreset?: (blockId: string) => void;
   contentItemId?: number;
   onImageSelect?: (blockId: string) => void;
   blockState?: BlockState;
@@ -206,6 +208,8 @@ export function ContentBlock({
   onBlockUpdate,
   onDelete,
   onSaveAsPreset,
+  onEditPreset,
+  onDetachPreset,
   contentItemId,
   onImageSelect,
   blockState,
@@ -2966,7 +2970,7 @@ export function ContentBlock({
                 </Dialog>
               </>
             )}
-            {onSaveAsPreset && (
+            {onSaveAsPreset && !content._presetId && (
               <Button
                 variant="outline"
                 size="sm"
@@ -2977,6 +2981,39 @@ export function ContentBlock({
                 <Bookmark className="h-4 w-4" />
                 <span className="hidden sm:inline text-xs">Save as preset</span>
               </Button>
+            )}
+            {content._presetId && (
+              <div className="flex items-center gap-0.5">
+                <div
+                  className="flex items-center gap-1 px-2 h-8 border border-input bg-background text-xs text-muted-foreground select-none"
+                  title={`Linked to preset "${content._presetName}"`}
+                >
+                  <Link2 className="h-3 w-3 shrink-0" />
+                  <span className="hidden sm:inline truncate max-w-[100px]">{content._presetName}</span>
+                </div>
+                {onEditPreset && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    title="Edit this preset everywhere"
+                    onClick={() => onEditPreset(content._presetId, content._presetName)}
+                    className="px-2 rounded-none border-l-0"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+                {onDetachPreset && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    title="Detach from preset (make independent copy)"
+                    onClick={() => onDetachPreset(block.id)}
+                    className="px-2 rounded-l-none border-l-0 text-muted-foreground hover:text-foreground"
+                  >
+                    <Link2Off className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
             )}
             <Button variant="outline" size="sm">
               <GripVertical className="h-4 w-4" />

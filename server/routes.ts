@@ -6,6 +6,7 @@ import { seedUsers } from "./services/auth";
 import {
   insertContentItemSchema,
   insertContentBlockSchema,
+  contentBlocks,
   blockPresets,
   siteSettings,
   integrations,
@@ -42,7 +43,7 @@ import { supabaseLegacyPublisher } from "./services/supabase-legacy";
 import { markdownToHtml } from "./utils/markdown";
 import { COMPONENT_REGISTRY } from "./config/componentRegistry";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 
 const supabaseClient = createClient(
   process.env.SUPABASE_URL!,
@@ -3141,14 +3142,31 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
   app.put("/api/block-presets/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { name, description } = req.body;
+      const { name, description, content } = req.body;
+      const setData: Record<string, any> = {};
+      if (name !== undefined) setData.name = name;
+      if (description !== undefined) setData.description = description || null;
+      if (content !== undefined) setData.content = content;
       const [row] = await db
         .update(blockPresets)
-        .set({ name, description: description || null })
+        .set(setData)
         .where(eq(blockPresets.id, id))
         .returning();
       if (!row) return res.status(404).json({ message: "Preset not found" });
-      res.json(row);
+
+      // Propagate content update to all content_blocks linked to this preset
+      let updatedBlockCount = 0;
+      if (content !== undefined) {
+        const linkedContent = { ...content, _presetId: id, _presetName: row.name };
+        const updated = await db
+          .update(contentBlocks)
+          .set({ content: linkedContent })
+          .where(sql`(${contentBlocks.content}->>'_presetId')::int = ${id}`)
+          .returning({ id: contentBlocks.id });
+        updatedBlockCount = updated.length;
+      }
+
+      res.json({ ...row, updatedBlockCount });
     } catch (error) {
       res.status(500).json({
         message: "Failed to update block preset: " + (error as Error).message,

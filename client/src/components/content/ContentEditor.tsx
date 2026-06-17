@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
-import { ArrowLeft, Wand2, Save, Plus, Mail, ExternalLink, Bookmark, BookMarked, ShoppingBag, ChevronUp, ChevronDown, Eye, Settings2, Upload, Megaphone, RefreshCw, ImageIcon, Loader2, Globe } from "lucide-react";
+import { ArrowLeft, Wand2, Save, Plus, Mail, ExternalLink, Bookmark, BookMarked, ShoppingBag, ChevronUp, ChevronDown, Eye, Settings2, Upload, Megaphone, RefreshCw, ImageIcon, Loader2, Globe, Pencil } from "lucide-react";
 import { EmailPreviewModal } from "./EmailPreviewModal";
 import { Badge } from "@/components/ui/badge";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -90,6 +90,8 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const [showShopifyPicker, setShowShopifyPicker] = useState(false);
   const [presetBlock, setPresetBlock] = useState<any>(null);
   const [presetName, setPresetName] = useState("");
+  const [editingPresetId, setEditingPresetId] = useState<number | null>(null);
+  const [editPresetDraft, setEditPresetDraft] = useState("");
   const [blockStates, setBlockStates] = useState<Record<string, BlockState>>({});
   const [imageSuggestions, setImageSuggestions] = useState<Record<string, ImageSuggestion>>({});
   const [allCollapsed, setAllCollapsed] = useState(false);
@@ -155,6 +157,72 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
     },
   });
 
+  const updatePresetMutation = useMutation({
+    mutationFn: async ({ id, content }: { id: number; content: any }) => {
+      const res = await apiRequest("PUT", `/api/block-presets/${id}`, { content });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/block-presets"] });
+      // Update any locally-open blocks linked to this preset
+      setLocalBlocks(prev => prev.map((b: any) =>
+        b.content?._presetId === data.id
+          ? { ...b, content: { ...data.content, _presetId: data.id, _presetName: data.name } }
+          : b
+      ));
+      setEditingPresetId(null);
+      setHasUnsavedChanges(true);
+      const count = data.updatedBlockCount ?? 0;
+      toast({
+        title: "Preset updated",
+        description: count > 0
+          ? `Content updated here and synced to ${count} saved block${count === 1 ? "" : "s"} across all templates.`
+          : "Preset content saved. Future blocks inserted from this preset will use the new content.",
+      });
+    },
+    onError: () => toast({ title: "Failed to update preset", variant: "destructive" }),
+  });
+
+  const openEditPreset = (preset: any) => {
+    setEditingPresetId(preset.id);
+    if (preset.blockType === "html_block") {
+      setEditPresetDraft((preset.content?.html) ?? "");
+    } else {
+      const { _presetId: _pid, _presetName: _pn, ...cleanContent } = preset.content || {};
+      setEditPresetDraft(JSON.stringify(cleanContent, null, 2));
+    }
+  };
+
+  const handleSaveEditedPreset = () => {
+    const preset = (blockPresetsData as any[]).find((p: any) => p.id === editingPresetId);
+    if (!preset) return;
+    let newContent: any;
+    if (preset.blockType === "html_block") {
+      newContent = { ...(preset.content || {}), html: editPresetDraft };
+    } else {
+      try { newContent = JSON.parse(editPresetDraft); } catch {
+        toast({ title: "Invalid JSON", description: "Fix the JSON before saving.", variant: "destructive" });
+        return;
+      }
+    }
+    updatePresetMutation.mutate({ id: editingPresetId!, content: newContent });
+  };
+
+  const handleEditPresetGlobally = (presetId: number, presetName: string) => {
+    const preset = (blockPresetsData as any[]).find((p: any) => p.id === presetId);
+    if (preset) openEditPreset(preset);
+  };
+
+  const handleDetachPreset = (blockId: string) => {
+    setLocalBlocks(prev => prev.map((b: any) => {
+      if (b.id !== blockId) return b;
+      const { _presetId: _pid, _presetName: _pn, ...cleanContent } = b.content || {};
+      return { ...b, content: cleanContent };
+    }));
+    setHasUnsavedChanges(true);
+    toast({ title: "Detached from preset", description: "This block is now an independent copy." });
+  };
+
   const handleSaveAsPreset = (block: any) => {
     setPresetBlock(block);
     setPresetName("");
@@ -166,7 +234,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
     const newBlock = {
       id: Date.now().toString(),
       type: preset.blockType,
-      content: { ...(preset.content || {}) },
+      content: { ...(preset.content || {}), _presetId: preset.id, _presetName: preset.name },
       order: nextOrder,
     };
     setLocalBlocks([...localBlocks, newBlock]);
@@ -2593,29 +2661,75 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                         No presets yet. Click the <Bookmark className="inline h-3 w-3 mx-0.5 align-text-bottom" /> <span className="font-medium">Save as preset</span> button on any block to save it here for reuse.
                       </p>
                     ) : (
-                      <div className="flex flex-wrap gap-2">
+                      <div className="space-y-1.5">
                         {blockPresetsData.map((preset: any) => (
-                          <div key={preset.id} className="flex items-center gap-0.5">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs rounded-r-none border-r-0"
-                              onClick={() => addBlockFromPreset(preset)}
-                            >
-                              <Plus className="h-3 w-3 mr-1" />
-                              {preset.name}
-                              <Badge variant="outline" className="ml-1.5 text-[10px] px-1 py-0 h-4">
-                                {preset.blockType}
-                              </Badge>
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs rounded-l-none px-1.5 text-red-500 hover:text-red-600"
-                              onClick={() => deletePresetMutation.mutate(preset.id)}
-                            >
-                              ×
-                            </Button>
+                          <div key={preset.id}>
+                            <div className="flex items-center gap-0.5">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs rounded-r-none border-r-0 flex-1 justify-start"
+                                onClick={() => addBlockFromPreset(preset)}
+                              >
+                                <Plus className="h-3 w-3 mr-1 shrink-0" />
+                                <span className="truncate">{preset.name}</span>
+                                <Badge variant="outline" className="ml-1.5 text-[10px] px-1 py-0 h-4 shrink-0">
+                                  {preset.blockType}
+                                </Badge>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs px-2 border-r-0 rounded-none"
+                                title="Edit preset content"
+                                onClick={() => openEditPreset(preset)}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs rounded-l-none px-1.5 text-red-500 hover:text-red-600"
+                                onClick={() => deletePresetMutation.mutate(preset.id)}
+                              >
+                                ×
+                              </Button>
+                            </div>
+                            {/* Inline editor — shown when this preset is being edited */}
+                            {editingPresetId === preset.id && (
+                              <div className="border border-t-0 border-input bg-muted/30 p-3 space-y-2">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">
+                                  {preset.blockType === "html_block" ? "HTML content" : "Block content (JSON)"}
+                                </p>
+                                <Textarea
+                                  value={editPresetDraft}
+                                  onChange={e => setEditPresetDraft(e.target.value)}
+                                  className="font-mono text-xs min-h-[200px] resize-y"
+                                  spellCheck={false}
+                                />
+                                <p className="text-[10px] text-muted-foreground">
+                                  Saving will update this preset <strong>and push the new content to every template that uses it.</strong>
+                                </p>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    className="bg-black text-white hover:bg-gray-800 h-7 text-xs"
+                                    onClick={handleSaveEditedPreset}
+                                    disabled={updatePresetMutation.isPending}
+                                  >
+                                    {updatePresetMutation.isPending ? "Saving…" : "Save & sync"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs"
+                                    onClick={() => setEditingPresetId(null)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -2678,6 +2792,8 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                               onBlockUpdate={updateBlockMeta}
                               onDelete={deleteBlock}
                               onSaveAsPreset={handleSaveAsPreset}
+                              onEditPreset={handleEditPresetGlobally}
+                              onDetachPreset={handleDetachPreset}
                               onImageSelect={(blockId) => setImageBlockId(blockId)}
                               blockState={blockStates[block.id] || null}
                               onStateChange={(state) => setBlockStates(prev => ({ ...prev, [block.id]: state }))}
