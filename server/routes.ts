@@ -1957,11 +1957,12 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         res.json({ success: true, message: `Test email sent to ${email}` });
       } catch (error: unknown) {
         console.error("Send test email error:", error);
-        const { KlaviyoNotConnectedError } = await import("./services/klaviyo");
-        if (error instanceof KlaviyoNotConnectedError) {
+        const { SmtpNotConfiguredError } = await import("./services/email");
+        if (error instanceof SmtpNotConfiguredError) {
           return res.status(400).json({
-            message: "klaviyo_required",
-            detail: "Connect Klaviyo in Integrations to enable test sends.",
+            message: "smtp_required",
+            detail:
+              "Add SMTP_HOST, SMTP_USER, and SMTP_PASS to your environment secrets to enable test sends.",
           });
         }
         res.status(500).json({

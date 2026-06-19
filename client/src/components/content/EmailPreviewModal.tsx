@@ -110,7 +110,9 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
       const res = await apiRequest("POST", `/api/content/${contentId}/send-test-email`, { email: sendTestEmail });
       const data = await res.json();
       if (!res.ok) {
-        if (data.message === "klaviyo_required") {
+        if (data.message === "smtp_required") {
+          toast({ title: "SMTP not configured", description: "Add SMTP_HOST, SMTP_USER, and SMTP_PASS to your environment secrets to enable test sends.", variant: "destructive" });
+        } else if (data.message === "klaviyo_required") {
           toast({ title: "Klaviyo not connected", description: "Connect Klaviyo in Integrations to enable test sends.", variant: "destructive" });
         } else {
           toast({ title: "Send failed", description: data.message, variant: "destructive" });

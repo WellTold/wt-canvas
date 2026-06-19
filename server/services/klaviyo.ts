@@ -88,26 +88,17 @@ async function assertOk(res: Response, context: string): Promise<void> {
   throw new Error(`Klaviyo ${context} returned ${res.status}: ${detail}`);
 }
 
-/** Send a transactional test email via Klaviyo's Messages API. */
+/**
+ * Send a test/preview email via SMTP (nodemailer).
+ * Klaviyo's v3 JSON:API has no standalone send-email endpoint;
+ * SMTP is the correct mechanism for ad-hoc test sends.
+ *
+ * Required env vars: SMTP_HOST, SMTP_USER, SMTP_PASS
+ * Optional:          SMTP_PORT (default 587), SMTP_FROM
+ */
 export async function sendTestEmail(html: string, toEmail: string, subject: string): Promise<void> {
-  const apiKey = await getApiKey();
-  const res = await fetch(`${API_BASE}/messages/send-email/`, {
-    method: "POST",
-    headers: buildHeaders(apiKey),
-    body: JSON.stringify({
-      data: {
-        type: "email-message",
-        attributes: {
-          body: { html },
-          from_email: "hello@welltolddesign.com",
-          from_label: "Well Told",
-          subject,
-          to: [toEmail],
-        },
-      },
-    }),
-  });
-  await assertOk(res, "send-email");
+  const { sendEmail } = await import("./email");
+  await sendEmail({ to: toEmail, subject, html });
 }
 
 export interface KlaviyoTemplateResult {
