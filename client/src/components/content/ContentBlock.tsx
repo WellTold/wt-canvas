@@ -2250,6 +2250,8 @@ export function ContentBlock({
                 border: (safeContent?.borderWidth && safeContent.borderWidth > 0)
                   ? `${safeContent.borderWidth}px solid ${safeContent?.borderColor || "#000000"}`
                   : undefined,
+                marginTop:    safeContent?.outerSpacingTop    ? `${safeContent.outerSpacingTop}px`    : undefined,
+                marginBottom: safeContent?.outerSpacingBottom ? `${safeContent.outerSpacingBottom}px` : undefined,
               }}
             >
               {(safeContent?.layout === "center") ? (
@@ -2356,6 +2358,38 @@ export function ContentBlock({
                 <p className="text-[10px] text-muted-foreground mt-1">Set to 0 for no border</p>
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Outer spacing — top (px)</Label>
+                <div className="flex gap-2 mt-1 items-center">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={80}
+                    value={safeContent?.outerSpacingTop ?? 0}
+                    onChange={(e) => onUpdate({ ...safeContent, outerSpacingTop: Math.max(0, Math.min(80, Number(e.target.value))) })}
+                    className="text-xs h-8"
+                  />
+                  <span className="text-xs text-gray-400 shrink-0">px</span>
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Outer spacing — bottom (px)</Label>
+                <div className="flex gap-2 mt-1 items-center">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={80}
+                    value={safeContent?.outerSpacingBottom ?? 0}
+                    onChange={(e) => onUpdate({ ...safeContent, outerSpacingBottom: Math.max(0, Math.min(80, Number(e.target.value))) })}
+                    className="text-xs h-8"
+                  />
+                  <span className="text-xs text-gray-400 shrink-0">px</span>
+                </div>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground -mt-2">Space outside the border — sits between this block and the one above/below it.</p>
 
             <div>
               <Label className="text-xs">Title (displayed in bold caps)</Label>

@@ -882,6 +882,11 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
   const borderWidth = Number(c.borderWidth) || 0;
   const borderColor = c.borderColor || "#000000";
   const borderCss   = borderWidth > 0 ? `border:${borderWidth}px solid ${esc(borderColor)};` : undefined;
+  const outerSpacingTop    = Math.max(0, Number(c.outerSpacingTop)    || 0);
+  const outerSpacingBottom = Math.max(0, Number(c.outerSpacingBottom) || 0);
+
+  const spacerRow = (h: number) =>
+    `<tr><td height="${h}" style="height:${h}px;font-size:0;line-height:0;background-color:#f4f1ef;">&nbsp;</td></tr>`;
 
   // Stars — filled up to rating, dimmed remainder
   const starsHtml = Array.from({ length: 5 }, (_, i) =>
@@ -898,9 +903,15 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
     ? `<p style="margin:8px 0 0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-style:italic;color:${esc(textColor)};">&#8212; ${esc(attribution)}</p>`
     : "";
 
+  const wrapWithSpacers = (mainRow: string) => [
+    outerSpacingTop    > 0 ? spacerRow(outerSpacingTop)    : "",
+    mainRow,
+    outerSpacingBottom > 0 ? spacerRow(outerSpacingBottom) : "",
+  ].filter(Boolean).join("\n");
+
   if (layout === "center") {
     const inner = `<div style="text-align:center;"><div style="margin-bottom:10px;">${starsHtml}</div>${titleHtml ? `<div style="margin-bottom:4px;">${titleHtml}</div>` : ""}${bodyHtml}${attributionHtml}</div>`;
-    return row(inner, bgColor, "28px 24px", bg, borderCss);
+    return wrapWithSpacers(row(inner, bgColor, "28px 24px", bg, borderCss));
   }
 
   // Two-column: stars (33%) | content (67%), or reversed for "right"
@@ -916,7 +927,7 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
 
   const cols  = layout === "right" ? `${contentCell}${starsCell}` : `${starsCell}${contentCell}`;
   const inner = `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${cols}</tr></table>`;
-  return row(inner, bgColor, "20px 24px", bg, borderCss);
+  return wrapWithSpacers(row(inner, bgColor, "20px 24px", bg, borderCss));
 }
 
 function renderReview(c: any, bg?: BlockBg): string {
