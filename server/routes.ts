@@ -3155,13 +3155,22 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         .returning();
       if (!row) return res.status(404).json({ message: "Preset not found" });
 
-      // Propagate content update to all content_blocks linked to this preset
+      // Propagate content/name update to all content_blocks linked to this preset
       let updatedBlockCount = 0;
       if (content !== undefined) {
+        // Full content sync — merge new content with preset metadata
         const linkedContent = { ...content, _presetId: id, _presetName: row.name };
         const updated = await db
           .update(contentBlocks)
           .set({ content: linkedContent })
+          .where(sql`(${contentBlocks.content}->>'_presetId')::int = ${id}`)
+          .returning({ id: contentBlocks.id });
+        updatedBlockCount = updated.length;
+      } else if (name !== undefined) {
+        // Name-only change — patch just _presetName in linked blocks' JSONB
+        const updated = await db
+          .update(contentBlocks)
+          .set({ content: sql`jsonb_set(${contentBlocks.content}, '{_presetName}', ${JSON.stringify(row.name)}::jsonb)` })
           .where(sql`(${contentBlocks.content}->>'_presetId')::int = ${id}`)
           .returning({ id: contentBlocks.id });
         updatedBlockCount = updated.length;

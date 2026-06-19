@@ -92,6 +92,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const [presetName, setPresetName] = useState("");
   const [editingPresetId, setEditingPresetId] = useState<number | null>(null);
   const [editPresetContent, setEditPresetContent] = useState<any>(null);
+  const [editPresetName, setEditPresetName] = useState<string>("");
   const [blockStates, setBlockStates] = useState<Record<string, BlockState>>({});
   const [imageSuggestions, setImageSuggestions] = useState<Record<string, ImageSuggestion>>({});
   const [allCollapsed, setAllCollapsed] = useState(false);
@@ -172,26 +173,28 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   });
 
   const updatePresetMutation = useMutation({
-    mutationFn: async ({ id, content }: { id: number; content: any }) => {
-      const res = await apiRequest("PUT", `/api/block-presets/${id}`, { content });
+    mutationFn: async ({ id, name, content }: { id: number; name: string; content: any }) => {
+      const res = await apiRequest("PUT", `/api/block-presets/${id}`, { name, content });
       return res.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/block-presets"] });
-      // Update any locally-open blocks linked to this preset
+      // Update any locally-open blocks linked to this preset — patch both content and name
       setLocalBlocks(prev => prev.map((b: any) =>
         b.content?._presetId === data.id
           ? { ...b, content: { ...data.content, _presetId: data.id, _presetName: data.name } }
           : b
       ));
       setEditingPresetId(null);
+      setEditPresetContent(null);
+      setEditPresetName("");
       setHasUnsavedChanges(true);
       const count = data.updatedBlockCount ?? 0;
       toast({
         title: "Preset updated",
         description: count > 0
-          ? `Content updated here and synced to ${count} saved block${count === 1 ? "" : "s"} across all templates.`
-          : "Preset content saved. Future blocks inserted from this preset will use the new content.",
+          ? `Saved and synced to ${count} block${count === 1 ? "" : "s"} across all templates.`
+          : "Preset saved. Future blocks inserted from this preset will use the new content.",
       });
     },
     onError: () => toast({ title: "Failed to update preset", variant: "destructive" }),
@@ -200,12 +203,13 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const openEditPreset = (preset: any) => {
     const { _presetId: _pid, _presetName: _pn, ...cleanContent } = preset.content || {};
     setEditPresetContent(cleanContent);
+    setEditPresetName(preset.name ?? "");
     setEditingPresetId(preset.id);
   };
 
   const handleSaveEditedPreset = () => {
     if (editPresetContent === null || editingPresetId === null) return;
-    updatePresetMutation.mutate({ id: editingPresetId, content: editPresetContent });
+    updatePresetMutation.mutate({ id: editingPresetId, name: editPresetName.trim() || "Untitled", content: editPresetContent });
   };
 
   const handleEditPresetGlobally = (presetId: number, presetName: string) => {
@@ -2974,20 +2978,29 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
         return (
           <Dialog
             open={editingPresetId !== null}
-            onOpenChange={(open) => { if (!open) { setEditingPresetId(null); setEditPresetContent(null); } }}
+            onOpenChange={(open) => { if (!open) { setEditingPresetId(null); setEditPresetContent(null); setEditPresetName(""); } }}
           >
             <DialogContent className="sm:max-w-[760px] max-h-[85vh] flex flex-col gap-0 p-0 overflow-hidden">
               <DialogHeader className="px-5 pt-5 pb-3 shrink-0 border-b">
                 <DialogTitle className="flex items-center gap-2 text-sm">
                   <Pencil className="h-4 w-4" />
-                  Edit Preset: {editingPreset?.name}
+                  Edit Preset
                   {editingPreset && (
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-mono font-normal">
                       {editingPreset.blockType}
                     </Badge>
                   )}
                 </DialogTitle>
-                <p className="text-xs text-muted-foreground mt-1">
+                <div className="mt-2">
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Preset name</label>
+                  <input
+                    className="w-full border border-black px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-black"
+                    value={editPresetName}
+                    onChange={(e) => setEditPresetName(e.target.value)}
+                    placeholder="Preset name"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
                   Changes will be saved to this preset <strong>and pushed to every template that uses it.</strong>
                 </p>
                 {linkedBlocksData && (
@@ -3013,7 +3026,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
                 )}
               </div>
               <DialogFooter className="px-5 py-3 border-t shrink-0">
-                <Button variant="outline" onClick={() => { setEditingPresetId(null); setEditPresetContent(null); }}>
+                <Button variant="outline" onClick={() => { setEditingPresetId(null); setEditPresetContent(null); setEditPresetName(""); }}>
                   Cancel
                 </Button>
                 <Button
