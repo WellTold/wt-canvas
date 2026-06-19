@@ -2247,6 +2247,9 @@ export function ContentBlock({
                 background: safeContent?.backgroundColor || "#e8643a",
                 borderRadius: 0,
                 padding: "16px 20px",
+                border: (safeContent?.borderWidth && safeContent.borderWidth > 0)
+                  ? `${safeContent.borderWidth}px solid ${safeContent?.borderColor || "#000000"}`
+                  : undefined,
               }}
             >
               {(safeContent?.layout === "center") ? (
@@ -2326,6 +2329,31 @@ export function ContentBlock({
                   <input type="color" value={safeContent?.textColor || "#ffffff"} onChange={(e) => onUpdate({ ...safeContent, textColor: e.target.value })} className="h-8 w-8 cursor-pointer rounded border" />
                   <Input value={safeContent?.textColor || "#ffffff"} onChange={(e) => onUpdate({ ...safeContent, textColor: e.target.value })} placeholder="#ffffff" className="text-xs h-8 flex-1" />
                 </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Border colour</Label>
+                <div className="flex gap-2 mt-1 items-center">
+                  <input type="color" value={safeContent?.borderColor || "#000000"} onChange={(e) => onUpdate({ ...safeContent, borderColor: e.target.value })} className="h-8 w-8 cursor-pointer rounded border" />
+                  <Input value={safeContent?.borderColor || "#000000"} onChange={(e) => onUpdate({ ...safeContent, borderColor: e.target.value })} placeholder="#000000" className="text-xs h-8 flex-1" />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Border thickness (px)</Label>
+                <div className="flex gap-2 mt-1 items-center">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={20}
+                    value={safeContent?.borderWidth ?? 0}
+                    onChange={(e) => onUpdate({ ...safeContent, borderWidth: Math.max(0, Math.min(20, Number(e.target.value))) })}
+                    className="text-xs h-8"
+                  />
+                  <span className="text-xs text-gray-400 shrink-0">px</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">Set to 0 for no border</p>
               </div>
             </div>
 

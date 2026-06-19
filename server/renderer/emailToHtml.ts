@@ -68,7 +68,8 @@ function row(
   inner: string,
   bgColor = "#ffffff",
   defaultPadding = "20px 24px",
-  bg?: BlockBg
+  bg?: BlockBg,
+  borderCss?: string,
 ): string {
   // Build padding string from individual bg padding fields if any are set.
   // Use the block's own defaultPadding values as ?? fallbacks so e.g. a full-width
@@ -113,7 +114,7 @@ function row(
   return /* html */`
 <tr>
   <td align="center" style="padding:0;background-color:#f4f1ef;">
-    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background-color:${rowBg};">
+    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background-color:${rowBg};${borderCss || ""}">
       <tr>
         <td style="padding:${padding};">
           ${inner}
@@ -878,6 +879,9 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
   const title       = c.title       || "";
   const body        = c.body        || "";
   const attribution = c.attribution || "";
+  const borderWidth = Number(c.borderWidth) || 0;
+  const borderColor = c.borderColor || "#000000";
+  const borderCss   = borderWidth > 0 ? `border:${borderWidth}px solid ${esc(borderColor)};` : undefined;
 
   // Stars — filled up to rating, dimmed remainder
   const starsHtml = Array.from({ length: 5 }, (_, i) =>
@@ -896,7 +900,7 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
 
   if (layout === "center") {
     const inner = `<div style="text-align:center;"><div style="margin-bottom:10px;">${starsHtml}</div>${titleHtml ? `<div style="margin-bottom:4px;">${titleHtml}</div>` : ""}${bodyHtml}${attributionHtml}</div>`;
-    return row(inner, bgColor, "28px 24px", bg);
+    return row(inner, bgColor, "28px 24px", bg, borderCss);
   }
 
   // Two-column: stars (33%) | content (67%), or reversed for "right"
@@ -912,7 +916,7 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
 
   const cols  = layout === "right" ? `${contentCell}${starsCell}` : `${starsCell}${contentCell}`;
   const inner = `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${cols}</tr></table>`;
-  return row(inner, bgColor, "20px 24px", bg);
+  return row(inner, bgColor, "20px 24px", bg, borderCss);
 }
 
 function renderReview(c: any, bg?: BlockBg): string {
