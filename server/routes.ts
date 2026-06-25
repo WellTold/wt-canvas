@@ -3203,6 +3203,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       if (name !== undefined) setData.name = name;
       if (description !== undefined) setData.description = description || null;
       if (content !== undefined) setData.content = content;
+
       const [row] = await db
         .update(blockPresets)
         .set(setData)
@@ -3210,25 +3211,90 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         .returning();
       if (!row) return res.status(404).json({ message: "Preset not found" });
 
-      // Propagate content/name update to all content_blocks linked to this preset
       let updatedBlockCount = 0;
+
       if (content !== undefined) {
-        // Full content sync — merge new content with preset metadata
         const linkedContent = { ...content, _presetId: id, _presetName: row.name };
-        const updated = await db
+
+        // 1. Sync discrete content_blocks rows (web content)
+        const updatedBlocks = await db
           .update(contentBlocks)
           .set({ content: linkedContent })
           .where(sql`(${contentBlocks.content}->>'_presetId')::int = ${id}`)
           .returning({ id: contentBlocks.id });
-        updatedBlockCount = updated.length;
+        updatedBlockCount += updatedBlocks.length;
+
+        // 2. Sync inline blocks inside content_items.content JSONB array (email content)
+        // Replace each matching block's content in the array while preserving all other blocks
+        const linkedContentJson = JSON.stringify(linkedContent);
+        const emailUpdated = await db.execute(sql`
+          UPDATE content_items
+          SET content = (
+            SELECT jsonb_agg(
+              CASE
+                WHEN (blk->>'_presetId')::int = ${id}
+                THEN blk || ${linkedContentJson}::jsonb
+                ELSE blk
+              END
+            )
+            FROM jsonb_array_elements(
+              CASE
+                WHEN jsonb_typeof(content) = 'array' THEN content
+                ELSE '[]'::jsonb
+              END
+            ) AS blk
+          )
+          WHERE EXISTS (
+            SELECT 1 FROM jsonb_array_elements(
+              CASE
+                WHEN jsonb_typeof(content) = 'array' THEN content
+                ELSE '[]'::jsonb
+              END
+            ) AS blk
+            WHERE (blk->>'_presetId')::int = ${id}
+          )
+        `);
+        updatedBlockCount += (emailUpdated as any).rowCount ?? 0;
+
       } else if (name !== undefined) {
-        // Name-only change — patch just _presetName in linked blocks' JSONB
-        const updated = await db
+        // Name-only change — patch _presetName in discrete content_blocks
+        const updatedBlocks = await db
           .update(contentBlocks)
-          .set({ content: sql`jsonb_set(${contentBlocks.content}, '{_presetName}', ${JSON.stringify(row.name)}::jsonb)` })
+          .set({
+            content: sql`jsonb_set(${contentBlocks.content}, '{_presetName}', ${JSON.stringify(row.name)}::jsonb)`,
+          })
           .where(sql`(${contentBlocks.content}->>'_presetId')::int = ${id}`)
           .returning({ id: contentBlocks.id });
-        updatedBlockCount = updated.length;
+        updatedBlockCount += updatedBlocks.length;
+
+        // Also patch _presetName in inline email blocks
+        await db.execute(sql`
+          UPDATE content_items
+          SET content = (
+            SELECT jsonb_agg(
+              CASE
+                WHEN (blk->>'_presetId')::int = ${id}
+                THEN jsonb_set(blk, '{_presetName}', ${JSON.stringify(row.name)}::jsonb)
+                ELSE blk
+              END
+            )
+            FROM jsonb_array_elements(
+              CASE
+                WHEN jsonb_typeof(content) = 'array' THEN content
+                ELSE '[]'::jsonb
+              END
+            ) AS blk
+          )
+          WHERE EXISTS (
+            SELECT 1 FROM jsonb_array_elements(
+              CASE
+                WHEN jsonb_typeof(content) = 'array' THEN content
+                ELSE '[]'::jsonb
+              END
+            ) AS blk
+            WHERE (blk->>'_presetId')::int = ${id}
+          )
+        `);
       }
 
       res.json({ ...row, updatedBlockCount });
@@ -3242,13 +3308,41 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
   app.get("/api/block-presets/:id/linked-blocks", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const rows = await db
+
+      // 1. Blocks stored as discrete rows in content_blocks (web content)
+      const blockRows = await db
         .select({ title: contentItems.title })
         .from(contentBlocks)
         .innerJoin(contentItems, eq(contentBlocks.contentItemId, contentItems.id))
         .where(sql`(${contentBlocks.content}->>'_presetId')::int = ${id}`);
-      const titles = [...new Set(rows.map((r) => r.title))];
-      res.json({ count: rows.length, titles });
+
+      // 2. Blocks stored inline inside content_items.content JSONB array (email content)
+      const emailRows = await db
+        .select({ title: contentItems.title })
+        .from(contentItems)
+        .where(
+          sql`EXISTS (
+            SELECT 1 FROM jsonb_array_elements(
+              CASE
+                WHEN jsonb_typeof(${contentItems.content}) = 'array' THEN ${contentItems.content}
+                ELSE '[]'::jsonb
+              END
+            ) AS blk
+            WHERE (blk->>'_presetId')::int = ${id}
+          )`
+        );
+
+      const allTitles = [
+        ...blockRows.map((r) => r.title),
+        ...emailRows.map((r) => r.title),
+      ];
+      const titles = [...new Set(allTitles)];
+      const count = blockRows.length + emailRows.reduce((n, row) => {
+        // count individual matching blocks per email item
+        return n + 1; // one row = one item that contains at least one matching block
+      }, 0);
+
+      res.json({ count: titles.length, titles });
     } catch (error) {
       res.status(500).json({
         message: "Failed to fetch linked blocks: " + (error as Error).message,
