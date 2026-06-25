@@ -2140,7 +2140,61 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       }
     },
   );
+  // Save email as internal Canvas template with html_snapshot — does NOT push to Klaviyo.
+  // Bypasses the preheader_text requirement since this is a snapshot save, not a structured template build.
+  app.post(
+    "/api/content/:id/save-as-canvas-template",
+    requireAuth,
+    async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { name } = req.body as { name?: string };
+        const parsedId: number | string = /^\d+$/.test(id) ? parseInt(id) : id;
+        const item = await storage.getContentItem(parsedId);
+        if (!item)
+          return res.status(404).json({ message: "Content item not found" });
 
+        const itemContentType = item.contentType ?? item.type ?? "";
+        if (item.type !== "email" && !itemContentType.startsWith("email")) {
+          return res.status(400).json({
+            message: "Save as template is only available for email content.",
+          });
+        }
+
+        const { renderEmailForItem } = await import("./renderer/renderEmailForItem");
+        const { html } = await renderEmailForItem(item);
+
+        const templateName = (name?.trim() || item.title || "Untitled Email Template");
+
+        const { data, error } = await supabaseClient
+          .from("templates")
+          .insert({
+            name: templateName,
+            type: "email_campaign",
+            description: `Saved from campaign: ${item.title || "Untitled"}`,
+            html_snapshot: html,
+            structure: { blocks: [], email_settings: {} },
+          })
+          .select()
+          .single();
+
+        if (error) throw new Error(error.message);
+
+        res.json({
+          success: true,
+          templateId: data.id,
+          name: templateName,
+        });
+      } catch (error: unknown) {
+        console.error("Save as canvas template error:", error);
+        res.status(500).json({
+          message:
+            "Failed to save template: " +
+            (error instanceof Error ? error.message : String(error)),
+        });
+      }
+    },
+  );
   // Supabase publishing routes
   app.post("/api/publish/supabase", requireAuth, async (req, res) => {
     try {
