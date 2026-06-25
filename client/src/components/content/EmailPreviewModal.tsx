@@ -30,7 +30,7 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
   const [emailPreviewLoading, setEmailPreviewLoading] = useState(false);
   const [emailPreviewDevice, setEmailPreviewDevice] = useState<"desktop" | "mobile">("desktop");
 
-  // Send test state — now one-click Klaviyo push, no email input needed
+  // Send test state — one-click Klaviyo push, no email input needed
   const [sendTestLoading, setSendTestLoading] = useState(false);
 
   // Save as Template state (internal Canvas)
@@ -88,7 +88,6 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
     return () => { cancelled = true; };
   }, [open, contentId]);
 
-  // Pre-fill campaign name from content title
   useEffect(() => {
     if (contentTitle) setCampaignName(contentTitle);
   }, [contentTitle]);
@@ -101,8 +100,9 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   };
 
-  // Send Test: push rendered HTML to Klaviyo as a [Preview] template and open it there.
-  // No SMTP required — the user sends the actual preview from inside Klaviyo.
+  // Send Test: push rendered HTML to Klaviyo as a template.
+  // Shows a toast with a link to open Klaviyo's templates page —
+  // the user sends the actual test preview from inside Klaviyo.
   const handleSendTest = async () => {
     if (!emailPreviewHtml) return;
     setSendTestLoading(true);
@@ -123,15 +123,15 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
       }
       queryClient.invalidateQueries({ queryKey: ["/api/content-items", contentId] });
       toast({
-        title: "Pushed to Klaviyo",
+        title: "Pushed to Klaviyo ✓",
         description: (
           <span>
-            Opening template for preview send.{" "}
-            <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline font-medium">Open in Klaviyo →</a>
+            Template updated. Go to Klaviyo → Content → Templates, open it, then use
+            {" "}"Preview &amp; test" to send to your inbox.
           </span>
         ),
+        duration: 8000,
       });
-      window.open(data.url, "_blank", "noopener");
     } catch (err: any) {
       toast({ title: "Preview push failed", description: err.message, variant: "destructive" });
     } finally {
@@ -139,7 +139,7 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
     }
   };
 
-  // Save as Template: renders HTML and saves it as an internal Canvas template (not pushed to Klaviyo).
+  // Save as Template: saves rendered HTML as an internal Canvas template (not pushed to Klaviyo).
   const handleSaveAsTemplate = async () => {
     const name = saveTemplateName.trim() || contentTitle || "Untitled Email Template";
     setSaveTemplateLoading(true);
@@ -239,8 +239,7 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
             {data.previousCampaignId && (
               <span className="block text-xs text-muted-foreground mb-0.5">Previous campaign: #{data.previousCampaignId}</span>
             )}
-            Saved as draft.{" "}
-            <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline font-medium">View in Klaviyo →</a>
+            Saved as draft in Klaviyo → Campaigns.
           </span>
         ),
       });
@@ -289,7 +288,7 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
                 onClick={handleSendTest}
                 disabled={sendTestLoading}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-                title="Push to Klaviyo and open for preview send — no SMTP needed"
+                title="Push to Klaviyo — then send test from inside Klaviyo (Content → Templates)"
               >
                 <Send className="h-3 w-3" />{sendTestLoading ? "Pushing…" : "Send test"}
               </button>
