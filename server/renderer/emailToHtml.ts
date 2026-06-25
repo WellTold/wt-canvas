@@ -63,7 +63,6 @@ function parseDefaultPadding(s: string): [number, number, number, number] {
 }
 
 // Wrapper table row at 600 px width — used by every block
-// bg: optional BlockBackground for per-block background color/image/padding
 function row(
   inner: string,
   bgColor = "#ffffff",
@@ -601,17 +600,26 @@ function renderCta(c: any, bg?: BlockBg): string {
   return row(inner, bgColor, "20px 24px", bg);
 }
 
-function renderHtmlBlock(c: any, _bg?: BlockBg, snippetsMap?: Record<string, string>): string {
+/**
+ * html_block — wraps the snippet/custom HTML in the standard 600px row()
+ * so it respects the email width and shows the same gutters as all other blocks.
+ * The raw HTML sits inside the constrained inner table, not outside it.
+ */
+function renderHtmlBlock(c: any, bg?: BlockBg, snippetsMap?: Record<string, string>): string {
+  let html = "";
   if (c.snippetName) {
     if (snippetsMap && snippetsMap[c.snippetName] !== undefined) {
-      return snippetsMap[c.snippetName];
+      html = snippetsMap[c.snippetName];
+    } else if (SNIPPET_MAP[c.snippetName]) {
+      html = SNIPPET_MAP[c.snippetName];
     }
-    if (SNIPPET_MAP[c.snippetName]) {
-      return SNIPPET_MAP[c.snippetName];
-    }
+  } else {
+    html = c.html || c.rawHtml || "";
   }
-  const html: string = c.html || c.rawHtml || "";
-  return html;
+  if (!html) return "";
+  // Wrap in the standard row() so html_block content is constrained to 600px
+  // and sits inside the gutter, consistent with every other block.
+  return row(html, "#ffffff", "0", bg);
 }
 
 function renderDivider(c: any, bg?: BlockBg): string {
@@ -706,10 +714,9 @@ function renderPromoCode(c: any, bg?: BlockBg): string {
 }
 
 /**
- * image_text block — two-column layout with image on one side, text on the other.
- * On mobile (≤480px), both columns stack via the .it-col CSS class:
- *   image goes full-width first, text goes full-width below.
- * Text font sizes scale down via .it-text inside the text column.
+ * image_text block — two-column layout, always side-by-side (no stacking).
+ * On mobile the columns stay 50/50 but text padding is tightened to 12px
+ * so both columns have more room at narrow widths.
  */
 function renderImageText(c: any, bg?: BlockBg): string {
   const layout    = c.layout    || "image_left";
@@ -741,22 +748,22 @@ function renderImageText(c: any, bg?: BlockBg): string {
   const cellPad   = `${padTop}px ${padRight}px ${padBottom}px ${padLeft}px`;
 
   const headingHtml = heading
-    ? `<p class="it-heading" style="margin:0 0 10px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(hSize)}px;font-weight:${esc(hWeight)};font-style:${esc(hStyle)};text-decoration:${esc(hDeco)};text-transform:${esc(hXform)};line-height:1.3;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(heading)}</p>`
+    ? `<p style="margin:0 0 8px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(hSize)}px;font-weight:${esc(hWeight)};font-style:${esc(hStyle)};text-decoration:${esc(hDeco)};text-transform:${esc(hXform)};line-height:1.3;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(heading)}</p>`
     : "";
   const bodyHtml = body
-    ? `<p class="it-body" style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(bSize)}px;font-weight:${esc(bWeight)};font-style:${esc(bStyle)};text-decoration:${esc(bDeco)};text-transform:${esc(bXform)};line-height:1.65;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(body)}</p>`
+    ? `<p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(bSize)}px;font-weight:${esc(bWeight)};font-style:${esc(bStyle)};text-decoration:${esc(bDeco)};text-transform:${esc(bXform)};line-height:1.55;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(body)}</p>`
     : "";
   const ctaHtml = ctaText
-    ? `<p class="it-cta" style="margin:18px 0 0;text-align:${esc(textAlign)};"><a href="${esc(ctaLink)}" style="font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-weight:600;color:${esc(textColor)};text-decoration:underline;">${esc(ctaText)}</a></p>`
+    ? `<p style="margin:12px 0 0;text-align:${esc(textAlign)};"><a href="${esc(ctaLink)}" style="font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:12px;font-weight:600;color:${esc(textColor)};text-decoration:underline;">${esc(ctaText)}</a></p>`
     : "";
 
-  // Both cells get class="it-col" so they stack on mobile.
-  // The image cell has no padding; the text cell carries its designed padding.
+  // No stacking on mobile — columns stay side-by-side.
+  // .it-text tightens padding on narrow screens so text isn't squeezed.
   const imageCell = imageUrl
-    ? `<td width="50%" valign="top" class="it-col" style="width:50%;padding:0;"><img src="${esc(imageUrl)}" alt="${esc(imageAlt)}" style="display:block;width:100%;max-width:300px;height:auto;border:0;object-fit:cover;" /></td>`
-    : `<td width="50%" valign="top" class="it-col" style="width:50%;padding:0;background-color:#f0ebe7;min-height:160px;"></td>`;
+    ? `<td width="50%" valign="top" style="width:50%;padding:0;"><img src="${esc(imageUrl)}" alt="${esc(imageAlt)}" style="display:block;width:100%;max-width:300px;height:auto;border:0;object-fit:cover;" /></td>`
+    : `<td width="50%" valign="top" style="width:50%;padding:0;background-color:#f0ebe7;min-height:160px;"></td>`;
 
-  const textCell = `<td width="50%" valign="middle" class="it-col" style="width:50%;padding:${cellPad};background-color:${esc(textBg)};vertical-align:middle;">${headingHtml}${bodyHtml}${ctaHtml}</td>`;
+  const textCell = `<td width="50%" valign="middle" class="it-text" style="width:50%;padding:${cellPad};background-color:${esc(textBg)};vertical-align:middle;">${headingHtml}${bodyHtml}${ctaHtml}</td>`;
 
   const cols  = layout === "image_right" ? `${textCell}${imageCell}` : `${imageCell}${textCell}`;
   const inner = `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${cols}</tr></table>`;
@@ -814,8 +821,8 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
 
 /**
  * review block — star rating + quote + attribution.
- * A min-height on the quote cell (120px) keeps short reviews the same visual
- * weight as longer ones when two review blocks appear back to back.
+ * min-height:80px on the quote element keeps short reviews the same
+ * visual weight as longer ones when two review blocks appear back-to-back.
  */
 function renderReview(c: any, bg?: BlockBg): string {
   const rating = c.rating ? `<p style="margin:0 0 8px;font-size:20px;color:#c9a227;">${stars(c.rating)}</p>` : "";
@@ -1176,25 +1183,13 @@ ${gFontLinks ? `${gFontLinks}\n` : ""}  <!--[if mso]>
         max-width:100%!important;
         box-sizing:border-box!important;
       }
-      .mobile-pad{padding-left:20px!important;padding-right:20px!important;}
+      .mobile-pad{padding-left:12px!important;padding-right:12px!important;}
       .mobile-center{text-align:center!important;}
       .mobile-spacer{display:none!important;width:0!important;max-height:0!important;overflow:hidden!important;mso-hide:all!important;}
-      /* image_text: stack columns on mobile */
-      .it-col{
-        display:block!important;
-        width:100%!important;
-        max-width:100%!important;
-        box-sizing:border-box!important;
-      }
-      /* image_text: scale text down and left-align when stacked */
-      .it-heading{font-size:16px!important;text-align:left!important;}
-      .it-body{font-size:14px!important;text-align:left!important;}
-      .it-cta{text-align:left!important;}
+      /* image_text: tighten text cell padding on mobile so side-by-side columns have room */
+      .it-text{padding:12px!important;}
       /* ugc_review: shrink stars slightly so they fit in the 33% column */
       .mobile-stars span{font-size:20px!important;}
-      /* legacy text-shrink kept for backwards compat */
-      .mobile-text-shrink p{font-size:13px!important;line-height:1.5!important;}
-      .mobile-text-shrink p:first-child{font-size:14px!important;font-weight:700!important;}
     }
   </style>
 </head>
