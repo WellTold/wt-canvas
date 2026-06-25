@@ -71,9 +71,6 @@ function row(
   bg?: BlockBg,
   borderCss?: string,
 ): string {
-  // Build padding string from individual bg padding fields if any are set.
-  // Use the block's own defaultPadding values as ?? fallbacks so e.g. a full-width
-  // image (defaultPadding "0") doesn't suddenly get 24px side-padding injected.
   const [dTop, dRight, dBottom, dLeft] = parseDefaultPadding(defaultPadding);
   const hasPadding = bg && (bg.paddingTop !== undefined || bg.paddingRight !== undefined || bg.paddingBottom !== undefined || bg.paddingLeft !== undefined);
   const padding = hasPadding
@@ -84,7 +81,6 @@ function row(
 
   if (bg?.imageUrl) {
     const size = bg.imageSize === "contain" ? "contain" : "cover";
-    // VML background for Outlook + CSS background-image for modern clients
     const vmlOpen = `<!--[if gte mso 9]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:600px;"><v:fill type="frame" src="${esc(bg.imageUrl)}" color="${esc(fallback)}" /><v:textbox inset="0,0,0,0"><![endif]-->`;
     const vmlClose = `<!--[if gte mso 9]></v:textbox></v:rect><![endif]-->`;
     return /* html */`
@@ -132,18 +128,11 @@ const EMAIL_FONT_SIZES: Record<string, string> = {
   "2xl": "24px", "3xl": "32px", "4xl": "40px",
 };
 
-/** Resolve a fontSize value — named key, raw number, or "Npx" string */
-/**
- * Post-process rich HTML so <strong>/<b> are always visually heavier than the
- * container's font-weight. Email clients won't promote a <strong> that is already
- * at 700 when the container is also 700 — so we inject an explicit higher weight.
- */
 function ensureInlineMarksVisible(html: string, containerWeight: string): string {
   const base = containerWeight === "bold" ? 700
     : containerWeight === "normal" ? 400
     : parseInt(containerWeight) || 400;
   const strongWeight = base <= 400 ? 700 : base <= 600 ? 800 : 900;
-  // Inject font-weight into an existing style attribute or add a new one
   const injectWeight = (attrs: string): string => {
     const styleMatch = attrs.match(/style="([^"]*)"/i);
     if (styleMatch) {
@@ -158,7 +147,6 @@ function ensureInlineMarksVisible(html: string, containerWeight: string): string
     .replace(/<b(\s[^>]*)?>/gi, (_, attrs = "") => `<b${injectWeight(attrs)}>`);
 }
 
-/** Strip <mark> highlight tags from HTML — email clients show them as yellow highlights */
 function stripMarkTags(html: string): string {
   return html.replace(/<mark(\s[^>]*)?>/gi, "").replace(/<\/mark>/gi, "");
 }
@@ -166,13 +154,11 @@ function stripMarkTags(html: string): string {
 function resolveFontSize(value: string | undefined, fallback: string): string {
   if (!value) return fallback;
   if (EMAIL_FONT_SIZES[value]) return EMAIL_FONT_SIZES[value];
-  // Strip trailing "px" if present, then treat as raw px number
   const n = parseFloat(value.replace(/px$/i, ""));
   if (!isNaN(n) && n > 0) return `${n}px`;
   return fallback;
 }
 
-/** Build inline CSS string from the block's text-style content fields */
 function textStyle(
   c: any,
   defaults: { color: string; fontSize: string; fontWeight: string; fontFamily: string; lineHeight: string }
@@ -192,7 +178,6 @@ function textStyle(
   return parts.join(";");
 }
 
-// Known Google Font names (for injecting <link> tags into the email head)
 const KNOWN_GOOGLE_FONTS = new Set([
   "Barlow","Bricolage Grotesque","Cabin","Cormorant Garamond","Crimson Text",
   "DM Sans","EB Garamond","Exo 2","Figtree","Inter","Josefin Sans","Jost",
@@ -202,13 +187,11 @@ const KNOWN_GOOGLE_FONTS = new Set([
   "Source Sans Pro","Space Grotesk","Tenor Sans","Ubuntu","Work Sans",
 ]);
 
-/** Extract the primary font name from a CSS font-family value. */
 function extractFontName(css: string): string {
   const first = css.split(",")[0].trim().replace(/^["']|["']$/g, "");
   return first;
 }
 
-/** Collect all unique Google Font names referenced in a block tree. */
 function collectGoogleFonts(blocks: EmailBlock[]): string[] {
   const found = new Set<string>();
   for (const block of collectAllEmailBlocks(blocks)) {
@@ -221,7 +204,6 @@ function collectGoogleFonts(blocks: EmailBlock[]): string[] {
   return [...found];
 }
 
-/** Build Google Fonts <link> tags for the email head. */
 function buildGoogleFontLinks(fontNames: string[]): string {
   if (fontNames.length === 0) return "";
   return fontNames
@@ -245,18 +227,15 @@ function renderHeading(c: any, bg?: BlockBg): string {
     fontWeight: "bold", fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.3",
   });
   const bgColor = c.backgroundColor || "#ffffff";
-  // If rich HTML is stored, strip outer <p> wrappers, mark tags, and convert paragraph breaks to <br>
   const rawHeadingContent = c.html
     ? stripMarkTags(c.html).replace(/<\/p>\s*<p>/g, "<br>").replace(/^<p>/, "").replace(/<\/p>$/, "")
     : esc(c.text);
-  // Ensure <strong>/<b> are visually heavier than the container weight
   const headingContent = c.html
     ? ensureInlineMarksVisible(rawHeadingContent, c.fontWeight || "bold")
     : rawHeadingContent;
   return row(`<${tag} style="margin:0;${style}">${headingContent}</${tag}>`, bgColor, "20px 24px", bg);
 }
 
-/** Post-process HTML: replace every <a> tag's styles with inline button styles */
 function buttonifyLinks(html: string, opts: {
   btnBg: string; btnColor: string; radius: string;
   fontFamily: string; fontSize: string; fontWeight: string;
@@ -279,7 +258,6 @@ function buttonifyLinks(html: string, opts: {
   if (opts.fontStyle === "italic") parts.push("font-style:italic");
   if (opts.textTransform && opts.textTransform !== "none") parts.push(`text-transform:${opts.textTransform}`);
   const btnStyle = parts.join(";");
-  // Strip any existing style/color attrs on <a> then inject button style
   return html.replace(/<a(\s[^>]*)?>/gi, (_, attrs: string = "") => {
     const clean = attrs
       .replace(/\s*style="[^"]*"/gi, "")
@@ -294,23 +272,15 @@ function renderParagraph(c: any, bg?: BlockBg): string {
     fontWeight: "normal", fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.7",
   });
   const bgColor = c.backgroundColor || "#ffffff";
-
   const widthMode: string = c.widthMode || "full";
   const customWidth: number = Number(c.customWidth) || 0;
   const minH = c.minHeight ? parseInt(c.minHeight) : 0;
-
-  // ── Link button styling ───────────────────────────────────────────────────
-  // "reverse" defaults: button bg = paragraph text colour, button text = paragraph bg
   const linkStyle: string = c.linkStyle || "underline";
-  const paraFamily = (c.fontFamily || "'Plus Jakarta Sans',Arial,sans-serif").replace(/"/g, "'");
-  const paraSize   = resolveFontSize(c.fontSize, "15px");
 
   function processHtml(raw: string): string {
     if (linkStyle !== "button") return raw;
-    // Colours default to "reverse" of paragraph; can be overridden independently
     const btnBg    = c.linkButtonBg    || c.color           || "#333333";
     const btnColor = c.linkButtonColor || c.backgroundColor || "#ffffff";
-    // Font settings default to paragraph values; overridable independently
     const btnFamily = (c.linkButtonFontFamily || c.fontFamily || "'Plus Jakarta Sans',Arial,sans-serif").replace(/"/g, "'");
     const btnSize   = resolveFontSize(c.linkButtonFontSize || c.fontSize, "15px");
     const btnWeight = c.linkButtonFontWeight || "bold";
@@ -330,27 +300,19 @@ function renderParagraph(c: any, bg?: BlockBg): string {
   const rawHtml = c.html
     ? stripMarkTags(c.html)
     : (c.text ? c.text.split(/\n\n+/).map((p: string) => `<p>${p}</p>`).join("") : "");
-  // Ensure <strong>/<b> are visually heavier than the container weight before other processing
   const markedHtml = c.html ? ensureInlineMarksVisible(rawHtml, c.fontWeight || "normal") : rawHtml;
   const processedHtml = processHtml(markedHtml);
-
   const textEl = c.html || c.text
     ? `<div style="margin:0;${style}">${processedHtml}</div>`
     : "";
-
   const textContent = minH > 0
     ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr><td style="min-height:${minH}px;height:${minH}px;vertical-align:middle;">${textEl}</td></tr></table>`
     : textEl;
 
-  // ── Inset "floating rectangle" mode ──────────────────────────────────────
-  // When a custom width is set the text renders in its own constrained inner
-  // table, allowing the outer block background (colour or image) to show on
-  // the sides — matching the look in the design reference.
   if ((widthMode === "px" || widthMode === "percent") && customWidth > 0) {
     const boxPx = widthMode === "px"
       ? Math.min(customWidth, 552)
       : Math.round(552 * customWidth / 100);
-
     const outerBg = bg?.color || "#f4f1ef";
     const [dTop, dRight, dBottom, dLeft] = parseDefaultPadding("20px 24px");
     const hasBgPadding = bg && (bg.paddingTop !== undefined || bg.paddingRight !== undefined || bg.paddingBottom !== undefined || bg.paddingLeft !== undefined);
@@ -358,11 +320,9 @@ function renderParagraph(c: any, bg?: BlockBg): string {
       ? `${bg!.paddingTop ?? dTop}px ${bg!.paddingRight ?? dRight}px ${bg!.paddingBottom ?? dBottom}px ${bg!.paddingLeft ?? dLeft}px`
       : "20px 24px";
     const fallback = bg?.fallbackColor || "#ffffff";
-
     const insetTable = `<table cellpadding="0" cellspacing="0" border="0" role="presentation" align="center" width="${boxPx}" style="width:${boxPx}px;max-width:100%;background-color:${bgColor};margin:0 auto;">
   <tr><td style="padding:20px 24px;">${textContent}</td></tr>
 </table>`;
-
     if (bg?.imageUrl) {
       const size = bg.imageSize === "contain" ? "contain" : "cover";
       const vmlOpen = `<!--[if gte mso 9]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:600px;"><v:fill type="frame" src="${esc(bg.imageUrl)}" color="${esc(fallback)}" /><v:textbox inset="0,0,0,0"><![endif]-->`;
@@ -386,7 +346,6 @@ function renderParagraph(c: any, bg?: BlockBg): string {
   </td>
 </tr>`;
     }
-
     return `
 <tr>
   <td align="center" style="padding:0;background-color:#f4f1ef;">
@@ -397,21 +356,17 @@ function renderParagraph(c: any, bg?: BlockBg): string {
 </tr>`;
   }
 
-  // ── Full-width mode (default) ─────────────────────────────────────────────
   return row(textContent, bgColor, "20px 24px", bg);
 }
 
 function renderImage(c: any, bg?: BlockBg): string {
-  // Accept url, src, or imageUrl — different block types use different field names
   const src = c.url || c.src || c.imageUrl || "";
   if (!src) {
-    // Visible placeholder so the block doesn't silently disappear
     return row(
       `<div style="background:#f0ebe7;border:2px dashed #c8bfb8;padding:32px 24px;text-align:center;color:#a09080;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;">[ No image selected ]</div>`,
       "#ffffff", "8px 24px", bg
     );
   }
-  // Compute width from widthMode
   const widthMode: string = c.widthMode || "full";
   const customWidth: number = Number(c.customWidth) || 0;
   let imgWidth: number;
@@ -439,30 +394,24 @@ function renderImage(c: any, bg?: BlockBg): string {
   return row(inner, "#ffffff", isFullWidth ? "0" : "16px 24px", bg);
 }
 
-/** Hero block — full-width image with optional headline above or below */
 function renderHero(c: any, bg?: BlockBg): string {
   const src      = c.imageUrl || c.url || c.src || "";
   const headline = c.text || c.headline || "";
   const subtext  = c.subtext || c.body || "";
   const above    = c.textPosition === "above";
-
-  // Headline style
   const hs = c.headlineStyle || {};
   const headlineStyleStr = textStyle(hs, {
     fontSize: "28px", color: "#1a1a1a", fontWeight: "bold",
     fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.25",
   });
-  // Subtext style
   const ss = c.subtextStyle || {};
   const subtextStyleStr = textStyle(ss, {
     fontSize: "15px", color: "#555555", fontWeight: "normal",
     fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.6",
   });
-
   const imgHtml = src
     ? `<img src="${esc(src)}" alt="${esc(c.alt || c.imageAlt || headline || "")}" width="600" style="display:block;width:100%;height:auto;border:0;" />`
     : `<div style="background:#f0ebe7;border:2px dashed #c8bfb8;padding:60px 24px;text-align:center;color:#a09080;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;">[ No hero image selected ]</div>`;
-
   const headlineHtml = headline
     ? `<h1 style="margin:0 0 ${subtext ? "10px" : "0"};${headlineStyleStr}">${esc(headline)}</h1>`
     : "";
@@ -471,23 +420,16 @@ function renderHero(c: any, bg?: BlockBg): string {
     : subtext
       ? `<p style="margin:0;${subtextStyleStr}">${esc(subtext)}</p>`
       : "";
-
-  // Text section background and padding — _bg padding applies here
   const textBg = hs.backgroundColor || ss.backgroundColor || "#ffffff";
   const hasBgPadding = bg && (bg.paddingTop !== undefined || bg.paddingRight !== undefined || bg.paddingBottom !== undefined || bg.paddingLeft !== undefined);
   const textPadding = hasBgPadding
     ? `${bg!.paddingTop ?? 20}px ${bg!.paddingRight ?? 24}px ${bg!.paddingBottom ?? 20}px ${bg!.paddingLeft ?? 24}px`
     : "20px 24px";
-
-  // Outer email-body background — use _bg.color only for the background strip, never white-pollutes the image row
   const outerBg = bg?.color || "#f4f1ef";
-
-  // Single table, two rows — no inter-table gap in email clients
   const imgRow  = `<tr><td style="padding:0;font-size:0;line-height:0;">${imgHtml}</td></tr>`;
   const textRow = (headlineHtml || subtextHtml)
     ? `<tr><td style="padding:${textPadding};background-color:${textBg};">${headlineHtml}${subtextHtml}</td></tr>`
     : "";
-
   return `
 <tr>
   <td align="center" style="padding:0;background-color:${outerBg};">
@@ -518,8 +460,6 @@ function renderBanner(c: any, bg?: BlockBg): string {
   const inner = c.html
     ? `<div style="margin:0;${bannerBaseStyle}">${c.html}</div>${link}`
     : `<p style="margin:0;${bannerBaseStyle}">${esc(c.text || "")}</p>${link}`;
-  // Outer wrapper: always use the email body background (#f4f1ef) — banner manages its own interior colour.
-  // Only _bg padding is respected (not _bg colour) to avoid white outer gaps.
   const hasBgPadding = bg && (bg.paddingTop !== undefined || bg.paddingRight !== undefined || bg.paddingBottom !== undefined || bg.paddingLeft !== undefined);
   const outerPadding = hasBgPadding
     ? `${bg!.paddingTop ?? 0}px ${bg!.paddingRight ?? 0}px ${bg!.paddingBottom ?? 0}px ${bg!.paddingLeft ?? 0}px`
@@ -543,14 +483,12 @@ function renderList(c: any, bg?: BlockBg): string {
     color: "#333333", fontSize: "15px", fontWeight: "normal",
     fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.7",
   });
-
   if (listStyle === "numbered") {
     const liHtml = items.map(
       (item) => `<li style="${itemCss};margin-bottom:6px;">${esc(item)}</li>`
     ).join("");
     return row(`<ol style="margin:0;padding-left:20px;">${liHtml}</ol>`, c.backgroundColor || "#ffffff", "20px 24px", bg);
   }
-
   const marker = listStyle === "check" ? "✓" : "•";
   const liHtml = items.map(
     (item) => `
@@ -559,7 +497,6 @@ function renderList(c: any, bg?: BlockBg): string {
         <td valign="top" style="${itemCss};padding-bottom:6px;">${esc(item)}</td>
       </tr>`
   ).join("");
-
   return row(`<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">${liHtml}</table>`, c.backgroundColor || "#ffffff", "20px 24px", bg);
 }
 
@@ -581,71 +518,44 @@ function renderQuote(c: any, bg?: BlockBg): string {
        ${quoteBody}
        ${authorHtml}
      </blockquote>`,
-    bgColor,
-    "20px 24px",
-    bg
+    bgColor, "20px 24px", bg
   );
 }
 
 function renderCta(c: any, bg?: BlockBg): string {
-  // Field mapping: c.text = button label, c.bodyText = paragraph above button
   const btnLabel   = esc(c.text || "");
   const link       = esc(c.link || "#");
   const btnColor   = c.buttonColor   || "#f15822";
   const btnTxtClr  = c.buttonTextColor || "#ffffff";
   const blockAlign = c.textAlign     || "center";
-
-  // Button size → padding + approximate Outlook VML width
   const sizeMap: Record<string, string> = { sm: "10px 24px", md: "14px 32px", lg: "18px 40px" };
   const pad = sizeMap[c.buttonSize as string] || sizeMap.md;
   const vmlWidthMap: Record<string, number> = { sm: 160, md: 220, lg: 280 };
   const vmlWidth = vmlWidthMap[c.buttonSize as string] || vmlWidthMap.md;
-
-  // Corner radius
   const radiusMap: Record<string, string> = { sharp: "0px", rounded: "4px", pill: "999px" };
   const radius = radiusMap[c.borderRadius as string] ?? "4px";
-
-  // Button style: filled (default) | outline | ghost
   const btnStyle = (c.buttonStyle === "outline" || c.buttonStyle === "ghost") ? c.buttonStyle : "filled";
-
-  // Drop shadow (applied to <a> tag — works in modern clients, no-op in Outlook)
   const shadow = c.dropShadow && btnStyle === "filled" ? "box-shadow:0 4px 12px rgba(0,0,0,0.20);" : "";
-
-  // Per-style: td cell styles, anchor text color/decoration, VML attributes
   let tdStyle: string;
   let anchorColor: string;
   let anchorDecoration: string;
   let vmlFill: string;
   let vmlStroke: string;
   let vmlStrokeColor: string;
-
   if (btnStyle === "outline") {
     tdStyle = `background-color:transparent;border:2px solid ${btnColor};border-radius:${radius};mso-padding-alt:${pad};`;
-    anchorColor = btnColor;
-    anchorDecoration = "none";
-    vmlFill = "f";
-    vmlStroke = "t";
-    vmlStrokeColor = ` strokecolor="${btnColor}"`;
+    anchorColor = btnColor; anchorDecoration = "none";
+    vmlFill = "f"; vmlStroke = "t"; vmlStrokeColor = ` strokecolor="${btnColor}"`;
   } else if (btnStyle === "ghost") {
     tdStyle = `background-color:transparent;border-radius:${radius};mso-padding-alt:${pad};`;
-    anchorColor = btnColor;
-    anchorDecoration = "underline";
-    vmlFill = "f";
-    vmlStroke = "f";
-    vmlStrokeColor = "";
+    anchorColor = btnColor; anchorDecoration = "underline";
+    vmlFill = "f"; vmlStroke = "f"; vmlStrokeColor = "";
   } else {
-    // filled
     tdStyle = `background-color:${btnColor};border-radius:${radius};mso-padding-alt:${pad};`;
-    anchorColor = btnTxtClr;
-    anchorDecoration = "none";
-    vmlFill = "t";
-    vmlStroke = "f";
-    vmlStrokeColor = "";
+    anchorColor = btnTxtClr; anchorDecoration = "none";
+    vmlFill = "t"; vmlStroke = "f"; vmlStrokeColor = "";
   }
-
-  // Body text — position is 'above' (default) or 'below' the button
   const bodyTextPosition: string = c.bodyTextPosition || "above";
-  // Use bodyTextTransform (not the button's textTransform) to prevent uppercase button leaking into body text
   const bodyStyle = textStyle({ ...c, textTransform: c.bodyTextTransform || "none" }, {
     color: "#333333", fontSize: "15px", fontWeight: "normal",
     fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.7",
@@ -655,22 +565,14 @@ function renderCta(c: any, bg?: BlockBg): string {
       ? `<div style="margin:16px 0 0;${bodyStyle}">${c.bodyTextHtml || esc(c.bodyText)}</div>`
       : `<div style="margin:0 0 16px;${bodyStyle}">${c.bodyTextHtml || esc(c.bodyText)}</div>`
     : "";
-
-  // Button label typography — use text style fields from the editor, with sensible defaults
-  // Sanitize font family: replace any double-quotes with single-quotes so they don't
-  // break the surrounding style="..." HTML attribute and silently kill all inline styles.
   const rawFamily     = c.fontFamily || "'Plus Jakarta Sans',Arial,sans-serif";
   const btnFontFamily = rawFamily.replace(/"/g, "'");
   const btnFontSize   = resolveFontSize(c.fontSize, "15px");
   const btnFontWeight = c.fontWeight || "bold";
   const btnTransform  = c.textTransform && c.textTransform !== "none" ? `text-transform:${c.textTransform};` : "";
   const btnTextAlign  = blockAlign;
-
-  // Bulletproof button — table-based so no email client can stretch it full-width
   const tableAlign = blockAlign === "left" ? "left" : blockAlign === "right" ? "right" : "center";
   const marginStyle = tableAlign === "center" ? "margin:0 auto;" : tableAlign === "right" ? "margin:0 0 0 auto;" : "margin:0;";
-
-  // Core button table
   const btnTable = `<table cellpadding="0" cellspacing="0" border="0" align="${tableAlign}" style="${marginStyle}">
   <tr>
     <td align="center" style="${tdStyle}">
@@ -679,12 +581,9 @@ function renderCta(c: any, bg?: BlockBg): string {
     </td>
   </tr>
 </table>`;
-
-  // Optional dotted ring — wraps the button table in an outer cell with a dotted border
   let buttonHtml: string;
   if (c.dottedBorder) {
     const ringColor = c.dottedBorderColor || btnColor;
-    // Outer radius should be slightly larger than the button's own radius so the ring curves match
     const outerRadiusMap: Record<string, string> = { sharp: "0px", rounded: "8px", pill: "999px" };
     const outerRadius = outerRadiusMap[c.borderRadius as string] ?? "8px";
     buttonHtml = `<table cellpadding="0" cellspacing="0" border="0" align="${tableAlign}" style="${marginStyle}">
@@ -697,16 +596,12 @@ function renderCta(c: any, bg?: BlockBg): string {
   } else {
     buttonHtml = btnTable;
   }
-
-  const inner = bodyTextPosition === "below"
-    ? `${buttonHtml}${bodyText}`
-    : `${bodyText}${buttonHtml}`;
+  const inner = bodyTextPosition === "below" ? `${buttonHtml}${bodyText}` : `${bodyText}${buttonHtml}`;
   const bgColor = c.backgroundColor || "#ffffff";
   return row(inner, bgColor, "20px 24px", bg);
 }
 
 function renderHtmlBlock(c: any, _bg?: BlockBg, snippetsMap?: Record<string, string>): string {
-  // If a named snippet is selected, resolve it — DB overrides take priority over the hardcoded registry
   if (c.snippetName) {
     if (snippetsMap && snippetsMap[c.snippetName] !== undefined) {
       return snippetsMap[c.snippetName];
@@ -715,7 +610,6 @@ function renderHtmlBlock(c: any, _bg?: BlockBg, snippetsMap?: Record<string, str
       return SNIPPET_MAP[c.snippetName];
     }
   }
-  // Otherwise output the raw custom HTML as-is
   const html: string = c.html || c.rawHtml || "";
   return html;
 }
@@ -723,7 +617,6 @@ function renderHtmlBlock(c: any, _bg?: BlockBg, snippetsMap?: Record<string, str
 function renderDivider(c: any, bg?: BlockBg): string {
   if (c.style === "space") {
     const h = Number(c.height) || 24;
-    // Always use row() so _bg is applied even for spacer-style dividers
     return row(`<div style="height:${h}px;font-size:0;line-height:0;">&nbsp;</div>`, "#ffffff", "0", bg);
   }
   const color = c.color || "#e0d8d2";
@@ -757,9 +650,7 @@ function renderProductFeature(c: any, bg?: BlockBg): string {
     `${img}
      <h3 style="margin:0 0 4px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:20px;color:#1a1a1a;">${esc(c.name)}</h3>
      ${price}${desc}${cta}`,
-    "#ffffff",
-    "20px 24px",
-    bg
+    "#ffffff", "20px 24px", bg
   );
 }
 
@@ -785,9 +676,7 @@ function renderProductRow(c: any, bg?: BlockBg): string {
     `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" class="mobile-stack">
        <tr>${cols}</tr>
      </table>`,
-    "#ffffff",
-    "20px 16px",
-    bg
+    "#ffffff", "20px 16px", bg
   );
 }
 
@@ -812,12 +701,16 @@ function renderPromoCode(c: any, bg?: BlockBg): string {
        </tr>
      </table>
      ${expiryHtml}${instructions}`,
-    "#ffffff",
-    "20px 24px",
-    bg
+    "#ffffff", "20px 24px", bg
   );
 }
 
+/**
+ * image_text block — two-column layout with image on one side, text on the other.
+ * On mobile (≤480px), both columns stack via the .it-col CSS class:
+ *   image goes full-width first, text goes full-width below.
+ * Text font sizes scale down via .it-text inside the text column.
+ */
 function renderImageText(c: any, bg?: BlockBg): string {
   const layout    = c.layout    || "image_left";
   const imageUrl  = c.imageUrl  || "";
@@ -830,20 +723,17 @@ function renderImageText(c: any, bg?: BlockBg): string {
   const ctaText   = c.ctaText   || "";
   const ctaLink   = c.ctaLink   || "#";
 
-  // Per-field typography
   const hSize   = c.headingFontSize       || "18";
   const hWeight = c.headingFontWeight     || "700";
   const hStyle  = c.headingFontStyle      || "normal";
   const hDeco   = c.headingTextDecoration || "none";
   const hXform  = c.headingTextTransform  || "none";
-
   const bSize   = c.bodyFontSize          || "15";
   const bWeight = c.bodyFontWeight        || "400";
   const bStyle  = c.bodyFontStyle         || "normal";
   const bDeco   = c.bodyTextDecoration    || "none";
   const bXform  = c.bodyTextTransform     || "none";
 
-  // Text panel padding
   const padTop    = c.textPadTop    !== undefined ? Number(c.textPadTop)    : 32;
   const padRight  = c.textPadRight  !== undefined ? Number(c.textPadRight)  : 28;
   const padBottom = c.textPadBottom !== undefined ? Number(c.textPadBottom) : 32;
@@ -851,20 +741,22 @@ function renderImageText(c: any, bg?: BlockBg): string {
   const cellPad   = `${padTop}px ${padRight}px ${padBottom}px ${padLeft}px`;
 
   const headingHtml = heading
-    ? `<p style="margin:0 0 10px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(hSize)}px;font-weight:${esc(hWeight)};font-style:${esc(hStyle)};text-decoration:${esc(hDeco)};text-transform:${esc(hXform)};line-height:1.3;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(heading)}</p>`
+    ? `<p class="it-heading" style="margin:0 0 10px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(hSize)}px;font-weight:${esc(hWeight)};font-style:${esc(hStyle)};text-decoration:${esc(hDeco)};text-transform:${esc(hXform)};line-height:1.3;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(heading)}</p>`
     : "";
   const bodyHtml = body
-    ? `<p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(bSize)}px;font-weight:${esc(bWeight)};font-style:${esc(bStyle)};text-decoration:${esc(bDeco)};text-transform:${esc(bXform)};line-height:1.65;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(body)}</p>`
+    ? `<p class="it-body" style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(bSize)}px;font-weight:${esc(bWeight)};font-style:${esc(bStyle)};text-decoration:${esc(bDeco)};text-transform:${esc(bXform)};line-height:1.65;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(body)}</p>`
     : "";
   const ctaHtml = ctaText
-    ? `<p style="margin:18px 0 0;text-align:${esc(textAlign)};"><a href="${esc(ctaLink)}" style="font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-weight:600;color:${esc(textColor)};text-decoration:underline;">${esc(ctaText)}</a></p>`
+    ? `<p class="it-cta" style="margin:18px 0 0;text-align:${esc(textAlign)};"><a href="${esc(ctaLink)}" style="font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-weight:600;color:${esc(textColor)};text-decoration:underline;">${esc(ctaText)}</a></p>`
     : "";
 
+  // Both cells get class="it-col" so they stack on mobile.
+  // The image cell has no padding; the text cell carries its designed padding.
   const imageCell = imageUrl
-    ? `<td width="50%" valign="top" style="width:50%;padding:0;"><img src="${esc(imageUrl)}" alt="${esc(imageAlt)}" style="display:block;width:100%;max-width:300px;height:auto;border:0;object-fit:cover;" /></td>`
-    : `<td width="50%" valign="top" style="width:50%;padding:0;background-color:#f0ebe7;min-height:160px;"></td>`;
+    ? `<td width="50%" valign="top" class="it-col" style="width:50%;padding:0;"><img src="${esc(imageUrl)}" alt="${esc(imageAlt)}" style="display:block;width:100%;max-width:300px;height:auto;border:0;object-fit:cover;" /></td>`
+    : `<td width="50%" valign="top" class="it-col" style="width:50%;padding:0;background-color:#f0ebe7;min-height:160px;"></td>`;
 
-  const textCell = `<td width="50%" valign="middle" style="width:50%;padding:${cellPad};background-color:${esc(textBg)};vertical-align:middle;"><div class="mobile-text-shrink">${headingHtml}${bodyHtml}${ctaHtml}</div></td>`;
+  const textCell = `<td width="50%" valign="middle" class="it-col" style="width:50%;padding:${cellPad};background-color:${esc(textBg)};vertical-align:middle;">${headingHtml}${bodyHtml}${ctaHtml}</td>`;
 
   const cols  = layout === "image_right" ? `${textCell}${imageCell}` : `${imageCell}${textCell}`;
   const inner = `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${cols}</tr></table>`;
@@ -884,15 +776,11 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
   const borderCss   = borderWidth > 0 ? `border:${borderWidth}px solid ${esc(borderColor)};` : undefined;
   const outerSpacingTop    = Math.max(0, Number(c.outerSpacingTop)    || 0);
   const outerSpacingBottom = Math.max(0, Number(c.outerSpacingBottom) || 0);
-
   const spacerRow = (h: number) =>
     `<tr><td height="${h}" style="height:${h}px;font-size:0;line-height:0;background-color:#f4f1ef;">&nbsp;</td></tr>`;
-
-  // Stars — filled up to rating, dimmed remainder
   const starsHtml = Array.from({ length: 5 }, (_, i) =>
     `<span style="font-size:28px;color:${esc(textColor)};${i >= rating ? "opacity:0.35;" : ""}line-height:1;">&#9733;</span>`
   ).join("");
-
   const titleHtml = title
     ? `<p style="margin:0 0 6px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;font-weight:700;line-height:1.3;color:${esc(textColor)};text-transform:uppercase;letter-spacing:0.5px;">${esc(title)}</p>`
     : "";
@@ -902,20 +790,15 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
   const attributionHtml = attribution
     ? `<p style="margin:8px 0 0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-style:italic;color:${esc(textColor)};">&#8212; ${esc(attribution)}</p>`
     : "";
-
   const wrapWithSpacers = (mainRow: string) => [
     outerSpacingTop    > 0 ? spacerRow(outerSpacingTop)    : "",
     mainRow,
     outerSpacingBottom > 0 ? spacerRow(outerSpacingBottom) : "",
   ].filter(Boolean).join("\n");
-
   if (layout === "center") {
     const inner = `<div style="text-align:center;"><div style="margin-bottom:10px;">${starsHtml}</div>${titleHtml ? `<div style="margin-bottom:4px;">${titleHtml}</div>` : ""}${bodyHtml}${attributionHtml}</div>`;
     return wrapWithSpacers(row(inner, bgColor, "28px 24px", bg, borderCss));
   }
-
-  // Two-column: stars (33%) | content (67%), or reversed for "right"
-  // Always stays side-by-side — vertical border divides the columns on all screen sizes.
   const dividerSide  = layout === "left" ? "border-right" : "border-left";
   const starsCell = `<td width="33%" valign="middle" style="width:33%;text-align:center;${dividerSide}:1px solid rgba(255,255,255,0.35);${layout === "left" ? "padding-right:16px;" : "padding-left:16px;"}">
     <div class="mobile-stars">${starsHtml}</div>
@@ -924,12 +807,16 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
   const contentCell = `<td width="67%" valign="middle" style="width:67%;${layout === "left" ? "padding-left:16px;" : "padding-right:16px;"}">
     ${titleHtml}${bodyHtml}
   </td>`;
-
   const cols  = layout === "right" ? `${contentCell}${starsCell}` : `${starsCell}${contentCell}`;
   const inner = `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${cols}</tr></table>`;
   return wrapWithSpacers(row(inner, bgColor, "20px 24px", bg, borderCss));
 }
 
+/**
+ * review block — star rating + quote + attribution.
+ * A min-height on the quote cell (120px) keeps short reviews the same visual
+ * weight as longer ones when two review blocks appear back to back.
+ */
 function renderReview(c: any, bg?: BlockBg): string {
   const rating = c.rating ? `<p style="margin:0 0 8px;font-size:20px;color:#c9a227;">${stars(c.rating)}</p>` : "";
   const author = c.author || "";
@@ -939,15 +826,13 @@ function renderReview(c: any, bg?: BlockBg): string {
     ? `<img src="${esc(c.avatarUrl)}" alt="${esc(author)}" width="40" height="40" style="border-radius:50%;width:40px;height:40px;object-fit:cover;display:inline-block;vertical-align:middle;margin-right:10px;" />`
     : "";
   const quoteBody = quoteHtml
-    ? `<div style="margin:0 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:16px;line-height:1.6;color:#333333;font-style:italic;">${quoteHtml}</div>`
-    : `<p style="margin:0 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:16px;line-height:1.6;color:#333333;font-style:italic;">"${esc(quote)}"</p>`;
+    ? `<div style="margin:0 0 12px;min-height:80px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:16px;line-height:1.6;color:#333333;font-style:italic;">${quoteHtml}</div>`
+    : `<p style="margin:0 0 12px;min-height:80px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:16px;line-height:1.6;color:#333333;font-style:italic;">&ldquo;${esc(quote)}&rdquo;</p>`;
   return row(
     `${rating}
      ${quoteBody}
      <p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;color:#888888;">${avatar}${esc(author)}</p>`,
-    "#fdf8f4",
-    "20px 24px",
-    bg
+    "#fdf8f4", "20px 24px", bg
   );
 }
 
@@ -963,9 +848,7 @@ function renderGifImage(c: any, bg?: BlockBg): string {
      <!--[if mso]>
      <img src="${esc(fallback)}" alt="${esc(alt)}" width="${width}" style="display:block;width:${width}px;height:auto;border:0;" />
      <![endif]-->`,
-    "#ffffff",
-    "16px 24px",
-    bg
+    "#ffffff", "16px 24px", bg
   );
 }
 
@@ -973,15 +856,12 @@ function renderCountdownTimer(c: any, bg?: BlockBg): string {
   const label = c.label || "Offer ends in";
   const deadline = c.deadline ? new Date(c.deadline) : null;
   const deadlineStr = deadline ? deadline.toLocaleString() : "soon";
-  
   return row(
     `<div style="text-align:center;padding:20px;border:1px solid #e0d8d2;background-color:#fdf8f4;">
        <p style="margin:0 0 10px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;color:#666666;text-transform:uppercase;letter-spacing:1px;">${esc(label)}</p>
        <p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:24px;font-weight:bold;color:#1a1a1a;">${esc(deadlineStr)}</p>
      </div>`,
-    "#fdf8f4",
-    "20px 24px",
-    bg
+    "#fdf8f4", "20px 24px", bg
   );
 }
 
@@ -1000,9 +880,7 @@ function renderProgressLoyalty(c: any, bg?: BlockBg): string {
        </tr>
      </table>
      <p style="margin:6px 0 0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;color:#666666;">${current}${unit} of ${goal}${unit}</p>`,
-    "#ffffff",
-    "20px 24px",
-    bg
+    "#ffffff", "20px 24px", bg
   );
 }
 
@@ -1021,19 +899,16 @@ function renderEmailFooter(footer: EmailFooter): string {
   const socials = (footer.socialLinks || [])
     .map((s) => `<a href="${esc(s.url)}" target="_blank" style="display:inline-block;margin:0 6px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;color:#888888;text-decoration:none;">${esc(s.platform)}</a>`)
     .join(" · ");
-
   const socialsHtml = socials
     ? `<p style="margin:0 0 8px;text-align:center;">${socials}</p>`
     : "";
-
   return row(
     `${socialsHtml}
      <p style="margin:0 0 6px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:12px;color:#aaaaaa;text-align:center;">${esc(footer.address)}</p>
      <p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:12px;color:#aaaaaa;text-align:center;">
        <a href="${esc(footer.unsubscribeLink)}" target="_blank" style="color:#aaaaaa;text-decoration:underline;">Unsubscribe</a>
      </p>`,
-    "#1a1a1a",
-    "20px 24px"
+    "#1a1a1a", "20px 24px"
   );
 }
 
@@ -1065,7 +940,6 @@ function renderShopifyProductCard(c: any, product: any, siteBaseUrl?: string, bg
   const priceHtml = c.showPrice !== false
     ? `<p style="margin:0 0 16px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:16px;font-weight:bold;color:#1a1a1a;">${esc(fmtPrice(product.price, product.currencyCode))}</p>`
     : "";
-
   return row(
     `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" class="mobile-stack">
        <tr>
@@ -1078,9 +952,7 @@ function renderShopifyProductCard(c: any, product: any, siteBaseUrl?: string, bg
          </td>
        </tr>
      </table>`,
-    "#ffffff",
-    "20px 24px",
-    bg
+    "#ffffff", "20px 24px", bg
   );
 }
 
@@ -1095,11 +967,9 @@ function renderShopifyCollectionFeature(c: any, collection: any, siteBaseUrl?: s
   const subtext  = c.subtext  || collection?.description || "";
   const ctaText  = c.ctaText  || "Shop Now";
   const ctaLink  = sanitizeUrl(absoluteUrl(c.ctaLink || (collection?.handle ? `/collections/${collection.handle}` : "#"), siteBaseUrl));
-
   const imgHtml = imageUrl
     ? `<img src="${esc(imageUrl)}" alt="${esc(imageAlt)}" width="552" style="display:block;width:100%;height:auto;border:0;margin-bottom:20px;" />`
     : "";
-
   return row(
     `${imgHtml}
      <div style="text-align:center;">
@@ -1109,9 +979,7 @@ function renderShopifyCollectionFeature(c: any, collection: any, siteBaseUrl?: s
     : subtext ? `<p style="margin:0 0 20px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;line-height:1.6;color:${mutColor};">${esc(subtext)}</p>` : ""}
        <a href="${esc(ctaLink)}" style="display:inline-block;padding:14px 32px;background-color:${style === "dark" ? "#ffffff" : "#1a1a1a"};color:${style === "dark" ? "#1a1a1a" : "#ffffff"};font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.03em;">${esc(ctaText)}</a>
      </div>`,
-    blockBgColor,
-    "28px 24px",
-    bg
+    blockBgColor, "28px 24px", bg
   );
 }
 
@@ -1126,11 +994,9 @@ export interface EmailRenderOptions {
   snippetsMap?: Record<string, string>;
 }
 
-/** Make a relative path absolute using siteBaseUrl; leaves absolute URLs and "#" unchanged. */
 function absoluteUrl(path: string, baseUrl?: string): string {
   if (!path || path === "#" || path.startsWith("http")) return path;
   if (!baseUrl) return path;
-  // Ensure the path always starts with "/" to avoid joining baseUrl and path without a separator
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${baseUrl.replace(/\/$/, "")}${normalizedPath}`;
 }
@@ -1149,7 +1015,6 @@ function renderImageRow(c: any, bg?: BlockBg): string {
   const n = images.length;
   const colW = Math.floor(600 / n);
   const padInner = n > 1 ? 8 : 0;
-
   const cols = images.map((img, i) => {
     const padLeft  = i === 0 ? 0 : padInner;
     const padRight = i === n - 1 ? 0 : padInner;
@@ -1162,7 +1027,6 @@ function renderImageRow(c: any, bg?: BlockBg): string {
       ${captionHtml}
     </td>`;
   }).join("");
-
   return row(
     `<table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${cols}</tr></table>`,
     "#ffffff", "20px 0", bg
@@ -1176,7 +1040,6 @@ export function renderBlockToEmailHtml(
   snippetsMap?: Record<string, string>
 ): string {
   const c = block.content || {};
-  // Skip blocks that have been toggled hidden in the editor
   if (c._hidden) return "";
   const raw = block._bg;
   const bg = raw && (raw.color || raw.imageUrl ||
@@ -1196,7 +1059,6 @@ export function renderBlockToEmailHtml(
     case "html_block":    return renderHtmlBlock(c, bg, snippetsMap);
     case "divider":       return renderDivider(c, bg);
     case "spacer":        return renderSpacer(c, bg);
-    // Email-only
     case "product_feature":   return renderProductFeature(c, bg);
     case "product_row":       return renderProductRow(c, bg);
     case "promo_code":        return renderPromoCode(c, bg);
@@ -1207,7 +1069,6 @@ export function renderBlockToEmailHtml(
     case "image_row":         return renderImageRow(c, bg);
     case "countdown_timer":   return renderCountdownTimer(c, bg);
     case "progress_loyalty":  return renderProgressLoyalty(c, bg);
-    // Shopify blocks — use pre-fetched data + absolute URLs for email
     case "shopify_product_card":
       return renderShopifyProductCard(c, block.id ? shopifyData.get(block.id) : null, siteBaseUrl, bg);
     case "shopify_collection_feature":
@@ -1227,11 +1088,9 @@ export async function renderEmailToHtml(
   opts: EmailRenderOptions = {},
   shopifyFetcher: ShopifyFetcher = null
 ): Promise<string> {
-  // Pre-fetch Shopify data with entity-level dedup: same product/collection fetched only once
   const shopifyData = new Map<string, any>();
   if (shopifyFetcher) {
     const shopifyBlocks = collectAllEmailBlocks(blocks).filter((b) => b.type === "shopify_product_card" || b.type === "shopify_collection_feature");
-    // Step 1: build one promise per unique entity key
     const fetchCache = new Map<string, Promise<any>>();
     for (const block of shopifyBlocks) {
       if (!block.id) continue;
@@ -1246,9 +1105,7 @@ export async function renderEmailToHtml(
         }
       }
     }
-    // Step 2: execute all unique fetches concurrently
     await Promise.all(fetchCache.values());
-    // Step 3: assign resolved data to each block
     for (const block of shopifyBlocks) {
       if (!block.id) continue;
       const c = block.content || {};
@@ -1262,12 +1119,8 @@ export async function renderEmailToHtml(
     }
   }
 
-  const preheader   = opts.preheaderText || "";
+  const preheader = opts.preheaderText || "";
 
-  // ── Banner edge-flush: auto-zero the padding of any block that sits directly
-  //    adjacent to a banner, so its internal white space doesn't create a visible
-  //    "white border" next to the banner's coloured area.
-  //    Only applies when the adjacent block has NO user-set _bg overrides.
   function hasUserBg(b: { _bg?: BlockBg }): boolean {
     const bg = b._bg;
     if (!bg) return false;
@@ -1279,19 +1132,15 @@ export async function renderEmailToHtml(
   const bodyRows = blocks.map((b, i) => {
     const prevIsBanner = i > 0 && blocks[i - 1].type === "banner";
     const nextIsBanner = i < blocks.length - 1 && blocks[i + 1].type === "banner";
-
-    // Banner and hero blocks are exempt — they manage their own edges
     if (b.type === "banner" || b.type === "hero" || b.type === "spacer" || b.type === "divider") {
       return renderBlockToEmailHtml(b, shopifyData, opts.siteBaseUrl, opts.snippetsMap);
     }
-
     if ((prevIsBanner || nextIsBanner) && !hasUserBg(b)) {
       const autoBg: BlockBg = {};
       if (prevIsBanner) autoBg.paddingTop = 0;
       if (nextIsBanner) autoBg.paddingBottom = 0;
       return renderBlockToEmailHtml({ ...b, _bg: autoBg }, shopifyData, opts.siteBaseUrl, opts.snippetsMap);
     }
-
     return renderBlockToEmailHtml(b, shopifyData, opts.siteBaseUrl, opts.snippetsMap);
   }).join("\n");
 
@@ -1320,7 +1169,6 @@ ${gFontLinks ? `${gFontLinks}\n` : ""}  <!--[if mso]>
     body{margin:0;padding:0;background-color:#f4f1ef;}
     @media only screen and (max-width:480px){
       .email-container{width:100%!important;}
-      /* Legacy stack helpers kept for any custom blocks that still use them */
       .mobile-stack{width:100%!important;}
       .mobile-col{
         display:block!important;
@@ -1328,17 +1176,25 @@ ${gFontLinks ? `${gFontLinks}\n` : ""}  <!--[if mso]>
         max-width:100%!important;
         box-sizing:border-box!important;
       }
-      /* Reduce side padding inside cells on narrow screens */
       .mobile-pad{padding-left:20px!important;padding-right:20px!important;}
-      /* Center-align items that look better centred when stacked */
       .mobile-center{text-align:center!important;}
-      /* Spacer cells between columns — hide on mobile */
       .mobile-spacer{display:none!important;width:0!important;max-height:0!important;overflow:hidden!important;mso-hide:all!important;}
-      /* image_text: scale text down so side-by-side columns stay readable at ~50% width */
-      .mobile-text-shrink p{font-size:13px!important;line-height:1.5!important;}
-      .mobile-text-shrink p:first-child{font-size:14px!important;font-weight:700!important;}
+      /* image_text: stack columns on mobile */
+      .it-col{
+        display:block!important;
+        width:100%!important;
+        max-width:100%!important;
+        box-sizing:border-box!important;
+      }
+      /* image_text: scale text down and left-align when stacked */
+      .it-heading{font-size:16px!important;text-align:left!important;}
+      .it-body{font-size:14px!important;text-align:left!important;}
+      .it-cta{text-align:left!important;}
       /* ugc_review: shrink stars slightly so they fit in the 33% column */
       .mobile-stars span{font-size:20px!important;}
+      /* legacy text-shrink kept for backwards compat */
+      .mobile-text-shrink p{font-size:13px!important;line-height:1.5!important;}
+      .mobile-text-shrink p:first-child{font-size:14px!important;font-weight:700!important;}
     }
   </style>
 </head>
