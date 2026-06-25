@@ -30,13 +30,13 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
   const [emailPreviewLoading, setEmailPreviewLoading] = useState(false);
   const [emailPreviewDevice, setEmailPreviewDevice] = useState<"desktop" | "mobile">("desktop");
 
-  // Send test state
-  const [showSendTest, setShowSendTest] = useState(false);
-  const [sendTestEmail, setSendTestEmail] = useState("");
+  // Send test state — now one-click Klaviyo push, no email input needed
   const [sendTestLoading, setSendTestLoading] = useState(false);
 
-  // Push to Template state
-  const [pushTemplateLoading, setPushTemplateLoading] = useState(false);
+  // Save as Template state (internal Canvas)
+  const [showSaveTemplateForm, setShowSaveTemplateForm] = useState(false);
+  const [saveTemplateName, setSaveTemplateName] = useState("");
+  const [saveTemplateLoading, setSaveTemplateLoading] = useState(false);
 
   // Push to Campaign state
   const [showCampaignForm, setShowCampaignForm] = useState(false);
@@ -53,8 +53,9 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
     if (!open) {
       setEmailPreviewHtml(null);
       setPreviewUrl(null);
-      setShowSendTest(false);
-      setSendTestEmail("");
+      setSendTestLoading(false);
+      setShowSaveTemplateForm(false);
+      setSaveTemplateName("");
       setShowCampaignForm(false);
       return;
     }
@@ -100,45 +101,23 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   };
 
+  // Send Test: push rendered HTML to Klaviyo as a [Preview] template and open it there.
+  // No SMTP required — the user sends the actual preview from inside Klaviyo.
   const handleSendTest = async () => {
-    if (!sendTestEmail || !sendTestEmail.includes("@")) {
-      toast({ title: "Enter a valid email address", variant: "destructive" });
-      return;
-    }
+    if (!emailPreviewHtml) return;
     setSendTestLoading(true);
-    try {
-      const res = await apiRequest("POST", `/api/content/${contentId}/send-test-email`, { email: sendTestEmail });
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.message === "smtp_required") {
-          toast({ title: "SMTP not configured", description: "Add SMTP_HOST, SMTP_USER, and SMTP_PASS to your environment secrets to enable test sends.", variant: "destructive" });
-        } else if (data.message === "klaviyo_required") {
-          toast({ title: "Klaviyo not connected", description: "Connect Klaviyo in Integrations to enable test sends.", variant: "destructive" });
-        } else {
-          toast({ title: "Send failed", description: data.message, variant: "destructive" });
-        }
-        return;
-      }
-      toast({ title: "Test email sent", description: `Delivered to ${sendTestEmail}` });
-      setShowSendTest(false);
-      setSendTestEmail("");
-    } catch (err: any) {
-      toast({ title: "Send failed", description: err.message, variant: "destructive" });
-    } finally {
-      setSendTestLoading(false);
-    }
-  };
-
-  const handlePushToTemplate = async () => {
-    setPushTemplateLoading(true);
     try {
       const res = await apiRequest("POST", `/api/content/${contentId}/push-to-klaviyo`);
       const data = await res.json();
       if (!res.ok) {
         if (data.message === "klaviyo_required") {
-          toast({ title: "Klaviyo not connected", description: "Connect Klaviyo in Integrations to push templates.", variant: "destructive" });
+          toast({
+            title: "Klaviyo not connected",
+            description: "Connect Klaviyo in Integrations to send previews.",
+            variant: "destructive",
+          });
         } else {
-          toast({ title: "Push failed", description: data.message, variant: "destructive" });
+          toast({ title: "Preview push failed", description: data.message, variant: "destructive" });
         }
         return;
       }
@@ -147,22 +126,53 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
         title: "Pushed to Klaviyo",
         description: (
           <span>
-            Template saved.{" "}
-            <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline font-medium">View in Klaviyo →</a>
+            Opening template for preview send.{" "}
+            <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline font-medium">Open in Klaviyo →</a>
           </span>
         ),
       });
-    } catch (err: unknown) {
-      toast({ title: "Push failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+      window.open(data.url, "_blank", "noopener");
+    } catch (err: any) {
+      toast({ title: "Preview push failed", description: err.message, variant: "destructive" });
     } finally {
-      setPushTemplateLoading(false);
+      setSendTestLoading(false);
+    }
+  };
+
+  // Save as Template: renders HTML and saves it as an internal Canvas template (not pushed to Klaviyo).
+  const handleSaveAsTemplate = async () => {
+    const name = saveTemplateName.trim() || contentTitle || "Untitled Email Template";
+    setSaveTemplateLoading(true);
+    try {
+      const res = await apiRequest("POST", `/api/content/${contentId}/save-as-canvas-template`, { name });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "Save failed", description: data.message, variant: "destructive" });
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/templates", "email"] });
+      toast({
+        title: "Template saved",
+        description: (
+          <span>
+            "{data.name}" saved to Email Templates.{" "}
+            <a href="/email-templates" className="underline font-medium">View →</a>
+          </span>
+        ),
+      });
+      setShowSaveTemplateForm(false);
+      setSaveTemplateName("");
+    } catch (err: unknown) {
+      toast({ title: "Save failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setSaveTemplateLoading(false);
     }
   };
 
   const handleOpenCampaignForm = async () => {
     const next = !showCampaignForm;
     setShowCampaignForm(next);
-    setShowSendTest(false);
+    setShowSaveTemplateForm(false);
     if (next && audiences.length === 0) {
       setAudiencesLoading(true);
       try {
@@ -276,20 +286,25 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
           <div className="flex items-center gap-3 ml-auto">
             {emailPreviewHtml && (
               <button
-                onClick={() => { setShowSendTest(v => !v); setShowCampaignForm(false); }}
-                className={`flex items-center gap-1 text-xs transition-colors ${showSendTest ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                onClick={handleSendTest}
+                disabled={sendTestLoading}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                title="Push to Klaviyo and open for preview send — no SMTP needed"
               >
-                <Send className="h-3 w-3" />Send test
+                <Send className="h-3 w-3" />{sendTestLoading ? "Pushing…" : "Send test"}
               </button>
             )}
             {emailPreviewHtml && (
               <button
-                onClick={handlePushToTemplate}
-                disabled={pushTemplateLoading}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-                title="Create or update Klaviyo template"
+                onClick={() => {
+                  setShowSaveTemplateForm(v => !v);
+                  setShowCampaignForm(false);
+                  setSaveTemplateName(contentTitle || "");
+                }}
+                className={`flex items-center gap-1 text-xs transition-colors ${showSaveTemplateForm ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                title="Save as reusable Canvas template (not pushed to Klaviyo)"
               >
-                <Upload className="h-3 w-3" />{pushTemplateLoading ? "Pushing…" : "Push to Template"}
+                <Upload className="h-3 w-3" />Save as Template
               </button>
             )}
             {emailPreviewHtml && (
@@ -312,28 +327,28 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
           </div>
         </DialogHeader>
 
-        {/* Send test inline form */}
-        {showSendTest && (
+        {/* Save as Template inline form */}
+        {showSaveTemplateForm && (
           <div className="px-4 py-2.5 border-b bg-gray-50 flex items-center gap-2 shrink-0">
             <Input
-              type="email"
-              placeholder="your@email.com"
-              value={sendTestEmail}
-              onChange={e => setSendTestEmail(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") handleSendTest(); }}
+              type="text"
+              placeholder={contentTitle || "Template name…"}
+              value={saveTemplateName}
+              onChange={e => setSaveTemplateName(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") handleSaveAsTemplate(); }}
               className="h-8 text-sm flex-1"
               autoFocus
             />
             <Button
               size="sm"
               className="h-8 bg-black hover:bg-gray-800 text-white text-xs px-3"
-              onClick={handleSendTest}
-              disabled={sendTestLoading}
+              onClick={handleSaveAsTemplate}
+              disabled={saveTemplateLoading}
             >
-              {sendTestLoading ? "Sending…" : "Send"}
+              {saveTemplateLoading ? "Saving…" : "Save"}
             </Button>
             <button
-              onClick={() => { setShowSendTest(false); setSendTestEmail(""); }}
+              onClick={() => { setShowSaveTemplateForm(false); setSaveTemplateName(""); }}
               className="text-xs text-muted-foreground hover:text-foreground"
             >
               Cancel
