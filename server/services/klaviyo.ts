@@ -10,6 +10,10 @@ import { eq } from "drizzle-orm";
 const API_BASE = "https://a.klaviyo.com/api";
 const REVISION  = "2024-02-15";
 
+// Klaviyo's template deep-link URL changed — the old /email-editor/templates/{id} 404s.
+// Send users to the templates list where the newly pushed template appears at the top.
+const KLAVIYO_TEMPLATES_URL = "https://www.klaviyo.com/content/templates";
+
 export class KlaviyoNotConnectedError extends Error {
   readonly code = "klaviyo_required";
   constructor() {
@@ -110,6 +114,7 @@ export interface KlaviyoTemplateResult {
  * Create a new Klaviyo template, or update an existing one in-place when
  * `existingTemplateId` is supplied.
  * If the stored template was deleted in Klaviyo (404/410), falls back to creating a new one.
+ * Returns the templates list URL — Klaviyo's per-template deep-link is unreliable.
  */
 export async function pushTemplate(
   name: string,
@@ -136,7 +141,7 @@ export async function pushTemplate(
       await assertOk(patchRes, "update-template");
       return {
         id: existingTemplateId,
-        url: `https://www.klaviyo.com/email-editor/templates/${existingTemplateId}`,
+        url: KLAVIYO_TEMPLATES_URL,
       };
     }
   }
@@ -157,7 +162,7 @@ export async function pushTemplate(
   if (!id) throw new Error("Klaviyo did not return a template ID.");
   return {
     id,
-    url: `https://www.klaviyo.com/email-editor/templates/${id}`,
+    url: KLAVIYO_TEMPLATES_URL,
   };
 }
 
