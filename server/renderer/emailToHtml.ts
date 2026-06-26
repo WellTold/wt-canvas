@@ -107,10 +107,31 @@ function row(
 </tr>`;
   }
 
+  if (borderCss) {
+    return /* html */`
+<tr>
+  <td align="center" style="padding:0;background-color:#f4f1ef;">
+    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width:100%;max-width:600px;background-color:${rowBg};">
+      <tr>
+        <td class="mobile-hpad" style="padding:0 10px;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;background-color:${rowBg};${borderCss}">
+            <tr>
+              <td style="padding:${padding};">
+                ${inner}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>`;
+  }
+
   return /* html */`
 <tr>
-  <td align="center" style="padding:${borderCss ? "0 10px" : "0"};background-color:#f4f1ef;">
-    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background-color:${rowBg};${borderCss || ""}">
+  <td align="center" style="padding:0;background-color:#f4f1ef;">
+    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background-color:${rowBg};">
       <tr>
         <td${hasCustomHPad ? ' class="mobile-hpad"' : ''} style="padding:${padding};">
           ${inner}
