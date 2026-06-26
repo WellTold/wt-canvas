@@ -784,7 +784,7 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
   const outerSpacingTop    = Math.max(0, Number(c.outerSpacingTop)    || 0);
   const outerSpacingBottom = Math.max(0, Number(c.outerSpacingBottom) || 0);
   const spacerRow = (h: number) =>
-    `<tr><td height="${h}" style="height:${h}px;font-size:0;line-height:0;background-color:#f4f1ef;">&nbsp;</td></tr>`;
+    `<tr><td height="${h}" style="height:${h}px;font-size:0;line-height:0;background-color:${bgColor};">&nbsp;</td></tr>`;
   const starsHtml = Array.from({ length: 5 }, (_, i) =>
     `<span style="font-size:28px;color:${esc(textColor)};${i >= rating ? "opacity:0.35;" : ""}line-height:1;">&#9733;</span>`
   ).join("");
