@@ -748,10 +748,10 @@ function renderImageText(c: any, bg?: BlockBg): string {
   const cellPad   = `${padTop}px ${padRight}px ${padBottom}px ${padLeft}px`;
 
   const headingHtml = heading
-    ? `<p style="margin:0 0 8px;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(hSize)}px;font-weight:${esc(hWeight)};font-style:${esc(hStyle)};text-decoration:${esc(hDeco)};text-transform:${esc(hXform)};line-height:1.3;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(heading)}</p>`
+    ? `<p class="it-heading" style="margin:0 0 8px;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(hSize)}px;font-weight:${esc(hWeight)};font-style:${esc(hStyle)};text-decoration:${esc(hDeco)};text-transform:${esc(hXform)};line-height:1.3;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(heading)}</p>`
     : "";
   const bodyHtml = body
-    ? `<p style="margin:0;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(bSize)}px;font-weight:${esc(bWeight)};font-style:${esc(bStyle)};text-decoration:${esc(bDeco)};text-transform:${esc(bXform)};line-height:1.55;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(body)}</p>`
+    ? `<p class="it-body" style="margin:0;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(bSize)}px;font-weight:${esc(bWeight)};font-style:${esc(bStyle)};text-decoration:${esc(bDeco)};text-transform:${esc(bXform)};line-height:1.55;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(body)}</p>`
     : "";
   const ctaHtml = ctaText
     ? `<p style="margin:12px 0 0;text-align:${esc(textAlign)};"><a href="${esc(ctaLink)}" style="font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:12px;font-weight:600;color:${esc(textColor)};text-decoration:underline;">${esc(ctaText)}</a></p>`
@@ -796,13 +796,13 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
     `<span style="font-size:28px;color:${esc(textColor)};${i >= rating ? "opacity:0.35;" : ""}line-height:1;">&#9733;</span>`
   ).join("");
   const titleHtml = title
-    ? `<p style="margin:0 0 6px;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:15px;font-weight:700;line-height:1.3;color:${esc(textColor)};text-transform:uppercase;letter-spacing:0.5px;">${esc(title)}</p>`
+    ? `<p class="ugc-title" style="margin:0 0 6px;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:15px;font-weight:700;line-height:1.3;color:${esc(textColor)};text-transform:uppercase;letter-spacing:0.5px;">${esc(title)}</p>`
     : "";
   const bodyHtml = body
-    ? `<p style="margin:0;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:14px;line-height:1.55;color:${esc(textColor)};">${esc(body)}</p>`
+    ? `<p class="ugc-body" style="margin:0;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:14px;line-height:1.55;color:${esc(textColor)};">${esc(body)}</p>`
     : "";
   const attributionHtml = attribution
-    ? `<p style="margin:8px 0 0;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-style:italic;color:${esc(textColor)};">&#8212; ${esc(attribution)}</p>`
+    ? `<p class="ugc-attr" style="margin:8px 0 0;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-style:italic;color:${esc(textColor)};">&#8212; ${esc(attribution)}</p>`
     : "";
   const wrapWithSpacers = (mainRow: string) => [
     outerSpacingTop    > 0 ? spacerRow(outerSpacingTop)    : "",

@@ -1,0 +1,22 @@
+Edit 1 — renderUgcReview, add classes to titleHtml, bodyHtml, attributionHtml.
+Find (the titleHtml line):
+`<p style="margin:0 0 6px;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:15px;font-weight:700;line-height:1.3;color:${esc(textColor)};text-transform:uppercase;letter-spacing:0.5px;">${esc(title)}</p>`
+Replace with:
+`<p class="ugc-title" style="margin:0 0 6px;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:15px;font-weight:700;line-height:1.3;color:${esc(textColor)};text-transform:uppercase;letter-spacing:0.5px;">${esc(title)}</p>`
+Find (the bodyHtml line):
+`<p style="margin:0;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:14px;line-height:1.55;color:${esc(textColor)};">${esc(body)}</p>`
+Replace with:
+`<p class="ugc-body" style="margin:0;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:14px;line-height:1.55;color:${esc(textColor)};">${esc(body)}</p>`
+Find (the attributionHtml line):
+`<p style="margin:8px 0 0;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-style:italic;color:${esc(textColor)};">&#8212; ${esc(attribution)}</p>`
+Replace with:
+`<p class="ugc-attr" style="margin:8px 0 0;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-style:italic;color:${esc(textColor)};">&#8212; ${esc(attribution)}</p>`
+Edit 2 — renderImageText, add classes to headingHtml and bodyHtml.
+Find (the headingHtml line, inside renderImageText):
+`<p style="margin:0 0 8px;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(hSize)}px;
+Replace with:
+`<p class="it-heading" style="margin:0 0 8px;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(hSize)}px;
+Find (the bodyHtml line, inside renderImageText — note the bSize variable distinguishes it from other <p> tags):
+`<p style="margin:0;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(bSize)}px;
+Replace with:
+`<p class="it-body" style="margin:0;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(bSize)}px;
