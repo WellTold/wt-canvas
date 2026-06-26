@@ -131,7 +131,7 @@ export async function pushTemplate(
         data: {
           type: "template",
           id: existingTemplateId,
-          attributes: { name, editor_type: "CODE", html },
+          attributes: { name, html },
         },
       }),
     });
