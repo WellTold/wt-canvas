@@ -2389,6 +2389,51 @@ export function ContentBlock({
                 </div>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Left inset (px)</Label>
+                <div className="flex gap-2 mt-1 items-center">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={60}
+                    value={safeContent?.outerSpacingLeft ?? 0}
+                    onChange={(e) => onUpdate({ ...safeContent, outerSpacingLeft: Math.max(0, Math.min(60, Number(e.target.value))) })}
+                    className="text-xs h-8"
+                  />
+                  <span className="text-xs text-gray-400 shrink-0">px</span>
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Right inset (px)</Label>
+                <div className="flex gap-2 mt-1 items-center">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={60}
+                    value={safeContent?.outerSpacingRight ?? 0}
+                    onChange={(e) => onUpdate({ ...safeContent, outerSpacingRight: Math.max(0, Math.min(60, Number(e.target.value))) })}
+                    className="text-xs h-8"
+                  />
+                  <span className="text-xs text-gray-400 shrink-0">px</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Fixed height (px) — 0 = auto</Label>
+              <div className="flex gap-2 mt-1 items-center">
+                <Input
+                  type="number"
+                  min={0}
+                  max={400}
+                  value={safeContent?.minHeight ?? 0}
+                  onChange={(e) => onUpdate({ ...safeContent, minHeight: Math.max(0, Math.min(400, Number(e.target.value))) })}
+                  className="text-xs h-8"
+                />
+                <span className="text-xs text-gray-400 shrink-0">px (0 = auto)</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">Force this block to a fixed height — useful to match a paired block's height.</p>
+            </div>
             <p className="text-[10px] text-muted-foreground -mt-2">Space outside the border — sits between this block and the one above/below it.</p>
 
             <div>
