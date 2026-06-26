@@ -824,8 +824,8 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
  * min-height:80px on the quote element keeps short reviews the same
  * visual weight as longer ones when two review blocks appear back-to-back.
  */
-function renderReview(c: any, bg?: BlockBg): string {
-  const rating = c.rating ? `<p style="margin:0 0 8px;font-size:20px;color:#c9a227;">${stars(c.rating)}</p>` : "";
+function renderReviewCard(c: any): string {
+  const rating = c.rating ? `<p style="margin:0 0 8px;font-size:20px;color:#c9a227;line-height:1;">${stars(c.rating)}</p>` : "";
   const author = c.author || "";
   const quote = c.quote || "";
   const quoteHtml = c.quoteHtml;
@@ -833,14 +833,31 @@ function renderReview(c: any, bg?: BlockBg): string {
     ? `<img src="${esc(c.avatarUrl)}" alt="${esc(author)}" width="40" height="40" style="border-radius:50%;width:40px;height:40px;object-fit:cover;display:inline-block;vertical-align:middle;margin-right:10px;" />`
     : "";
   const quoteBody = quoteHtml
-    ? `<div style="margin:0 0 12px;min-height:80px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:16px;line-height:1.6;color:#333333;font-style:italic;">${quoteHtml}</div>`
-    : `<p style="margin:0 0 12px;min-height:80px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:16px;line-height:1.6;color:#333333;font-style:italic;">&ldquo;${esc(quote)}&rdquo;</p>`;
-  return row(
-    `${rating}
-     ${quoteBody}
-     <p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;color:#888888;">${avatar}${esc(author)}</p>`,
-    "#fdf8f4", "20px 24px", bg
-  );
+    ? `<div style="margin:0 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;line-height:1.6;color:#333333;font-style:italic;">${quoteHtml}</div>`
+    : `<p style="margin:0 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;line-height:1.6;color:#333333;font-style:italic;">&ldquo;${esc(quote)}&rdquo;</p>`;
+  return `${rating}${quoteBody}<p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;color:#888888;">${avatar}${esc(author)}</p>`;
+}
+
+function renderReview(c: any, bg?: BlockBg): string {
+  return row(renderReviewCard(c), "#fdf8f4", "20px 24px", bg);
+}
+
+function renderReviewPair(c1: any, c2: any): string {
+  return `
+<tr>
+  <td align="center" style="padding:0;background-color:#f4f1ef;">
+    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background-color:#fdf8f4;">
+      <tr>
+        <td width="299" valign="top" style="width:299px;padding:20px 20px 20px 24px;background-color:#fdf8f4;border-right:1px solid #ede8e2;">
+          ${renderReviewCard(c1)}
+        </td>
+        <td width="299" valign="top" style="width:299px;padding:20px 24px 20px 20px;background-color:#fdf8f4;">
+          ${renderReviewCard(c2)}
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>`;
 }
 
 function renderGifImage(c: any, bg?: BlockBg): string {
@@ -1136,20 +1153,35 @@ export async function renderEmailToHtml(
       bg.paddingBottom !== undefined || bg.paddingLeft !== undefined);
   }
 
-  const bodyRows = blocks.map((b, i) => {
+  const bodyRows: string[] = [];
+  let i = 0;
+  while (i < blocks.length) {
+    const b = blocks[i];
+    if (
+      b.type === "review" &&
+      !hasUserBg(b) &&
+      i + 1 < blocks.length &&
+      blocks[i + 1].type === "review" &&
+      !hasUserBg(blocks[i + 1])
+    ) {
+      bodyRows.push(renderReviewPair(b.content || {}, blocks[i + 1].content || {}));
+      i += 2;
+      continue;
+    }
     const prevIsBanner = i > 0 && blocks[i - 1].type === "banner";
     const nextIsBanner = i < blocks.length - 1 && blocks[i + 1].type === "banner";
     if (b.type === "banner" || b.type === "hero" || b.type === "spacer" || b.type === "divider") {
-      return renderBlockToEmailHtml(b, shopifyData, opts.siteBaseUrl, opts.snippetsMap);
-    }
-    if ((prevIsBanner || nextIsBanner) && !hasUserBg(b)) {
+      bodyRows.push(renderBlockToEmailHtml(b, shopifyData, opts.siteBaseUrl, opts.snippetsMap));
+    } else if ((prevIsBanner || nextIsBanner) && !hasUserBg(b)) {
       const autoBg: BlockBg = {};
       if (prevIsBanner) autoBg.paddingTop = 0;
       if (nextIsBanner) autoBg.paddingBottom = 0;
-      return renderBlockToEmailHtml({ ...b, _bg: autoBg }, shopifyData, opts.siteBaseUrl, opts.snippetsMap);
+      bodyRows.push(renderBlockToEmailHtml({ ...b, _bg: autoBg }, shopifyData, opts.siteBaseUrl, opts.snippetsMap));
+    } else {
+      bodyRows.push(renderBlockToEmailHtml(b, shopifyData, opts.siteBaseUrl, opts.snippetsMap));
     }
-    return renderBlockToEmailHtml(b, shopifyData, opts.siteBaseUrl, opts.snippetsMap);
-  }).join("\n");
+    i++;
+  }
 
   const headerRow   = opts.header ? renderEmailHeader(opts.header) : "";
   const footerRow   = opts.footer ? renderEmailFooter(opts.footer) : "";
@@ -1201,7 +1233,7 @@ ${gFontLinks ? `${gFontLinks}\n` : ""}  <!--[if mso]>
 <!-- Email wrapper -->
 <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background-color:#f4f1ef;">
   ${headerRow}
-  ${bodyRows}
+  ${bodyRows.join("\n")}
   ${footerRow}
 </table>
 

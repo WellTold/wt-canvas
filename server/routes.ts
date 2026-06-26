@@ -3177,6 +3177,10 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           .status(400)
           .json({ message: "name, blockType, and content are required" });
       }
+      const existing = await db.select().from(blockPresets).where(eq(blockPresets.name, name)).limit(1);
+      if (existing.length > 0) {
+        return res.status(409).json({ message: `A preset named "${name}" already exists. Choose a different name.` });
+      }
       const [row] = await db
         .insert(blockPresets)
         .values({
@@ -3216,7 +3220,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       if (content !== undefined) {
         const linkedContent = { ...content, _presetId: id, _presetName: row.name };
 
-        // 1. Sync discrete content_blocks rows (web content)
+        // 1. Sync discrete content_blocks rows (web/article content)
         const updatedBlocks = await db
           .update(contentBlocks)
           .set({ content: linkedContent })
@@ -3225,7 +3229,6 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         updatedBlockCount += updatedBlocks.length;
 
         // 2. Sync inline blocks inside content_items.content JSONB array (email content)
-        // Replace each matching block's content in the array while preserving all other blocks
         const linkedContentJson = JSON.stringify(linkedContent);
         const emailUpdated = await db.execute(sql`
           UPDATE content_items
@@ -3309,7 +3312,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
     try {
       const id = parseInt(req.params.id);
 
-      // 1. Blocks stored as discrete rows in content_blocks (web content)
+      // 1. Blocks stored as discrete rows in content_blocks (web/article content)
       const blockRows = await db
         .select({ title: contentItems.title })
         .from(contentBlocks)
@@ -3337,11 +3340,6 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         ...emailRows.map((r) => r.title),
       ];
       const titles = [...new Set(allTitles)];
-      const count = blockRows.length + emailRows.reduce((n, row) => {
-        // count individual matching blocks per email item
-        return n + 1; // one row = one item that contains at least one matching block
-      }, 0);
-
       res.json({ count: titles.length, titles });
     } catch (error) {
       res.status(500).json({
