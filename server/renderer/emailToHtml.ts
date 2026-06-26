@@ -783,6 +783,13 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
   const borderCss   = borderWidth > 0 ? `border:${borderWidth}px solid ${esc(borderColor)};` : undefined;
   const outerSpacingTop    = Math.max(0, Number(c.outerSpacingTop)    || 0);
   const outerSpacingBottom = Math.max(0, Number(c.outerSpacingBottom) || 0);
+  const outerSpacingLeft   = Math.max(0, Number(c.outerSpacingLeft)   || 0);
+  const outerSpacingRight  = Math.max(0, Number(c.outerSpacingRight)  || 0);
+  const minHeight          = Math.max(0, Number(c.minHeight)          || 0);
+  const hPad = outerSpacingLeft > 0 || outerSpacingRight > 0
+    ? `padding-left:${outerSpacingLeft}px;padding-right:${outerSpacingRight}px;`
+    : "";
+  const minHeightCss = minHeight > 0 ? `min-height:${minHeight}px;` : "";
   const spacerRow = (h: number) =>
     `<tr><td height="${h}" style="height:${h}px;font-size:0;line-height:0;background-color:${bgColor};">&nbsp;</td></tr>`;
   const starsHtml = Array.from({ length: 5 }, (_, i) =>
@@ -804,7 +811,7 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
   ].filter(Boolean).join("\n");
   if (layout === "center") {
     const inner = `<div style="text-align:center;"><div style="margin-bottom:10px;">${starsHtml}</div>${titleHtml ? `<div style="margin-bottom:4px;">${titleHtml}</div>` : ""}${bodyHtml}${attributionHtml}</div>`;
-    return wrapWithSpacers(row(inner, bgColor, "28px 24px", bg, borderCss));
+    return wrapWithSpacers(row(inner, bgColor, `28px ${24 + outerSpacingRight}px 28px ${24 + outerSpacingLeft}px`, bg, borderCss));
   }
   const dividerSide  = layout === "left" ? "border-right" : "border-left";
   const starsCell = `<td width="33%" valign="middle" style="width:33%;text-align:center;${dividerSide}:1px solid rgba(255,255,255,0.35);${layout === "left" ? "padding-right:16px;" : "padding-left:16px;"}">
@@ -816,7 +823,11 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
   </td>`;
   const cols  = layout === "right" ? `${contentCell}${starsCell}` : `${starsCell}${contentCell}`;
   const inner = `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>${cols}</tr></table>`;
-  return wrapWithSpacers(row(inner, bgColor, "20px 24px", bg, borderCss));
+  // Apply minHeight to the inner table so both blocks in a pair can be forced to the same size
+  const innerWithHeight = minHeight > 0
+    ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="${minHeightCss}"><tr><td style="vertical-align:middle;">${inner}</td></tr></table>`
+    : inner;
+  return wrapWithSpacers(row(innerWithHeight, bgColor, `20px ${24 + outerSpacingRight}px 20px ${24 + outerSpacingLeft}px`, bg, borderCss));
 }
 
 /**
@@ -828,7 +839,7 @@ function renderReviewCard(c: any): string {
   const rating = c.rating ? `<p style="margin:0 0 8px;font-size:20px;color:#c9a227;line-height:1;">${stars(c.rating)}</p>` : "";
   const author = c.author || "";
   const quote = c.quote || "";
-  const quoteHtml = c.quoteHtml;
+  const quoteHtml = c.quoteHtml
   const avatar = c.avatarUrl
     ? `<img src="${esc(c.avatarUrl)}" alt="${esc(author)}" width="40" height="40" style="border-radius:50%;width:40px;height:40px;object-fit:cover;display:inline-block;vertical-align:middle;margin-right:10px;" />`
     : "";
