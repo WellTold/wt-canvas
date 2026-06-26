@@ -468,15 +468,15 @@ function renderHero(c: any, bg?: BlockBg): string {
   const textPadding = hasBgPadding
     ? `${bg!.paddingTop ?? 20}px ${bg!.paddingRight ?? 24}px ${bg!.paddingBottom ?? 20}px ${bg!.paddingLeft ?? 24}px`
     : "20px 24px";
-  const outerBg = bg?.color || "#f4f1ef";
+  const innerBg = bg?.color || "#ffffff";
   const imgRow  = `<tr><td style="padding:0;font-size:0;line-height:0;">${imgHtml}</td></tr>`;
   const textRow = (headlineHtml || subtextHtml)
     ? `<tr><td style="padding:${textPadding};background-color:${textBg};">${headlineHtml}${subtextHtml}</td></tr>`
     : "";
   return `
 <tr>
-  <td align="center" style="padding:0;background-color:${outerBg};">
-    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background-color:#ffffff;">
+  <td align="center" style="padding:0;background-color:#f4f1ef;">
+    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background-color:${innerBg};">
       ${above ? `${textRow}${imgRow}` : `${imgRow}${textRow}`}
     </table>
   </td>
@@ -1324,5 +1324,10 @@ ${gFontLinks ? `${gFontLinks}\n` : ""}  <style>
 </table>
 
 </body>
-</html>`;
+</html>`.replace(
+    /(<img\b[^>]*?style=")([^"]*?)(")/gi,
+    (_, pre, style, post) => style.includes('pointer-events')
+      ? `${pre}${style}${post}`
+      : `${pre}${style};pointer-events:none${post}`
+  );
 }
