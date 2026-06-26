@@ -575,8 +575,8 @@ function renderCta(c: any, bg?: BlockBg): string {
   const btnTable = `<table cellpadding="0" cellspacing="0" border="0" align="${tableAlign}" style="${marginStyle}">
   <tr>
     <td align="center" style="${tdStyle}">
-      <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${link}" style="height:48px;v-text-anchor:middle;width:${vmlWidth}px;" arcsize="${radius === "999px" ? "50%" : "0%"}" filled="${vmlFill}" fillcolor="${btnColor}" stroke="${vmlStroke}"${vmlStrokeColor}><center style="color:${anchorColor};font-family:${btnFontFamily};font-size:${btnFontSize};font-weight:${btnFontWeight};${btnTransform}">${btnLabel}</center></v:roundrect><![endif]-->
-      <!--[if !mso]><!--><a href="${link}" target="_blank" style="display:block;padding:${pad};font-family:${btnFontFamily};font-size:${btnFontSize};font-weight:${btnFontWeight};${btnTransform}color:${anchorColor};text-decoration:${anchorDecoration};text-align:${btnTextAlign};white-space:nowrap;border-radius:${radius};${shadow}">${btnLabel}</a><!--<![endif]-->
+      <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${link}" style="height:48px;v-text-anchor:middle;width:${vmlWidth}px;" arcsize="${radius === "999px" ? "50%" : "0%"}" filled="${vmlFill}" fillcolor="${btnColor}" stroke="${vmlStroke}"${vmlStrokeColor}><center style="color:${anchorColor};font-family:${btnFontFamily};font-size:${btnFontSize};font-weight:${btnFontWeight};${btnTransform}letter-spacing:1px;">${btnLabel}</center></v:roundrect><![endif]-->
+<!--[if !mso]><!--><a href="${link}" target="_blank" style="display:block;padding:${pad};font-family:${btnFontFamily};font-size:${btnFontSize};font-weight:${btnFontWeight};${btnTransform}letter-spacing:1px;color:${anchorColor};text-decoration:${anchorDecoration};text-align:${btnTextAlign};white-space:nowrap;border-radius:${radius};${shadow}">${btnLabel}</a><!--<![endif]-->
     </td>
   </tr>
 </table>`;
