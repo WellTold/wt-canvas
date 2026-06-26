@@ -115,7 +115,7 @@ export const SNIPPET_MAP: Record<string, string> = {
         <!-- Legal links: style attributes MUST be on single lines or Klaviyo renders them as visible text -->
         <tr>
           <td align="center" style="background-color:#0a0a0a;padding:20px 32px 8px 32px;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;">
-            <a href="{% manage_preferences %}" style="color:rgba(255,255,255,0.5);text-decoration:underline;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:0.08em;">Subscription Preferences</a>
+            <a href="{{ manage_preferences_url }}" style="color:rgba(255,255,255,0.5);text-decoration:underline;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:0.08em;">Subscription Preferences</a>
             <span style="color:rgba(255,255,255,0.25);padding:0 8px;">|</span>
             <a href="{% unsubscribe_link %}" style="color:rgba(255,255,255,0.5);text-decoration:underline;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:0.08em;">Unsubscribe</a>
           </td>
