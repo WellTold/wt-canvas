@@ -1247,8 +1247,14 @@ ${gFontLinks ? `${gFontLinks}\n` : ""}  <style>
       .mobile-spacer{display:none!important;width:0!important;max-height:0!important;overflow:hidden!important;mso-hide:all!important;}
       /* image_text: tighten text cell padding on mobile so side-by-side columns have room */
       .it-text{padding:12px!important;}
-      /* ugc_review: shrink stars slightly so they fit in the 33% column */
+/* ugc_review: shrink stars and text on mobile to prevent overflow and horizontal scroll */
       .mobile-stars span{font-size:20px!important;}
+      .ugc-body{font-size:12px!important;line-height:1.4!important;}
+      .ugc-title{font-size:13px!important;}
+      .ugc-attr{font-size:11px!important;}
+      /* image_text: reduce heading and body font sizes on mobile */
+      .it-heading{font-size:14px!important;margin-bottom:4px!important;}
+      .it-body{font-size:12px!important;line-height:1.4!important;}
     }
   </style>
 </head>
