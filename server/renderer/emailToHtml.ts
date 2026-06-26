@@ -431,9 +431,14 @@ function renderImage(c: any, bg?: BlockBg): string {
   const caption = c.caption
     ? `<p style="margin:8px 0 0;font-size:12px;color:#888888;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;${alignStyle}">${esc(c.caption)}</p>`
     : "";
+  const imgLink = c.link || src;
+  const imgTag = isFullWidth
+    ? `<img src="${esc(src)}" alt="${esc(c.alt || "")}" class="mobile-full-img" style="${imgStyle}" />`
+    : `<img src="${esc(src)}" alt="${esc(c.alt || "")}" width="${imgWidth}" style="${imgStyle}" />`;
+  const wrappedImg = `<a href="${esc(imgLink)}" target="_blank" style="display:block;text-decoration:none;border:0;">${imgTag}</a>`;
   const inner = isFullWidth
-    ? `<img src="${esc(src)}" alt="${esc(c.alt || "")}" class="mobile-full-img" style="${imgStyle}" />${caption}`
-    : `<div style="${alignStyle}"><img src="${esc(src)}" alt="${esc(c.alt || "")}" width="${imgWidth}" style="${imgStyle}" /></div>${caption}`;
+    ? `${wrappedImg}${caption}`
+    : `<div style="${alignStyle}">${wrappedImg}</div>${caption}`;
   return row(inner, "#ffffff", isFullWidth ? "0" : "16px 24px", bg);
 }
 
