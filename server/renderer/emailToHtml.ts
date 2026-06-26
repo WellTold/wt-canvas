@@ -813,7 +813,7 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
     : "";
   const minHeightCss = minHeight > 0 ? `min-height:${minHeight}px;` : "";
   const spacerRow = (h: number) =>
-    `<tr><td height="${h}" style="height:${h}px;font-size:0;line-height:0;background-color:${bgColor};">&nbsp;</td></tr>`;
+    `<tr><td align="center" style="padding:0;background-color:#f4f1ef;"><table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width:100%;max-width:600px;background-color:${bgColor};"><tr><td height="${h}" style="height:${h}px;font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>`;
   const starsHtml = Array.from({ length: 5 }, (_, i) =>
     `<span style="font-size:28px;color:${esc(textColor)};${i >= rating ? "opacity:0.35;" : ""}line-height:1;">&#9733;</span>`
   ).join("");
@@ -1253,7 +1253,7 @@ ${gFontLinks ? `${gFontLinks}\n` : ""}  <style>
   <style>
     body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}
     table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;}
-    img{-ms-interpolation-mode:bicubic;border:0;outline:none;text-decoration:none;}
+    img{-ms-interpolation-mode:bicubic;border:0;outline:none;text-decoration:none;pointer-events:none;}
     body{margin:0;padding:0;background-color:#f4f1ef;}
     @media only screen and (max-width:480px){
       .email-container{width:100%!important;}
