@@ -457,8 +457,9 @@ function renderHero(c: any, bg?: BlockBg): string {
     fontSize: "15px", color: "#555555", fontWeight: "normal",
     fontFamily: "'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.6",
   });
+  const heroLink = c.ctaLink || c.link || src;
   const imgHtml = src
-    ? `<img src="${esc(src)}" alt="${esc(c.alt || c.imageAlt || headline || "")}" width="600" style="display:block;width:100%;height:auto;border:0;" />`
+    ? `<a href="${esc(heroLink)}" target="_blank" style="display:block;text-decoration:none;border:0;"><img src="${esc(src)}" alt="${esc(c.alt || c.imageAlt || headline || "")}" width="600" style="display:block;width:100%;height:auto;border:0;" /></a>`
     : `<div style="background:#f0ebe7;border:2px dashed #c8bfb8;padding:60px 24px;text-align:center;color:#a09080;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:13px;">[ No hero image selected ]</div>`;
   const headlineHtml = headline
     ? `<h1 style="margin:0 0 ${subtext ? "10px" : "0"};${headlineStyleStr}">${esc(headline)}</h1>`
@@ -815,8 +816,9 @@ function renderImageText(c: any, bg?: BlockBg): string {
 
   // No stacking on mobile — columns stay side-by-side.
   // .it-text tightens padding on narrow screens so text isn't squeezed.
+  const imageHref = c.imageLink || ctaLink || imageUrl;
   const imageCell = imageUrl
-    ? `<td width="50%" valign="top" style="width:50%;padding:0;"><img src="${esc(imageUrl)}" alt="${esc(imageAlt)}" style="display:block;width:100%;max-width:300px;height:auto;border:0;object-fit:cover;" /></td>`
+    ? `<td width="50%" valign="top" style="width:50%;padding:0;"><a href="${esc(imageHref)}" target="_blank" style="display:block;text-decoration:none;border:0;"><img src="${esc(imageUrl)}" alt="${esc(imageAlt)}" style="display:block;width:100%;max-width:300px;height:auto;border:0;object-fit:cover;" /></a></td>`
     : `<td width="50%" valign="top" style="width:50%;padding:0;background-color:#f0ebe7;min-height:160px;"></td>`;
 
   const textCell = `<td width="50%" valign="middle" class="it-text" style="width:50%;padding:${cellPad};background-color:${esc(textBg)};vertical-align:middle;">${headingHtml}${bodyHtml}${ctaHtml}</td>`;
@@ -1329,10 +1331,5 @@ ${gFontLinks ? `${gFontLinks}\n` : ""}  <style>
 </table>
 
 </body>
-</html>`.replace(
-    /(<img\b[^>]*?style=")([^"]*?)(")/gi,
-    (_, pre, style, post) => style.includes('pointer-events')
-      ? `${pre}${style}${post}`
-      : `${pre}${style};pointer-events:none${post}`
-  );
+</html>`;
 }
