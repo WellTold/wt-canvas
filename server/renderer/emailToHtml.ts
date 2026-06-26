@@ -223,7 +223,7 @@ function renderHeading(c: any, bg?: BlockBg): string {
   const tag = tags[level];
   const style = textStyle(c, {
     color: "#1a1a1a", fontSize: defaultSizes[level],
-    fontWeight: "bold", fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.3",
+    fontWeight: "bold", fontFamily: "'Cera Basic','Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.3",
   });
   const bgColor = c.backgroundColor || "#ffffff";
   const rawHeadingContent = c.html
@@ -268,7 +268,7 @@ function buttonifyLinks(html: string, opts: {
 function renderParagraph(c: any, bg?: BlockBg): string {
   const style = textStyle(c, {
     color: "#333333", fontSize: "15px",
-    fontWeight: "normal", fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.7",
+    fontWeight: "normal", fontFamily: "'Cera Basic','Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.7",
   });
   const bgColor = c.backgroundColor || "#ffffff";
   const widthMode: string = c.widthMode || "full";
@@ -280,7 +280,7 @@ function renderParagraph(c: any, bg?: BlockBg): string {
     if (linkStyle !== "button") return raw;
     const btnBg    = c.linkButtonBg    || c.color           || "#333333";
     const btnColor = c.linkButtonColor || c.backgroundColor || "#ffffff";
-    const btnFamily = (c.linkButtonFontFamily || c.fontFamily || "'Plus Jakarta Sans',Arial,sans-serif").replace(/"/g, "'");
+    const btnFamily = (c.linkButtonFontFamily || c.fontFamily || "'Cera Basic','Plus Jakarta Sans',Arial,sans-serif").replace(/"/g, "'");
     const btnSize   = resolveFontSize(c.linkButtonFontSize || c.fontSize, "15px");
     const btnWeight = c.linkButtonFontWeight || "bold";
     const btnFontStyle   = c.linkButtonFontStyle   || undefined;
@@ -362,7 +362,7 @@ function renderImage(c: any, bg?: BlockBg): string {
   const src = c.url || c.src || c.imageUrl || "";
   if (!src) {
     return row(
-      `<div style="background:#f0ebe7;border:2px dashed #c8bfb8;padding:32px 24px;text-align:center;color:#a09080;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;">[ No image selected ]</div>`,
+      `<div style="background:#f0ebe7;border:2px dashed #c8bfb8;padding:32px 24px;text-align:center;color:#a09080;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:13px;">[ No image selected ]</div>`,
       "#ffffff", "8px 24px", bg
     );
   }
@@ -385,7 +385,7 @@ function renderImage(c: any, bg?: BlockBg): string {
     ? `display:block;width:100%;${heightCss}border:0;`
     : `display:inline-block;width:${imgWidth}px;max-width:100%;${heightCss}border:0;`;
   const caption = c.caption
-    ? `<p style="margin:8px 0 0;font-size:12px;color:#888888;font-family:'Plus Jakarta Sans',Arial,sans-serif;${alignStyle}">${esc(c.caption)}</p>`
+    ? `<p style="margin:8px 0 0;font-size:12px;color:#888888;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;${alignStyle}">${esc(c.caption)}</p>`
     : "";
   const inner = isFullWidth
     ? `<img src="${esc(src)}" alt="${esc(c.alt || "")}" width="${imgWidth}" style="${imgStyle}" />${caption}`
@@ -401,16 +401,16 @@ function renderHero(c: any, bg?: BlockBg): string {
   const hs = c.headlineStyle || {};
   const headlineStyleStr = textStyle(hs, {
     fontSize: "28px", color: "#1a1a1a", fontWeight: "bold",
-    fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.25",
+    fontFamily: "'Cera Basic','Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.25",
   });
   const ss = c.subtextStyle || {};
   const subtextStyleStr = textStyle(ss, {
     fontSize: "15px", color: "#555555", fontWeight: "normal",
-    fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.6",
+    fontFamily: "'Cera Basic','Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.6",
   });
   const imgHtml = src
     ? `<img src="${esc(src)}" alt="${esc(c.alt || c.imageAlt || headline || "")}" width="600" style="display:block;width:100%;height:auto;border:0;" />`
-    : `<div style="background:#f0ebe7;border:2px dashed #c8bfb8;padding:60px 24px;text-align:center;color:#a09080;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;">[ No hero image selected ]</div>`;
+    : `<div style="background:#f0ebe7;border:2px dashed #c8bfb8;padding:60px 24px;text-align:center;color:#a09080;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:13px;">[ No hero image selected ]</div>`;
   const headlineHtml = headline
     ? `<h1 style="margin:0 0 ${subtext ? "10px" : "0"};${headlineStyleStr}">${esc(headline)}</h1>`
     : "";
@@ -453,9 +453,9 @@ function renderBanner(c: any, bg?: BlockBg): string {
   const bannerFontSize   = resolveFontSize(c.fontSize, "15px");
   const bannerFontWeight = c.fontWeight && c.fontWeight !== "normal" ? c.fontWeight : "600";
   const link = c.link
-    ? `<p style="margin:8px 0 0;text-align:${textAlign};"><a href="${esc(c.link)}" target="_blank" style="font-family:'Plus Jakarta Sans',Arial,sans-serif;font-weight:700;font-size:13px;color:${bannerColor};text-decoration:underline;">${esc(c.linkText || "Learn more")}</a></p>`
+    ? `<p style="margin:8px 0 0;text-align:${textAlign};"><a href="${esc(c.link)}" target="_blank" style="font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-weight:700;font-size:13px;color:${bannerColor};text-decoration:underline;">${esc(c.linkText || "Learn more")}</a></p>`
     : "";
-  const bannerBaseStyle = `font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:${bannerFontSize};font-weight:${bannerFontWeight};color:${bannerColor};text-align:${textAlign};${transform}`;
+  const bannerBaseStyle = `font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:${bannerFontSize};font-weight:${bannerFontWeight};color:${bannerColor};text-align:${textAlign};${transform}`;
   const inner = c.html
     ? `<div style="margin:0;${bannerBaseStyle}">${c.html}</div>${link}`
     : `<p style="margin:0;${bannerBaseStyle}">${esc(c.text || "")}</p>${link}`;
@@ -480,7 +480,7 @@ function renderList(c: any, bg?: BlockBg): string {
   const listStyle = c.style || (c.ordered ? "numbered" : "bullet");
   const itemCss = textStyle(c, {
     color: "#333333", fontSize: "15px", fontWeight: "normal",
-    fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.7",
+    fontFamily: "'Cera Basic','Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.7",
   });
   if (listStyle === "numbered") {
     const liHtml = items.map(
@@ -503,10 +503,10 @@ function renderQuote(c: any, bg?: BlockBg): string {
   const author = c.author || c.attribution;
   const quoteStyle = textStyle(c, {
     color: "#444444", fontSize: "17px", fontWeight: "normal",
-    fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.6",
+    fontFamily: "'Cera Basic','Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.6",
   });
   const authorHtml = author
-    ? `<p style="margin:10px 0 0;font-size:13px;color:#888888;font-family:'Plus Jakarta Sans',Arial,sans-serif;">— ${esc(author)}</p>`
+    ? `<p style="margin:10px 0 0;font-size:13px;color:#888888;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;">— ${esc(author)}</p>`
     : "";
   const bgColor = c.backgroundColor || "#fdf8f4";
   const quoteBody = (c.html || c.htmlContent)
@@ -557,14 +557,14 @@ function renderCta(c: any, bg?: BlockBg): string {
   const bodyTextPosition: string = c.bodyTextPosition || "above";
   const bodyStyle = textStyle({ ...c, textTransform: c.bodyTextTransform || "none" }, {
     color: "#333333", fontSize: "15px", fontWeight: "normal",
-    fontFamily: "'Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.7",
+    fontFamily: "'Cera Basic','Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.7",
   });
   const bodyText = (c.bodyTextHtml || c.bodyText)
     ? bodyTextPosition === "below"
       ? `<div style="margin:16px 0 0;${bodyStyle}">${c.bodyTextHtml || esc(c.bodyText)}</div>`
       : `<div style="margin:0 0 16px;${bodyStyle}">${c.bodyTextHtml || esc(c.bodyText)}</div>`
     : "";
-  const rawFamily     = c.fontFamily || "'Plus Jakarta Sans',Arial,sans-serif";
+  const rawFamily     = c.fontFamily || "'Cera Basic','Plus Jakarta Sans',Arial,sans-serif";
   const btnFontFamily = rawFamily.replace(/"/g, "'");
   const btnFontSize   = resolveFontSize(c.fontSize, "15px");
   const btnFontWeight = c.fontWeight || "bold";
@@ -644,19 +644,19 @@ function renderProductFeature(c: any, bg?: BlockBg): string {
     ? `<img src="${esc(c.imageUrl)}" alt="${esc(c.imageAlt || c.name)}" width="552" style="display:block;width:100%;height:auto;border:0;margin-bottom:16px;" />`
     : "";
   const price = c.price
-    ? `<p style="margin:6px 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:16px;font-weight:bold;color:#1a1a1a;">${esc(c.price)}</p>`
+    ? `<p style="margin:6px 0 12px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:16px;font-weight:bold;color:#1a1a1a;">${esc(c.price)}</p>`
     : "";
   const desc = c.descriptionHtml
-    ? `<div style="margin:4px 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;line-height:1.6;color:#555555;">${c.descriptionHtml}</div>`
+    ? `<div style="margin:4px 0 12px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:14px;line-height:1.6;color:#555555;">${c.descriptionHtml}</div>`
     : c.description
-      ? `<p style="margin:4px 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;line-height:1.6;color:#555555;">${esc(c.description)}</p>`
+      ? `<p style="margin:4px 0 12px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:14px;line-height:1.6;color:#555555;">${esc(c.description)}</p>`
       : "";
   const cta = (c.ctaText && c.ctaLink)
-    ? `<a href="${esc(c.ctaLink)}" target="_blank" style="display:inline-block;padding:12px 28px;background-color:#1a1a1a;color:#ffffff;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;font-weight:bold;text-decoration:none;">${esc(c.ctaText)}</a>`
+    ? `<a href="${esc(c.ctaLink)}" target="_blank" style="display:inline-block;padding:12px 28px;background-color:#1a1a1a;color:#ffffff;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:14px;font-weight:bold;text-decoration:none;">${esc(c.ctaText)}</a>`
     : "";
   return row(
     `${img}
-     <h3 style="margin:0 0 4px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:20px;color:#1a1a1a;">${esc(c.name)}</h3>
+     <h3 style="margin:0 0 4px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:20px;color:#1a1a1a;">${esc(c.name)}</h3>
      ${price}${desc}${cta}`,
     "#ffffff", "20px 24px", bg
   );
@@ -670,13 +670,13 @@ function renderProductRow(c: any, bg?: BlockBg): string {
     const img = p.imageUrl
       ? `<img src="${esc(p.imageUrl)}" alt="${esc(p.name)}" width="${colWidth}" class="mobile-img" style="display:block;width:100%;max-width:100%;height:auto;border:0;margin-bottom:8px;" />`
       : "";
-    const price = p.price ? `<p style="margin:2px 0 8px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-weight:bold;color:#1a1a1a;">${esc(p.price)}</p>` : "";
+    const price = p.price ? `<p style="margin:2px 0 8px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-weight:bold;color:#1a1a1a;">${esc(p.price)}</p>` : "";
     const cta = (p.ctaText && p.ctaLink)
-      ? `<a href="${esc(p.ctaLink)}" style="display:inline-block;padding:8px 16px;background:#1a1a1a;color:#fff;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:12px;font-weight:bold;text-decoration:none;">${esc(p.ctaText)}</a>`
+      ? `<a href="${esc(p.ctaLink)}" style="display:inline-block;padding:8px 16px;background:#1a1a1a;color:#fff;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:12px;font-weight:bold;text-decoration:none;">${esc(p.ctaText)}</a>`
       : "";
     return `<td width="${colWidth}" valign="top" style="padding:0 8px;text-align:center;" class="mobile-col">
       ${img}
-      <p style="margin:0 0 4px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;font-weight:bold;color:#1a1a1a;">${esc(p.name)}</p>
+      <p style="margin:0 0 4px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:14px;font-weight:bold;color:#1a1a1a;">${esc(p.name)}</p>
       ${price}${cta}
     </td>`;
   }).join("");
@@ -690,14 +690,14 @@ function renderProductRow(c: any, bg?: BlockBg): string {
 
 function renderPromoCode(c: any, bg?: BlockBg): string {
   const headline = c.headline
-    ? `<p style="margin:0 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:18px;font-weight:bold;color:#1a1a1a;text-align:center;">${esc(c.headline)}</p>`
+    ? `<p style="margin:0 0 12px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:18px;font-weight:bold;color:#1a1a1a;text-align:center;">${esc(c.headline)}</p>`
     : "";
   const expiry = c.expiry || c.expires;
   const expiryHtml = expiry
-    ? `<p style="margin:10px 0 0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:12px;color:#888888;text-align:center;">Expires ${esc(expiry)}</p>`
+    ? `<p style="margin:10px 0 0;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:12px;color:#888888;text-align:center;">Expires ${esc(expiry)}</p>`
     : "";
   const instructions = c.instructions
-    ? `<p style="margin:8px 0 0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;color:#555555;text-align:center;">${esc(c.instructions)}</p>`
+    ? `<p style="margin:8px 0 0;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:13px;color:#555555;text-align:center;">${esc(c.instructions)}</p>`
     : "";
   return row(
     `${headline}
@@ -748,13 +748,13 @@ function renderImageText(c: any, bg?: BlockBg): string {
   const cellPad   = `${padTop}px ${padRight}px ${padBottom}px ${padLeft}px`;
 
   const headingHtml = heading
-    ? `<p style="margin:0 0 8px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(hSize)}px;font-weight:${esc(hWeight)};font-style:${esc(hStyle)};text-decoration:${esc(hDeco)};text-transform:${esc(hXform)};line-height:1.3;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(heading)}</p>`
+    ? `<p style="margin:0 0 8px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(hSize)}px;font-weight:${esc(hWeight)};font-style:${esc(hStyle)};text-decoration:${esc(hDeco)};text-transform:${esc(hXform)};line-height:1.3;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(heading)}</p>`
     : "";
   const bodyHtml = body
-    ? `<p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(bSize)}px;font-weight:${esc(bWeight)};font-style:${esc(bStyle)};text-decoration:${esc(bDeco)};text-transform:${esc(bXform)};line-height:1.55;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(body)}</p>`
+    ? `<p style="margin:0;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:${esc(bSize)}px;font-weight:${esc(bWeight)};font-style:${esc(bStyle)};text-decoration:${esc(bDeco)};text-transform:${esc(bXform)};line-height:1.55;color:${esc(textColor)};text-align:${esc(textAlign)};">${esc(body)}</p>`
     : "";
   const ctaHtml = ctaText
-    ? `<p style="margin:12px 0 0;text-align:${esc(textAlign)};"><a href="${esc(ctaLink)}" style="font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:12px;font-weight:600;color:${esc(textColor)};text-decoration:underline;">${esc(ctaText)}</a></p>`
+    ? `<p style="margin:12px 0 0;text-align:${esc(textAlign)};"><a href="${esc(ctaLink)}" style="font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:12px;font-weight:600;color:${esc(textColor)};text-decoration:underline;">${esc(ctaText)}</a></p>`
     : "";
 
   // No stacking on mobile — columns stay side-by-side.
@@ -796,13 +796,13 @@ function renderUgcReview(c: any, bg?: BlockBg): string {
     `<span style="font-size:28px;color:${esc(textColor)};${i >= rating ? "opacity:0.35;" : ""}line-height:1;">&#9733;</span>`
   ).join("");
   const titleHtml = title
-    ? `<p style="margin:0 0 6px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;font-weight:700;line-height:1.3;color:${esc(textColor)};text-transform:uppercase;letter-spacing:0.5px;">${esc(title)}</p>`
+    ? `<p style="margin:0 0 6px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:15px;font-weight:700;line-height:1.3;color:${esc(textColor)};text-transform:uppercase;letter-spacing:0.5px;">${esc(title)}</p>`
     : "";
   const bodyHtml = body
-    ? `<p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;line-height:1.55;color:${esc(textColor)};">${esc(body)}</p>`
+    ? `<p style="margin:0;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:14px;line-height:1.55;color:${esc(textColor)};">${esc(body)}</p>`
     : "";
   const attributionHtml = attribution
-    ? `<p style="margin:8px 0 0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-style:italic;color:${esc(textColor)};">&#8212; ${esc(attribution)}</p>`
+    ? `<p style="margin:8px 0 0;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:13px;font-style:italic;color:${esc(textColor)};">&#8212; ${esc(attribution)}</p>`
     : "";
   const wrapWithSpacers = (mainRow: string) => [
     outerSpacingTop    > 0 ? spacerRow(outerSpacingTop)    : "",
@@ -844,9 +844,9 @@ function renderReviewCard(c: any): string {
     ? `<img src="${esc(c.avatarUrl)}" alt="${esc(author)}" width="40" height="40" style="border-radius:50%;width:40px;height:40px;object-fit:cover;display:inline-block;vertical-align:middle;margin-right:10px;" />`
     : "";
   const quoteBody = quoteHtml
-    ? `<div style="margin:0 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;line-height:1.6;color:#333333;font-style:italic;">${quoteHtml}</div>`
-    : `<p style="margin:0 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;line-height:1.6;color:#333333;font-style:italic;">&ldquo;${esc(quote)}&rdquo;</p>`;
-  return `${rating}${quoteBody}<p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;color:#888888;">${avatar}${esc(author)}</p>`;
+    ? `<div style="margin:0 0 12px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:15px;line-height:1.6;color:#333333;font-style:italic;">${quoteHtml}</div>`
+    : `<p style="margin:0 0 12px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:15px;line-height:1.6;color:#333333;font-style:italic;">&ldquo;${esc(quote)}&rdquo;</p>`;
+  return `${rating}${quoteBody}<p style="margin:0;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:13px;color:#888888;">${avatar}${esc(author)}</p>`;
 }
 
 function renderReview(c: any, bg?: BlockBg): string {
@@ -893,8 +893,8 @@ function renderCountdownTimer(c: any, bg?: BlockBg): string {
   const deadlineStr = deadline ? deadline.toLocaleString() : "soon";
   return row(
     `<div style="text-align:center;padding:20px;border:1px solid #e0d8d2;background-color:#fdf8f4;">
-       <p style="margin:0 0 10px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;color:#666666;text-transform:uppercase;letter-spacing:1px;">${esc(label)}</p>
-       <p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:24px;font-weight:bold;color:#1a1a1a;">${esc(deadlineStr)}</p>
+       <p style="margin:0 0 10px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:14px;color:#666666;text-transform:uppercase;letter-spacing:1px;">${esc(label)}</p>
+       <p style="margin:0;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:24px;font-weight:bold;color:#1a1a1a;">${esc(deadlineStr)}</p>
      </div>`,
     "#fdf8f4", "20px 24px", bg
   );
@@ -907,14 +907,14 @@ function renderProgressLoyalty(c: any, bg?: BlockBg): string {
   const color   = c.color || "#c9a227";
   const unit    = c.unit  || "";
   return row(
-    `<p style="margin:0 0 8px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;font-weight:bold;color:#1a1a1a;">${esc(c.label)}</p>
+    `<p style="margin:0 0 8px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:15px;font-weight:bold;color:#1a1a1a;">${esc(c.label)}</p>
      <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border:1px solid #e0d9d0;border-radius:4px;overflow:hidden;height:24px;">
        <tr>
-         <td width="${pct}%" style="background-color:${esc(color)};height:24px;font-size:12px;color:#fff;font-family:'Plus Jakarta Sans',Arial,sans-serif;padding:0 6px;vertical-align:middle;">${pct}%</td>
+         <td width="${pct}%" style="background-color:${esc(color)};height:24px;font-size:12px;color:#fff;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;padding:0 6px;vertical-align:middle;">${pct}%</td>
          <td style="background-color:#f4f1ef;height:24px;"></td>
        </tr>
      </table>
-     <p style="margin:6px 0 0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;color:#666666;">${current}${unit} of ${goal}${unit}</p>`,
+     <p style="margin:6px 0 0;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:13px;color:#666666;">${current}${unit} of ${goal}${unit}</p>`,
     "#ffffff", "20px 24px", bg
   );
 }
@@ -932,15 +932,15 @@ function renderEmailHeader(header: EmailHeader): string {
 
 function renderEmailFooter(footer: EmailFooter): string {
   const socials = (footer.socialLinks || [])
-    .map((s) => `<a href="${esc(s.url)}" target="_blank" style="display:inline-block;margin:0 6px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13px;color:#888888;text-decoration:none;">${esc(s.platform)}</a>`)
+    .map((s) => `<a href="${esc(s.url)}" target="_blank" style="display:inline-block;margin:0 6px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:13px;color:#888888;text-decoration:none;">${esc(s.platform)}</a>`)
     .join(" · ");
   const socialsHtml = socials
     ? `<p style="margin:0 0 8px;text-align:center;">${socials}</p>`
     : "";
   return row(
     `${socialsHtml}
-     <p style="margin:0 0 6px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:12px;color:#aaaaaa;text-align:center;">${esc(footer.address)}</p>
-     <p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:12px;color:#aaaaaa;text-align:center;">
+     <p style="margin:0 0 6px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:12px;color:#aaaaaa;text-align:center;">${esc(footer.address)}</p>
+     <p style="margin:0;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:12px;color:#aaaaaa;text-align:center;">
        <a href="${esc(footer.unsubscribeLink)}" target="_blank" style="color:#aaaaaa;text-decoration:underline;">Unsubscribe</a>
      </p>`,
     "#1a1a1a", "20px 24px"
@@ -951,7 +951,7 @@ function renderEmailFooter(footer: EmailFooter): string {
 
 function renderShopifyProductCard(c: any, product: any, siteBaseUrl?: string, bg?: BlockBg): string {
   if (!product) {
-    return row(`<p style="margin:0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;color:#888888;">Shopify product: ${esc(c.productId || "")}</p>`, "#ffffff", "20px 24px", bg);
+    return row(`<p style="margin:0;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:14px;color:#888888;">Shopify product: ${esc(c.productId || "")}</p>`, "#ffffff", "20px 24px", bg);
   }
   const link = sanitizeUrl(absoluteUrl(c.ctaLink || (product?.handle ? `/products/${product.handle}` : "#"), siteBaseUrl));
   const fmtPrice = (amount: string, code: string) => {
@@ -970,20 +970,20 @@ function renderShopifyProductCard(c: any, product: any, siteBaseUrl?: string, bg
   const imgColWidth = product.imageUrl ? 236 : 0;
   const textColWidth = 552 - imgColWidth;
   const descHtml = c.showDescription !== false && product.description
-    ? `<p style="margin:0 0 10px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;line-height:1.5;color:#555555;">${esc(product.description.slice(0, 120))}${product.description.length > 120 ? "…" : ""}</p>`
+    ? `<p style="margin:0 0 10px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:14px;line-height:1.5;color:#555555;">${esc(product.description.slice(0, 120))}${product.description.length > 120 ? "…" : ""}</p>`
     : "";
   const priceHtml = c.showPrice !== false
-    ? `<p style="margin:0 0 16px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:16px;font-weight:bold;color:#1a1a1a;">${esc(fmtPrice(product.price, product.currencyCode))}</p>`
+    ? `<p style="margin:0 0 16px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:16px;font-weight:bold;color:#1a1a1a;">${esc(fmtPrice(product.price, product.currencyCode))}</p>`
     : "";
   return row(
     `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" class="mobile-stack">
        <tr>
          ${imgCell}
          <td width="${textColWidth}" valign="top" style="padding:0;" class="mobile-col">
-           <h3 style="margin:0 0 8px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:20px;line-height:1.3;color:#1a1a1a;">${esc(product.title)}</h3>
+           <h3 style="margin:0 0 8px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:20px;line-height:1.3;color:#1a1a1a;">${esc(product.title)}</h3>
            ${descHtml}
            ${priceHtml}
-           <a href="${esc(link)}" style="display:inline-block;padding:12px 28px;background-color:#1a1a1a;color:#ffffff;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.03em;">${esc(c.ctaText || "Shop Now")}</a>
+           <a href="${esc(link)}" style="display:inline-block;padding:12px 28px;background-color:#1a1a1a;color:#ffffff;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.03em;">${esc(c.ctaText || "Shop Now")}</a>
          </td>
        </tr>
      </table>`,
@@ -1008,11 +1008,11 @@ function renderShopifyCollectionFeature(c: any, collection: any, siteBaseUrl?: s
   return row(
     `${imgHtml}
      <div style="text-align:center;">
-       <h2 style="margin:0 0 12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:26px;line-height:1.2;color:${txtColor};">${esc(headline)}</h2>
+       <h2 style="margin:0 0 12px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:26px;line-height:1.2;color:${txtColor};">${esc(headline)}</h2>
        ${c.subtextHtml
-    ? `<div style="margin:0 0 20px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;line-height:1.6;color:${mutColor};">${c.subtextHtml}</div>`
-    : subtext ? `<p style="margin:0 0 20px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:15px;line-height:1.6;color:${mutColor};">${esc(subtext)}</p>` : ""}
-       <a href="${esc(ctaLink)}" style="display:inline-block;padding:14px 32px;background-color:${style === "dark" ? "#ffffff" : "#1a1a1a"};color:${style === "dark" ? "#1a1a1a" : "#ffffff"};font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.03em;">${esc(ctaText)}</a>
+    ? `<div style="margin:0 0 20px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:15px;line-height:1.6;color:${mutColor};">${c.subtextHtml}</div>`
+    : subtext ? `<p style="margin:0 0 20px;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:15px;line-height:1.6;color:${mutColor};">${esc(subtext)}</p>` : ""}
+       <a href="${esc(ctaLink)}" style="display:inline-block;padding:14px 32px;background-color:${style === "dark" ? "#ffffff" : "#1a1a1a"};color:${style === "dark" ? "#1a1a1a" : "#ffffff"};font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.03em;">${esc(ctaText)}</a>
      </div>`,
     blockBgColor, "28px 24px", bg
   );
@@ -1055,7 +1055,7 @@ function renderImageRow(c: any, bg?: BlockBg): string {
     const padRight = i === n - 1 ? 0 : padInner;
     const imgW = colW - padLeft - padRight;
     const captionHtml = img.caption
-      ? `<p style="margin:5px 0 0;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:11px;color:#888888;text-align:center;line-height:1.4;">${esc(img.caption)}</p>`
+      ? `<p style="margin:5px 0 0;font-family:'Cera Basic','Plus Jakarta Sans',Arial,sans-serif;font-size:11px;color:#888888;text-align:center;line-height:1.4;">${esc(img.caption)}</p>`
       : "";
     return `<td width="${colW}" valign="top" style="width:${colW}px;padding:0 ${padRight}px 0 ${padLeft}px;">
       <img src="${esc(img.url)}" alt="${esc(img.alt || "")}" width="${imgW}" style="display:block;width:100%;height:auto;border:0;" />
