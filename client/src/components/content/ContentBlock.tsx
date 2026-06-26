@@ -554,7 +554,7 @@ export function ContentBlock({
     };
 
     // Shared style fields for all text-bearing blocks — compact icon toolbar
-    const renderTextStyleFields = (c: any, update: (c: any) => void, blockType = 'text') => {
+    const renderTextStyleFields = (c: any, update: (c: any) => void, blockType = 'text', label = 'Text Styling') => {
       const o = typeof c === 'string' ? { text: c } : (c || {});
       const isHeading = blockType === 'heading';
 
@@ -574,7 +574,7 @@ export function ContentBlock({
 
       return (
         <div className="space-y-2 pt-3 border-t border-gray-200">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Text Styling</p>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{label}</p>
 
           {/* Colors row — not shown for banner, which manages colours inline per-style */}
           {blockType !== 'banner' && (
@@ -1271,7 +1271,30 @@ export function ContentBlock({
                 </div>
               </div>
             </div>
-            {renderTextStyleFields(o, onUpdate, 'cta')}
+            {renderTextStyleFields(o, onUpdate, 'cta', 'Button Label Styling')}
+            {renderTextStyleFields(
+              {
+                ...o,
+                fontSize:      o.bodyFontSize,
+                fontWeight:    o.bodyFontWeight,
+                fontFamily:    o.bodyFontFamily,
+                textColor:     o.bodyTextColor,
+                textAlign:     o.bodyTextAlign,
+                textTransform: o.bodyTextTransform,
+                backgroundColor: undefined,
+              },
+              (updated) => onUpdate({
+                ...o,
+                bodyFontSize:      updated.fontSize,
+                bodyFontWeight:    updated.fontWeight,
+                bodyFontFamily:    updated.fontFamily,
+                bodyTextColor:     updated.textColor,
+                bodyTextAlign:     updated.textAlign,
+                bodyTextTransform: updated.textTransform,
+              }),
+              'cta',
+              'Body Text Styling'
+            )}
           </div>
         );
       }

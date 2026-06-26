@@ -599,7 +599,14 @@ function renderCta(c: any, bg?: BlockBg): string {
     vmlFill = "t"; vmlStroke = "f"; vmlStrokeColor = "";
   }
   const bodyTextPosition: string = c.bodyTextPosition || "above";
-  const bodyStyle = textStyle({ ...c, textTransform: c.bodyTextTransform || "none" }, {
+  const bodyStyle = textStyle({
+    fontFamily:      c.bodyFontFamily  || c.fontFamily,
+    fontSize:        c.bodyFontSize    !== undefined ? c.bodyFontSize    : undefined,
+    fontWeight:      c.bodyFontWeight  !== undefined ? c.bodyFontWeight  : undefined,
+    textColor:       c.bodyTextColor   || "#333333",
+    textAlign:       c.bodyTextAlign   || c.textAlign,
+    textTransform:   c.bodyTextTransform || "none",
+  }, {
     color: "#333333", fontSize: "15px", fontWeight: "normal",
     fontFamily: "'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.7",
   });
