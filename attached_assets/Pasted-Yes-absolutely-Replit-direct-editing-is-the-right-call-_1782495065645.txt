@@ -1,0 +1,41 @@
+Yes, absolutely — Replit direct editing is the right call given the GitHub auth issues we've been fighting. Here's exactly what to do:
+
+Change 1 — Full-width image scroll fix
+In renderImage, find this line:
+typescriptconst imgStyle = isFullWidth
+    ? `display:block;width:100%;${heightCss}border:0;`
+Replace with:
+typescriptconst imgStyle = isFullWidth
+    ? `display:block;width:100%;max-width:100%;${heightCss}border:0;`
+Then find the full-width image tag:
+typescript`<img src="${esc(src)}" alt="${esc(c.alt || "")}" width="${imgWidth}" style="${imgStyle}" />${caption}`
+Replace with:
+typescript`<img src="${esc(src)}" alt="${esc(c.alt || "")}" class="mobile-full-img" style="${imgStyle}" />${caption}`
+Note: removed the width="${imgWidth}" attribute — that fixed pixel width attribute fights the CSS on mobile.
+Then in the @media block, find:
+css      .it-body{font-size:12px!important;line-height:1.4!important;}
+Add after it:
+css      .mobile-full-img{width:100%!important;max-width:100%!important;height:auto!important;}
+
+Change 2 — Mobile padding override for paragraph and image-text
+In the @media block, after the line you just added, also add:
+css      .mobile-hpad{padding-left:16px!important;padding-right:16px!important;}
+Then in renderParagraph, the row() call at the very bottom is:
+typescript  return row(textContent, bgColor, "20px 24px", bg);
+This doesn't need changing — the mobileHPad is about blocks where you've set custom left/right pixel values via the block padding fields. The issue is those values come through bg.paddingLeft/bg.paddingRight which override the default. So the fix is in the row() function itself — add mobile-hpad class to the inner <td>:
+In the row() function, find:
+typescript        <td style="padding:${padding};">
+Replace with:
+typescript        <td class="mobile-hpad" style="padding:${padding};">
+Wait — that would apply to every block. That's too broad. Better to only apply it when custom padding is set. Actually the cleanest approach: change mobile-hpad to only kick in when padding exceeds a threshold. In the media query:
+css      .mobile-hpad{padding-left:16px!important;padding-right:16px!important;}
+And in row(), only add the class when custom horizontal padding is being used:
+typescriptconst hasPadding = bg && (bg.paddingTop !== undefined || bg.paddingRight !== undefined || bg.paddingBottom !== undefined || bg.paddingLeft !== undefined);
+const hasCustomHPad = bg && (bg.paddingLeft !== undefined || bg.paddingRight !== undefined);
+Then change the <td> line to:
+typescript        <td${hasCustomHPad ? ' class="mobile-hpad"' : ''} style="padding:${padding};">
+This way only blocks where you've explicitly set left or right padding in the block editor get the mobile collapse — everything else is untouched.
+
+After all edits are done, in the Replit Shell:
+bashgit add server/renderer/emailToHtml.ts && git commit -m "fix: mobile image scroll + mobile padding collapse for custom hpad blocks" && git push origin main
+T

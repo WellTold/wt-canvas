@@ -72,6 +72,7 @@ function row(
 ): string {
   const [dTop, dRight, dBottom, dLeft] = parseDefaultPadding(defaultPadding);
   const hasPadding = bg && (bg.paddingTop !== undefined || bg.paddingRight !== undefined || bg.paddingBottom !== undefined || bg.paddingLeft !== undefined);
+  const hasCustomHPad = bg && (bg.paddingLeft !== undefined || bg.paddingRight !== undefined);
   const padding = hasPadding
     ? `${bg!.paddingTop ?? dTop}px ${bg!.paddingRight ?? dRight}px ${bg!.paddingBottom ?? dBottom}px ${bg!.paddingLeft ?? dLeft}px`
     : defaultPadding;
@@ -92,7 +93,7 @@ function row(
           <div style="background-color:${esc(rowBg)};background-image:url('${esc(bg.imageUrl)}');background-size:${size};background-position:center;background-repeat:no-repeat;">
             <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;">
               <tr>
-                <td style="padding:${padding};">
+                <td${hasCustomHPad ? ' class="mobile-hpad"' : ''} style="padding:${padding};">
                   ${inner}
                 </td>
               </tr>
@@ -111,7 +112,7 @@ function row(
   <td align="center" style="padding:0;background-color:#f4f1ef;">
     <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background-color:${rowBg};${borderCss || ""}">
       <tr>
-        <td style="padding:${padding};">
+        <td${hasCustomHPad ? ' class="mobile-hpad"' : ''} style="padding:${padding};">
           ${inner}
         </td>
       </tr>
@@ -382,13 +383,13 @@ function renderImage(c: any, bg?: BlockBg): string {
   const customHeight: number = Number(c.customHeight) || 0;
   const heightCss = customHeight > 0 ? `height:${customHeight}px;object-fit:cover;` : "height:auto;";
   const imgStyle = isFullWidth
-    ? `display:block;width:100%;${heightCss}border:0;`
+    ? `display:block;width:100%;max-width:100%;${heightCss}border:0;`
     : `display:inline-block;width:${imgWidth}px;max-width:100%;${heightCss}border:0;`;
   const caption = c.caption
     ? `<p style="margin:8px 0 0;font-size:12px;color:#888888;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;${alignStyle}">${esc(c.caption)}</p>`
     : "";
   const inner = isFullWidth
-    ? `<img src="${esc(src)}" alt="${esc(c.alt || "")}" width="${imgWidth}" style="${imgStyle}" />${caption}`
+    ? `<img src="${esc(src)}" alt="${esc(c.alt || "")}" class="mobile-full-img" style="${imgStyle}" />${caption}`
     : `<div style="${alignStyle}"><img src="${esc(src)}" alt="${esc(c.alt || "")}" width="${imgWidth}" style="${imgStyle}" /></div>${caption}`;
   return row(inner, "#ffffff", isFullWidth ? "0" : "16px 24px", bg);
 }
@@ -1255,6 +1256,8 @@ ${gFontLinks ? `${gFontLinks}\n` : ""}  <style>
       /* image_text: reduce heading and body font sizes on mobile */
       .it-heading{font-size:14px!important;margin-bottom:4px!important;}
       .it-body{font-size:12px!important;line-height:1.4!important;}
+      .mobile-full-img{width:100%!important;max-width:100%!important;height:auto!important;}
+      .mobile-hpad{padding-left:16px!important;padding-right:16px!important;}
     }
   </style>
 </head>
