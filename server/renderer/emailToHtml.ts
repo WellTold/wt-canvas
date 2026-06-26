@@ -109,7 +109,7 @@ function row(
 
   return /* html */`
 <tr>
-  <td align="center" style="padding:0;background-color:#f4f1ef;">
+  <td align="center" style="padding:${borderCss ? "0 10px" : "0"};background-color:#f4f1ef;">
     <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" class="email-container" style="width:100%;max-width:600px;background-color:${rowBg};${borderCss || ""}">
       <tr>
         <td${hasCustomHPad ? ' class="mobile-hpad"' : ''} style="padding:${padding};">
