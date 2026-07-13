@@ -1,0 +1,2 @@
+- [Email block preset sync bugs](preset-sync-bugs.md) — two SQL bugs caused preset updates to never reach email content_items; fixed column name and JSONB path.
+- [Klaviyo snippet tag syntax](klaviyo-snippet-tags.md) — manage_preferences vs unsubscribe_link expand differently; static fallback map must stay in sync with DB.

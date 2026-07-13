@@ -3228,21 +3228,22 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           .returning({ id: contentBlocks.id });
         updatedBlockCount += updatedBlocks.length;
 
-        // 2. Sync inline blocks inside content_items.content JSONB array (email content)
+        // 2. Sync inline blocks inside content_items.content_json JSONB array (email content)
+        // _presetId is stored inside blk->'content', not at the top level of the block object.
         const linkedContentJson = JSON.stringify(linkedContent);
         const emailUpdated = await db.execute(sql`
           UPDATE content_items
-          SET content = (
+          SET content_json = (
             SELECT jsonb_agg(
               CASE
-                WHEN (blk->>'_presetId')::int = ${id}
-                THEN blk || ${linkedContentJson}::jsonb
+                WHEN (blk->'content'->>'_presetId')::int = ${id}
+                THEN jsonb_set(blk, '{content}', blk->'content' || ${linkedContentJson}::jsonb)
                 ELSE blk
               END
             )
             FROM jsonb_array_elements(
               CASE
-                WHEN jsonb_typeof(content) = 'array' THEN content
+                WHEN jsonb_typeof(content_json) = 'array' THEN content_json
                 ELSE '[]'::jsonb
               END
             ) AS blk
@@ -3250,11 +3251,11 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           WHERE EXISTS (
             SELECT 1 FROM jsonb_array_elements(
               CASE
-                WHEN jsonb_typeof(content) = 'array' THEN content
+                WHEN jsonb_typeof(content_json) = 'array' THEN content_json
                 ELSE '[]'::jsonb
               END
             ) AS blk
-            WHERE (blk->>'_presetId')::int = ${id}
+            WHERE (blk->'content'->>'_presetId')::int = ${id}
           )
         `);
         updatedBlockCount += (emailUpdated as any).rowCount ?? 0;
@@ -3273,17 +3274,17 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         // Also patch _presetName in inline email blocks
         await db.execute(sql`
           UPDATE content_items
-          SET content = (
+          SET content_json = (
             SELECT jsonb_agg(
               CASE
-                WHEN (blk->>'_presetId')::int = ${id}
-                THEN jsonb_set(blk, '{_presetName}', ${JSON.stringify(row.name)}::jsonb)
+                WHEN (blk->'content'->>'_presetId')::int = ${id}
+                THEN jsonb_set(blk, '{content,_presetName}', ${JSON.stringify(row.name)}::jsonb)
                 ELSE blk
               END
             )
             FROM jsonb_array_elements(
               CASE
-                WHEN jsonb_typeof(content) = 'array' THEN content
+                WHEN jsonb_typeof(content_json) = 'array' THEN content_json
                 ELSE '[]'::jsonb
               END
             ) AS blk
@@ -3291,11 +3292,11 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           WHERE EXISTS (
             SELECT 1 FROM jsonb_array_elements(
               CASE
-                WHEN jsonb_typeof(content) = 'array' THEN content
+                WHEN jsonb_typeof(content_json) = 'array' THEN content_json
                 ELSE '[]'::jsonb
               END
             ) AS blk
-            WHERE (blk->>'_presetId')::int = ${id}
+            WHERE (blk->'content'->>'_presetId')::int = ${id}
           )
         `);
       }
