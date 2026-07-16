@@ -2882,7 +2882,7 @@ export function ContentBlock({
               {safeContent?.snippetName && safeContent.snippetName !== '_custom_' && (
                 <button
                   type="button"
-                  onClick={() => window.open('/site-settings', '_blank')}
+                  onClick={() => window.open(`/tools/snippets?name=${encodeURIComponent(safeContent.snippetName)}`, '_blank')}
                   className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 mt-0.5 bg-transparent border-0 p-0 cursor-pointer"
                 >
                   <Pencil className="h-2.5 w-2.5" />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
@@ -24,6 +24,13 @@ export default function SnippetsEditor() {
   });
 
   const selectedSnippet = snippets.find((s) => s.name === selectedName) ?? null;
+
+  useEffect(() => {
+    if (selectedName || snippets.length === 0) return;
+    const requestedName = new URLSearchParams(window.location.search).get("name");
+    const requested = requestedName && snippets.find((s) => s.name === requestedName);
+    if (requested) selectSnippet(requested);
+  }, [snippets, selectedName]);
 
   function selectSnippet(snippet: EmailSnippet) {
     setSelectedName(snippet.name);
