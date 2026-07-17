@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -9,9 +8,7 @@ import { Code2, Save, RotateCcw, ChevronRight } from "lucide-react";
 import type { EmailSnippet } from "@shared/schema";
 
 export default function SnippetsEditor() {
-  const { data: user } = useAuth();
   const { toast } = useToast();
-  const isAdminOrDev = user?.role === "admin" || user?.role === "developer";
 
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [editedHtml, setEditedHtml] = useState<string>("");
@@ -81,14 +78,6 @@ export default function SnippetsEditor() {
       toast({ title: "Save failed", description: err.message, variant: "destructive" });
     },
   });
-
-  if (!isAdminOrDev) {
-    return (
-      <div className="p-8">
-        <p className="text-sm text-muted-foreground">You don't have permission to view this page.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col h-full min-h-0">
