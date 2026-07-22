@@ -43,7 +43,7 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle, subj
   const [audiencesLoading, setAudiencesLoading] = useState(false);
   const [campaignName, setCampaignName] = useState("");
   const [campaignFromName, setCampaignFromName] = useState("Well Told");
-  const [campaignFromEmail, setCampaignFromEmail] = useState("help@welltolddesign.com");
+  const [campaignFromEmail, setCampaignFromEmail] = useState("shop@welltolddesign.com");
   const [campaignAudienceId, setCampaignAudienceId] = useState("");
   const [campaignLoading, setCampaignLoading] = useState(false);
 

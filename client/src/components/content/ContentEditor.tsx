@@ -74,7 +74,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const [campaignAudiencesLoading, setCampaignAudiencesLoading] = useState(false);
   const [campaignName, setCampaignName] = useState("");
   const [campaignFromName, setCampaignFromName] = useState("Well Told");
-  const [campaignFromEmail, setCampaignFromEmail] = useState("help@welltolddesign.com");
+  const [campaignFromEmail, setCampaignFromEmail] = useState("shop@welltolddesign.com");
   const [campaignAudienceId, setCampaignAudienceId] = useState("");
   const [campaignLoading, setCampaignLoading] = useState(false);
   const [pagePreviewHtml, setPagePreviewHtml] = useState<string | null>(null);

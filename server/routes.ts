@@ -2110,7 +2110,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           name: campaignName || item.title || "Untitled Email",
           subject: subject.trim(),
           previewText: previewText.trim(),
-          fromEmail: fromEmail?.trim() || "help@welltolddesign.com",
+          fromEmail: fromEmail?.trim() || "shop@welltolddesign.com",
           fromLabel: fromName?.trim() || "Well Told",
           audienceId,
           audienceType,

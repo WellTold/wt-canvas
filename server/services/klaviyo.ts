@@ -291,7 +291,19 @@ export async function createCampaign(opts: CreateCampaignOptions): Promise<Klavi
             included: [{ id: opts.audienceId, type: opts.audienceType }],
           },
           send_strategy: { method: "static" },
-          channel: "email",
+          "campaign-messages": {
+            data: [
+              {
+                type: "campaign-message",
+                attributes: {
+                  definition: {
+                    channel: "email",
+                    label: opts.name,
+                  },
+                },
+              },
+            ],
+          },
         },
       },
     }),
