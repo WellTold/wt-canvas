@@ -1218,7 +1218,10 @@ export async function renderEmailToHtml(
     }
   }
 
+  // Pad short preheader text with invisible filler so inbox previews (Gmail especially)
+  // don't keep reading past it into the visible body to fill their ~100-char budget.
   const preheader = opts.preheaderText || "";
+  const preheaderPadding = preheader ? "&nbsp;&zwnj;".repeat(60) : "";
 
   function hasUserBg(b: { _bg?: BlockBg }): boolean {
     const bg = b._bg;
@@ -1327,7 +1330,7 @@ ${gFontLinks ? `${gFontLinks}\n` : ""}  <style>
 <body style="margin:0;padding:0;background-color:#f4f1ef;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
 
 <!-- Preheader -->
-<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;color:#f4f1ef;opacity:0;">${esc(preheader)}</div>
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;color:#f4f1ef;opacity:0;">${esc(preheader)}${preheaderPadding}</div>
 
 <!-- Email wrapper -->
 <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background-color:#f4f1ef;">
