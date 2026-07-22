@@ -288,7 +288,7 @@ export async function createCampaign(opts: CreateCampaignOptions): Promise<Klavi
         attributes: {
           name: opts.name,
           audiences: {
-            included: [{ id: opts.audienceId, type: opts.audienceType }],
+            included: [opts.audienceId],
           },
           "campaign-messages": {
             data: [
