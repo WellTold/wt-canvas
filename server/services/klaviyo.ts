@@ -319,7 +319,28 @@ export async function createCampaign(opts: CreateCampaignOptions): Promise<Klavi
   const messageId = msgListJson?.data?.[0]?.id;
   if (!messageId) throw new Error("Klaviyo did not return a campaign message ID.");
 
-  // 3. Update the message with subject, from info, and rendered HTML
+  // 3. The rendered HTML has to go through a Template, not campaign-message content —
+  // "content" only holds text fields (subject, preview_text, from info); the actual
+  // markup is assigned via a separate template relationship.
+  const template = await pushTemplate(opts.name, opts.html);
+  const assignRes = await fetch(`${API_BASE}/campaign-message-assign-template/`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      data: {
+        type: "campaign-message",
+        id: messageId,
+        relationships: {
+          template: {
+            data: { type: "template", id: template.id },
+          },
+        },
+      },
+    }),
+  });
+  await assertOk(assignRes, "assign-template-to-campaign-message");
+
+  // 4. Update the message with subject and from info (text fields only — no HTML here)
   const patchRes = await fetch(`${API_BASE}/campaign-messages/${messageId}/`, {
     method: "PATCH",
     headers,
@@ -335,7 +356,6 @@ export async function createCampaign(opts: CreateCampaignOptions): Promise<Klavi
             preview_text: opts.previewText,
             from_email: opts.fromEmail,
             from_label: opts.fromLabel,
-            html_body: opts.html,
           },
         },
       },
