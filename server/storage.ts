@@ -179,6 +179,8 @@ function localRowToContentItem(row: typeof localContentItemsTable.$inferSelect):
     publishedAt: row.publishedAt || null,
     framerCmsId: row.framerCmsId || null,
     templateId: row.templateId || null,
+    subject: row.subject || null,
+    preheaderText: row.preheaderText || null,
     klaviyoTemplateId: row.klaviyoTemplateId || null,
     klaviyoCampaignId: row.klaviyoCampaignId || null,
     keywordId: row.keywordId || null,
@@ -501,6 +503,8 @@ export class DatabaseStorage implements IStorage {
         tags: item.tags || null,
         scheduledPublishDate: item.scheduledPublishDate || null,
         templateId: (item as any).templateId || null,
+        subject: item.subject || null,
+        preheaderText: item.preheaderText || null,
         keywordId: (item as any).keywordId ?? null,
         authorId: item.authorId,
       }).returning();
@@ -599,6 +603,8 @@ export class DatabaseStorage implements IStorage {
       if (data.tags !== undefined) updateObj.tags = data.tags;
       if (data.scheduledPublishDate !== undefined) updateObj.scheduledPublishDate = data.scheduledPublishDate;
       if (data.templateId !== undefined) updateObj.templateId = data.templateId;
+      if (data.subject !== undefined) updateObj.subject = data.subject;
+      if (data.preheaderText !== undefined) updateObj.preheaderText = data.preheaderText;
       if (data.klaviyoTemplateId !== undefined) updateObj.klaviyoTemplateId = data.klaviyoTemplateId;
       if (data.klaviyoCampaignId !== undefined) updateObj.klaviyoCampaignId = data.klaviyoCampaignId;
       if ((data as any).keywordId !== undefined) updateObj.keywordId = (data as any).keywordId;
@@ -917,6 +923,13 @@ export class DatabaseStorage implements IStorage {
       scheduledPublishDate: item.scheduled_publish_date ? new Date(item.scheduled_publish_date) : null,
       publishedAt: item.published_at ? new Date(item.published_at) : item.publish_date ? new Date(item.publish_date) : null,
       framerCmsId: null,
+      templateId: null,
+      subject: null,
+      preheaderText: null,
+      klaviyoTemplateId: null,
+      klaviyoCampaignId: null,
+      keywordId: null,
+      markdownContent: null,
       createdAt: new Date(item.created_at),
       updatedAt: new Date(item.updated_at),
       authorId: item.author_id || 'system',

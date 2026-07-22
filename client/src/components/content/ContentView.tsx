@@ -519,6 +519,8 @@ export default function ContentView() {
         onClose={() => setShowEmailPreview(false)}
         contentId={id!}
         contentTitle={item.title}
+        subject={item.subject || ""}
+        preheaderText={item.preheaderText || ""}
       />
 
       {/* Markdown preview dialog */}

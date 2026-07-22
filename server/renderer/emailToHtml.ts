@@ -431,11 +431,13 @@ function renderImage(c: any, bg?: BlockBg): string {
   const caption = c.caption
     ? `<p style="margin:8px 0 0;font-size:12px;color:#888888;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;${alignStyle}">${esc(c.caption)}</p>`
     : "";
-  const imgLink = c.link || src;
+  const imgLink = c.link || "";
   const imgTag = isFullWidth
     ? `<img src="${esc(src)}" alt="${esc(c.alt || "")}" class="mobile-full-img" style="${imgStyle}" />`
     : `<img src="${esc(src)}" alt="${esc(c.alt || "")}" width="${imgWidth}" style="${imgStyle}" />`;
-  const wrappedImg = `<a href="${esc(imgLink)}" target="_blank" style="display:block;text-decoration:none;border:0;">${imgTag}</a>`;
+  const wrappedImg = imgLink
+    ? `<a href="${esc(imgLink)}" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;border:0;">${imgTag}</a>`
+    : imgTag;
   const inner = isFullWidth
     ? `${wrappedImg}${caption}`
     : `<div style="${alignStyle}">${wrappedImg}</div>${caption}`;
@@ -457,9 +459,12 @@ function renderHero(c: any, bg?: BlockBg): string {
     fontSize: "15px", color: "#555555", fontWeight: "normal",
     fontFamily: "'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif", lineHeight: "1.6",
   });
-  const heroLink = c.ctaLink || c.link || src;
+  const heroLink = c.ctaLink || c.link || "";
+  const heroImgTag = `<img src="${esc(src)}" alt="${esc(c.alt || c.imageAlt || headline || "")}" width="600" style="display:block;width:100%;height:auto;border:0;" />`;
   const imgHtml = src
-    ? `<a href="${esc(heroLink)}" target="_blank" style="display:block;text-decoration:none;border:0;"><img src="${esc(src)}" alt="${esc(c.alt || c.imageAlt || headline || "")}" width="600" style="display:block;width:100%;height:auto;border:0;" /></a>`
+    ? (heroLink
+        ? `<a href="${esc(heroLink)}" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;border:0;">${heroImgTag}</a>`
+        : heroImgTag)
     : `<div style="background:#f0ebe7;border:2px dashed #c8bfb8;padding:60px 24px;text-align:center;color:#a09080;font-family:'Cera Basic','Jost','Plus Jakarta Sans',Arial,sans-serif;font-size:13px;">[ No hero image selected ]</div>`;
   const headlineHtml = headline
     ? `<h1 style="margin:0 0 ${subtext ? "10px" : "0"};${headlineStyleStr}">${esc(headline)}</h1>`
@@ -816,9 +821,10 @@ function renderImageText(c: any, bg?: BlockBg): string {
 
   // No stacking on mobile — columns stay side-by-side.
   // .it-text tightens padding on narrow screens so text isn't squeezed.
-  const imageHref = c.imageLink || ctaLink || imageUrl;
+  const imageHref = c.imageLink || c.ctaLink || "";
+  const imageTag = `<img src="${esc(imageUrl)}" alt="${esc(imageAlt)}" style="display:block;width:100%;max-width:300px;height:auto;border:0;object-fit:cover;" />`;
   const imageCell = imageUrl
-    ? `<td width="50%" valign="top" style="width:50%;padding:0;"><a href="${esc(imageHref)}" target="_blank" style="display:block;text-decoration:none;border:0;"><img src="${esc(imageUrl)}" alt="${esc(imageAlt)}" style="display:block;width:100%;max-width:300px;height:auto;border:0;object-fit:cover;" /></a></td>`
+    ? `<td width="50%" valign="top" style="width:50%;padding:0;">${imageHref ? `<a href="${esc(imageHref)}" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;border:0;">${imageTag}</a>` : imageTag}</td>`
     : `<td width="50%" valign="top" style="width:50%;padding:0;background-color:#f0ebe7;min-height:160px;"></td>`;
 
   const textCell = `<td width="50%" valign="middle" class="it-text" style="width:50%;padding:${cellPad};background-color:${esc(textBg)};vertical-align:middle;">${headingHtml}${bodyHtml}${ctaHtml}</td>`;
@@ -1019,7 +1025,7 @@ function renderShopifyProductCard(c: any, product: any, siteBaseUrl?: string, bg
   };
   const imgCell = product.imageUrl
     ? `<td width="220" valign="top" style="padding:0;" class="mobile-col">
-         <a href="${esc(link)}" style="display:block;text-decoration:none;">
+         <a href="${esc(link)}" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;">
            <img src="${esc(product.imageUrl)}" alt="${esc(product.imageAlt || product.title)}" width="220" class="mobile-img" style="display:block;width:220px;max-width:100%;height:auto;object-fit:cover;border:0;" />
          </a>
        </td>

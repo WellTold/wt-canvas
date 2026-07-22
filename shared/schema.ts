@@ -57,6 +57,8 @@ export const contentItems = pgTable("content_items", {
   publishedAt: timestamp("published_at"),
   framerCmsId: text("framer_cms_id"),
   templateId: text("template_id"),
+  subject: text("subject"), // email subject line — required for type='email'
+  preheaderText: text("preheader_text"), // email preview/preheader text — required for type='email'
   klaviyoTemplateId: text("klaviyo_template_id"),
   klaviyoCampaignId: text("klaviyo_campaign_id"),
   keywordId: integer("keyword_id"), // FK → keywords.id for local email content items
@@ -81,6 +83,7 @@ export interface ImageBlockContent     {
   url: string;
   alt?: string;
   caption?: string;
+  link?: string;
   widthMode?: 'full' | 'px' | 'percent';
   customWidth?: number;
   align?: 'left' | 'center' | 'right';

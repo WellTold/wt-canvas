@@ -961,6 +961,15 @@ export function ContentBlock({
               onChange={(e) => onUpdate({ ...(safeContent as any), caption: e.target.value })}
               placeholder="Caption (optional)"
             />
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Link URL (optional)</Label>
+              <Input
+                value={(safeContent as any)?.link || ''}
+                onChange={(e) => onUpdate({ ...(safeContent as any), link: e.target.value })}
+                placeholder="https://… — opens in a new tab. Leave blank for a non-clickable image."
+                className="text-sm"
+              />
+            </div>
             {/* Width control */}
             <div className="space-y-2">
               <Label className="text-xs font-medium">Width</Label>

@@ -14,6 +14,8 @@ export interface EmailPreviewModalProps {
   onClose: () => void;
   contentId: number | string;
   contentTitle: string;
+  subject: string;
+  preheaderText: string;
 }
 
 interface KlaviyoAudience {
@@ -22,7 +24,7 @@ interface KlaviyoAudience {
   kind: "list" | "segment";
 }
 
-export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: EmailPreviewModalProps) {
+export function EmailPreviewModal({ open, onClose, contentId, contentTitle, subject, preheaderText }: EmailPreviewModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [emailPreviewHtml, setEmailPreviewHtml] = useState<string | null>(null);
@@ -43,7 +45,6 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
   const [audiences, setAudiences] = useState<KlaviyoAudience[]>([]);
   const [audiencesLoading, setAudiencesLoading] = useState(false);
   const [campaignName, setCampaignName] = useState("");
-  const [campaignSubject, setCampaignSubject] = useState("");
   const [campaignFromName, setCampaignFromName] = useState("Well Told");
   const [campaignFromEmail, setCampaignFromEmail] = useState("help@welltolddesign.com");
   const [campaignAudienceId, setCampaignAudienceId] = useState("");
@@ -199,8 +200,12 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
   };
 
   const handlePushToCampaign = async () => {
-    if (!campaignSubject.trim()) {
-      toast({ title: "Subject line required", variant: "destructive" });
+    if (!subject.trim()) {
+      toast({ title: "Subject line required", description: "Add a subject line in the editor before pushing.", variant: "destructive" });
+      return;
+    }
+    if (!preheaderText.trim()) {
+      toast({ title: "Preheader required", description: "Add preheader text in the editor before pushing.", variant: "destructive" });
       return;
     }
     if (!campaignAudienceId) {
@@ -216,7 +221,8 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
     try {
       const res = await apiRequest("POST", `/api/content/${contentId}/push-to-klaviyo-campaign`, {
         campaignName: campaignName.trim() || contentTitle || "Untitled Email",
-        subject: campaignSubject.trim(),
+        subject: subject.trim(),
+        previewText: preheaderText.trim(),
         fromName: campaignFromName.trim(),
         fromEmail: campaignFromEmail.trim(),
         audienceId: audience.id,
@@ -244,7 +250,6 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
         ),
       });
       setShowCampaignForm(false);
-      setCampaignSubject("");
       setCampaignAudienceId("");
     } catch (err: unknown) {
       toast({ title: "Campaign push failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
@@ -371,13 +376,11 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle }: Em
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Subject line <span className="text-red-500">*</span></Label>
-                <Input
-                  value={campaignSubject}
-                  onChange={e => setCampaignSubject(e.target.value)}
-                  className="h-8 text-sm"
-                  placeholder="Email subject…"
-                  autoFocus
-                />
+                <p className="text-sm px-2 py-1.5 bg-white border rounded min-h-[32px]">{subject || <span className="text-red-500">Not set — add one in the editor.</span>}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Preheader <span className="text-red-500">*</span></Label>
+                <p className="text-sm px-2 py-1.5 bg-white border rounded min-h-[32px]">{preheaderText || <span className="text-red-500">Not set — add one in the editor.</span>}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">From name</Label>

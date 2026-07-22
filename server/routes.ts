@@ -2070,6 +2070,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
 
         const {
           subject,
+          previewText,
           audienceId,
           audienceType,
           campaignName,
@@ -2077,6 +2078,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           fromEmail,
         } = req.body as {
           subject: string;
+          previewText: string;
           audienceId: string;
           audienceType: "list" | "segment";
           campaignName?: string;
@@ -2086,6 +2088,8 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
 
         if (!subject?.trim())
           return res.status(400).json({ message: "Subject line is required." });
+        if (!previewText?.trim())
+          return res.status(400).json({ message: "Preheader text is required." });
         if (!audienceId?.trim())
           return res
             .status(400)
@@ -2105,6 +2109,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         const result = await createCampaign({
           name: campaignName || item.title || "Untitled Email",
           subject: subject.trim(),
+          previewText: previewText.trim(),
           fromEmail: fromEmail?.trim() || "help@welltolddesign.com",
           fromLabel: fromName?.trim() || "Well Told",
           audienceId,

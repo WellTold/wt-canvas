@@ -44,6 +44,8 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [title, setTitle] = useState("");
+  const [subject, setSubject] = useState("");
+  const [preheaderText, setPreheaderText] = useState("");
   const [slug, setSlug] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [primaryKeyword, setPrimaryKeyword] = useState("");
@@ -69,7 +71,6 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const [campaignAudiences, setCampaignAudiences] = useState<Array<{ id: string; name: string; kind: "list" | "segment" }>>([]);
   const [campaignAudiencesLoading, setCampaignAudiencesLoading] = useState(false);
   const [campaignName, setCampaignName] = useState("");
-  const [campaignSubject, setCampaignSubject] = useState("");
   const [campaignFromName, setCampaignFromName] = useState("Well Told");
   const [campaignFromEmail, setCampaignFromEmail] = useState("help@welltolddesign.com");
   const [campaignAudienceId, setCampaignAudienceId] = useState("");
@@ -458,6 +459,8 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       const rawTitle = currentContentItem.title || "";
       console.log('📝 Loading title for editing:', rawTitle);
       setTitle(rawTitle);
+      setSubject(currentContentItem.subject || "");
+      setPreheaderText(currentContentItem.preheaderText || "");
       setSlug(currentContentItem.slug || "");
       setMetaDescription(currentContentItem.metaDescription || "");
       setPrimaryKeyword(currentContentItem.primaryKeyword || "");
@@ -1174,6 +1177,24 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
         return;
       }
 
+      if (isEmailContent && !subject.trim()) {
+        toast({
+          title: "Subject Line Required",
+          description: "Please enter a subject line before saving this email",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (isEmailContent && !preheaderText.trim()) {
+        toast({
+          title: "Preheader Required",
+          description: "Please enter preheader text before saving this email",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setSaving(true);
 
       // Clean the content to remove any prototype pollution
@@ -1283,6 +1304,8 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
 
       const updateData: Record<string, any> = {
         title: title.trim(),
+        subject: isEmailContent ? subject.trim() : null,
+        preheaderText: isEmailContent ? preheaderText.trim() : null,
         slug: slug.trim() || autoSlug,
         metaDescription: metaDescription.trim(),
         primaryKeyword: primaryKeyword.trim(),
@@ -1554,7 +1577,6 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       return;
     }
     setCampaignName(title || "");
-    setCampaignSubject("");
     setCampaignAudienceId("");
     setShowCampaignDialog(true);
     if (campaignAudiences.length === 0) {
@@ -1585,8 +1607,12 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const handleSubmitCampaign = async () => {
     const itemId = contentItemId || currentContentItem?.id;
     if (!itemId) return;
-    if (!campaignSubject.trim()) {
-      toast({ title: "Subject line required", variant: "destructive" });
+    if (!subject.trim()) {
+      toast({ title: "Subject line required", description: "Add a subject line in the editor above before pushing.", variant: "destructive" });
+      return;
+    }
+    if (!preheaderText.trim()) {
+      toast({ title: "Preheader required", description: "Add preheader text in the editor above before pushing.", variant: "destructive" });
       return;
     }
     if (!campaignAudienceId) {
@@ -1599,7 +1625,8 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
     try {
       const res = await apiRequest("POST", `/api/content/${itemId}/push-to-klaviyo-campaign`, {
         campaignName: campaignName.trim() || title || "Untitled Email",
-        subject: campaignSubject.trim(),
+        subject: subject.trim(),
+        previewText: preheaderText.trim(),
         fromName: campaignFromName.trim(),
         fromEmail: campaignFromEmail.trim(),
         audienceId: audience.id,
@@ -1861,6 +1888,30 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
             </Button>
           </div>
         </div>
+
+        {/* Subject line + preheader — required for every email, used when pushing to Klaviyo */}
+        {isEmailContent && (
+          <div className="max-w-4xl mx-auto grid grid-cols-2 gap-3 px-4 pb-3">
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Subject Line <span className="text-red-500">*</span></Label>
+              <Input
+                value={subject}
+                onChange={(e) => { setSubject(e.target.value); setHasUnsavedChanges(true); }}
+                placeholder="Email subject line…"
+                className="text-sm h-8"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Preheader <span className="text-red-500">*</span></Label>
+              <Input
+                value={preheaderText}
+                onChange={(e) => { setPreheaderText(e.target.value); setHasUnsavedChanges(true); }}
+                placeholder="Preview text shown after the subject line…"
+                className="text-sm h-8"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="max-w-4xl mx-auto space-y-4">
@@ -2825,6 +2876,8 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
         onClose={() => setShowEmailPreview(false)}
         contentId={contentItemId || currentContentItem?.id || 0}
         contentTitle={title || currentContentItem?.title || ""}
+        subject={subject}
+        preheaderText={preheaderText}
       />
 
       {/* Regenerate Confirmation Dialog */}
@@ -2871,7 +2924,11 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Subject line <span className="text-red-500">*</span></Label>
-              <Input value={campaignSubject} onChange={e => setCampaignSubject(e.target.value)} className="h-8 text-sm" placeholder="Email subject…" autoFocus />
+              <p className="text-sm px-2 py-1.5 bg-[#f0ebe7] border border-black min-h-[32px]">{subject || <span className="text-red-500">Not set — add one in the editor above before pushing.</span>}</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Preheader <span className="text-red-500">*</span></Label>
+              <p className="text-sm px-2 py-1.5 bg-[#f0ebe7] border border-black min-h-[32px]">{preheaderText || <span className="text-red-500">Not set — add one in the editor above before pushing.</span>}</p>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">

@@ -241,6 +241,7 @@ export interface KlaviyoCampaignResult {
 export interface CreateCampaignOptions {
   name: string;
   subject: string;
+  previewText: string;
   fromEmail: string;
   fromLabel: string;
   audienceId: string;
@@ -309,6 +310,7 @@ export async function createCampaign(opts: CreateCampaignOptions): Promise<Klavi
           channel: "email",
           content: {
             subject: opts.subject,
+            preview_text: opts.previewText,
             from_email: opts.fromEmail,
             from_label: opts.fromLabel,
             html_body: opts.html,
