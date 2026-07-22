@@ -37,6 +37,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const urlTemplateId = urlParams.get("templateId") || null;
   const urlType = urlParams.get("type") || null;
   const urlKeywordId = urlParams.get("keywordId") || null;
+  const urlOpenCampaign = urlParams.get("openCampaign") === "1";
 
   // Effective type: URL param takes priority over prop
   const type = urlType || typeProp;
@@ -58,6 +59,7 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
   const [scheduledDate, setScheduledDate] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState("default");
   const [localBlocks, setLocalBlocks] = useState<any[]>([]);
+  const hasAutoOpenedCampaign = useRef(false);
   const [markdownContent, setMarkdownContent] = useState("");
   const [markdownPreviewHtml, setMarkdownPreviewHtml] = useState("");
   const [isMarkdownMode, setIsMarkdownMode] = useState(false);
@@ -535,6 +537,15 @@ export function ContentEditor({ contentItem, contentItemId, type: typeProp, onSa
       }
     }
   }, [currentContentItem]);
+
+  // Auto-open the Push to Campaign dialog when arriving via ?openCampaign=1 (e.g. from the emails list rocket button)
+  useEffect(() => {
+    if (!urlOpenCampaign || hasAutoOpenedCampaign.current || !currentContentItem) return;
+    hasAutoOpenedCampaign.current = true;
+    handleOpenCampaignDialog();
+    const cleanUrl = window.location.pathname;
+    window.history.replaceState(null, "", cleanUrl);
+  }, [currentContentItem, urlOpenCampaign]);
 
   // Derive the effective content_type (subtype like blog_article) from template, existing item, or URL param
   const effectiveContentType = (() => {

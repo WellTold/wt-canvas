@@ -7,7 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Copy, Edit, ExternalLink, Rocket, RotateCcw, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useState } from "react";
 import type { ContentItem } from "@shared/schema";
 
@@ -34,6 +34,7 @@ const approvalColors = {
 export function ContentTable({ type, onEdit }: ContentTableProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const [selectedItems, setSelectedItems] = useState<Set<number | string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<string>("");
 
@@ -416,32 +417,57 @@ export function ContentTable({ type, onEdit }: ContentTableProps) {
                           </Button>
                         </a>
                       )}
-                      {item.status === 'approved' && !item.publishedAt ? (
-                        <Button
-                          size="sm"
-                          className="h-7 w-7 p-0 bg-black hover:bg-gray-800 text-white"
-                          title="Publish"
-                          onClick={() => handlePublish(item.id)}
-                          disabled={publishMutation.isPending}
-                        >
-                          <Rocket className="h-3.5 w-3.5" />
-                        </Button>
-                      ) : item.publishedAt ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          title="Republish"
-                          onClick={() => handlePublish(item.id)}
-                          disabled={publishMutation.isPending}
-                        >
-                          <RotateCcw className="h-3.5 w-3.5" />
-                        </Button>
-                      ) : (
-                        <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled>
-                          <Rocket className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
+                      {(() => {
+                        const isEmailItem = item.type?.includes('email') || (item as any).contentType?.includes('email');
+                        const triggerPushToCampaign = () => {
+                          const missing = [
+                            !item.subject?.trim() && "a subject line",
+                            !item.preheaderText?.trim() && "preheader text",
+                          ].filter(Boolean);
+                          if (missing.length > 0) {
+                            toast({
+                              title: "Missing required fields",
+                              description: `This email needs ${missing.join(" and ")} before it can be pushed to a campaign. Opening the editor…`,
+                              variant: "destructive",
+                            });
+                            setLocation(`/content-editor/${item.id}`);
+                            return;
+                          }
+                          setLocation(`/content-editor/${item.id}?openCampaign=1`);
+                        };
+                        if (item.status === 'approved' && !item.publishedAt) {
+                          return (
+                            <Button
+                              size="sm"
+                              className="h-7 w-7 p-0 bg-black hover:bg-gray-800 text-white"
+                              title={isEmailItem ? "Push to Campaign" : "Publish"}
+                              onClick={() => isEmailItem ? triggerPushToCampaign() : handlePublish(item.id)}
+                              disabled={publishMutation.isPending}
+                            >
+                              <Rocket className="h-3.5 w-3.5" />
+                            </Button>
+                          );
+                        }
+                        if (item.publishedAt) {
+                          return (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              title={isEmailItem ? "Push to Campaign" : "Republish"}
+                              onClick={() => isEmailItem ? triggerPushToCampaign() : handlePublish(item.id)}
+                              disabled={publishMutation.isPending}
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            </Button>
+                          );
+                        }
+                        return (
+                          <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled>
+                            <Rocket className="h-3.5 w-3.5" />
+                          </Button>
+                        );
+                      })()}
                     </div>
                   </td>
                 </tr>
