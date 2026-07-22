@@ -296,10 +296,8 @@ export async function createCampaign(opts: CreateCampaignOptions): Promise<Klavi
               {
                 type: "campaign-message",
                 attributes: {
-                  definition: {
-                    channel: "email",
-                    label: opts.name,
-                  },
+                  channel: "email",
+                  label: opts.name,
                 },
               },
             ],
