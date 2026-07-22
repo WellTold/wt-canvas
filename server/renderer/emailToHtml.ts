@@ -1221,7 +1221,7 @@ export async function renderEmailToHtml(
   // Pad short preheader text with invisible filler so inbox previews (Gmail especially)
   // don't keep reading past it into the visible body to fill their ~100-char budget.
   const preheader = opts.preheaderText || "";
-  const preheaderPadding = preheader ? "&nbsp;&zwnj;".repeat(60) : "";
+  const preheaderPadding = preheader ? "&nbsp;&zwnj;".repeat(150) : "";
 
   function hasUserBg(b: { _bg?: BlockBg }): boolean {
     const bg = b._bg;
