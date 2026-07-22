@@ -36,10 +36,6 @@ interface KlaviyoTemplateData {
   };
 }
 
-interface KlaviyoTemplatesResponse {
-  data?: KlaviyoTemplateData[];
-}
-
 interface KlaviyoCreateTemplateResponse {
   data?: { id?: string };
 }
@@ -51,8 +47,25 @@ interface KlaviyoListData {
   };
 }
 
-interface KlaviyoListsResponse {
-  data?: KlaviyoListData[];
+/**
+ * Follow Klaviyo's JSON:API cursor pagination (links.next) to collect every page.
+ * Klaviyo caps page[size] at 10 on list-style endpoints, so a single page is rarely complete.
+ */
+async function fetchAllPages<T>(
+  firstUrl: string,
+  headers: Record<string, string>,
+  context: string,
+): Promise<T[]> {
+  const results: T[] = [];
+  let url: string | null = firstUrl;
+  while (url) {
+    const res: Response = await fetch(url, { headers });
+    await assertOk(res, context);
+    const json: { data?: T[]; links?: { next?: string | null } } = await res.json();
+    results.push(...(json.data ?? []));
+    url = json.links?.next ?? null;
+  }
+  return results;
 }
 
 async function getApiKey(): Promise<string> {
@@ -172,15 +185,15 @@ export interface KlaviyoTemplate {
   updatedAt: string;
 }
 
-/** List Klaviyo email templates (latest 50). */
+/** List all Klaviyo email templates (paginated — Klaviyo caps page[size] at 10 for this endpoint). */
 export async function listTemplates(): Promise<KlaviyoTemplate[]> {
   const apiKey = await getApiKey();
-  const res = await fetch(`${API_BASE}/templates/?page[size]=50`, {
-    headers: buildHeaders(apiKey),
-  });
-  await assertOk(res, "list-templates");
-  const json: KlaviyoTemplatesResponse = await res.json();
-  return (json.data ?? []).map((t) => ({
+  const data = await fetchAllPages<KlaviyoTemplateData>(
+    `${API_BASE}/templates/?page[size]=10`,
+    buildHeaders(apiKey),
+    "list-templates",
+  );
+  return data.map((t) => ({
     id:        t.id,
     name:      t.attributes?.name      ?? "",
     updatedAt: t.attributes?.updated   ?? "",
@@ -192,29 +205,29 @@ export interface KlaviyoList {
   name: string;
 }
 
-/** List Klaviyo lists (latest 50). */
+/** List all Klaviyo lists (paginated — Klaviyo caps page[size] at 10 for this endpoint). */
 export async function listLists(): Promise<KlaviyoList[]> {
   const apiKey = await getApiKey();
-  const res = await fetch(`${API_BASE}/lists/?page[size]=50`, {
-    headers: buildHeaders(apiKey),
-  });
-  await assertOk(res, "list-lists");
-  const json: KlaviyoListsResponse = await res.json();
-  return (json.data ?? []).map((l) => ({
+  const data = await fetchAllPages<KlaviyoListData>(
+    `${API_BASE}/lists/?page[size]=10`,
+    buildHeaders(apiKey),
+    "list-lists",
+  );
+  return data.map((l) => ({
     id:   l.id,
     name: l.attributes?.name ?? "",
   }));
 }
 
-/** List Klaviyo segments (latest 50). */
+/** List all Klaviyo segments (paginated — Klaviyo caps page[size] at 10 for this endpoint). */
 export async function listSegments(): Promise<KlaviyoList[]> {
   const apiKey = await getApiKey();
-  const res = await fetch(`${API_BASE}/segments/?page[size]=50`, {
-    headers: buildHeaders(apiKey),
-  });
-  await assertOk(res, "list-segments");
-  const json: KlaviyoListsResponse = await res.json();
-  return (json.data ?? []).map((s) => ({
+  const data = await fetchAllPages<KlaviyoListData>(
+    `${API_BASE}/segments/?page[size]=10`,
+    buildHeaders(apiKey),
+    "list-segments",
+  );
+  return data.map((s) => ({
     id:   s.id,
     name: s.attributes?.name ?? "",
   }));
