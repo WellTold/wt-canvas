@@ -60,7 +60,7 @@ export async function renderEmailForItem(item: ContentItem): Promise<EmailRender
     fetchSnippetsMap(),
   ]);
 
-  const preheaderText = template?.preheader_text ?? null;
+  const preheaderText = item.preheaderText || template?.preheader_text || null;
   const emailHeader   = template?.email_header   ?? null;
   const emailFooter   = template?.email_footer   ?? null;
 
