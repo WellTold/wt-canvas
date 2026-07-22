@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Mail, ExternalLink, Monitor, Smartphone, Send, Upload, Megaphone } from "lucide-react";
+import { Mail, ExternalLink, Monitor, Smartphone, Upload, Megaphone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
@@ -32,9 +32,6 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle, subj
   const [emailPreviewLoading, setEmailPreviewLoading] = useState(false);
   const [emailPreviewDevice, setEmailPreviewDevice] = useState<"desktop" | "mobile">("desktop");
 
-  // Send test state — one-click Klaviyo push, no email input needed
-  const [sendTestLoading, setSendTestLoading] = useState(false);
-
   // Save as Template state (internal Canvas)
   const [showSaveTemplateForm, setShowSaveTemplateForm] = useState(false);
   const [saveTemplateName, setSaveTemplateName] = useState("");
@@ -54,7 +51,6 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle, subj
     if (!open) {
       setEmailPreviewHtml(null);
       setPreviewUrl(null);
-      setSendTestLoading(false);
       setShowSaveTemplateForm(false);
       setSaveTemplateName("");
       setShowCampaignForm(false);
@@ -99,45 +95,6 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle, subj
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank", "noopener");
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-  };
-
-  // Send Test: push rendered HTML to Klaviyo as a template.
-  // Shows a toast with a link to open Klaviyo's templates page —
-  // the user sends the actual test preview from inside Klaviyo.
-  const handleSendTest = async () => {
-    if (!emailPreviewHtml) return;
-    setSendTestLoading(true);
-    try {
-      const res = await apiRequest("POST", `/api/content/${contentId}/push-to-klaviyo`);
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.message === "klaviyo_required") {
-          toast({
-            title: "Klaviyo not connected",
-            description: "Connect Klaviyo in Integrations to send previews.",
-            variant: "destructive",
-          });
-        } else {
-          toast({ title: "Preview push failed", description: data.message, variant: "destructive" });
-        }
-        return;
-      }
-      queryClient.invalidateQueries({ queryKey: ["/api/content-items", contentId] });
-      toast({
-        title: "Pushed to Klaviyo ✓",
-        description: (
-          <span>
-            Template updated. Go to Klaviyo → Content → Templates, open it, then use
-            {" "}"Preview &amp; test" to send to your inbox.
-          </span>
-        ),
-        duration: 8000,
-      });
-    } catch (err: any) {
-      toast({ title: "Preview push failed", description: err.message, variant: "destructive" });
-    } finally {
-      setSendTestLoading(false);
-    }
   };
 
   // Save as Template: saves rendered HTML as an internal Canvas template (not pushed to Klaviyo).
@@ -290,16 +247,6 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle, subj
           <div className="flex items-center gap-3 ml-auto">
             {emailPreviewHtml && (
               <button
-                onClick={handleSendTest}
-                disabled={sendTestLoading}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-                title="Push to Klaviyo — then send test from inside Klaviyo (Content → Templates)"
-              >
-                <Send className="h-3 w-3" />{sendTestLoading ? "Pushing…" : "Send test"}
-              </button>
-            )}
-            {emailPreviewHtml && (
-              <button
                 onClick={() => {
                   setShowSaveTemplateForm(v => !v);
                   setShowCampaignForm(false);
@@ -315,7 +262,7 @@ export function EmailPreviewModal({ open, onClose, contentId, contentTitle, subj
               <button
                 onClick={handleOpenCampaignForm}
                 className={`flex items-center gap-1 text-xs transition-colors ${showCampaignForm ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
-                title="Create a new Klaviyo draft campaign"
+                title="Create a draft Klaviyo campaign with your subject and preheader — then use Klaviyo's own 'Send test email' on the draft to preview it"
               >
                 <Megaphone className="h-3 w-3" />Push to Campaign
               </button>
