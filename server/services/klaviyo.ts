@@ -350,7 +350,6 @@ export async function createCampaign(opts: CreateCampaignOptions): Promise<Klavi
         id: messageId,
         attributes: {
           label: opts.name,
-          channel: "email",
           content: {
             subject: opts.subject,
             preview_text: opts.previewText,
