@@ -290,7 +290,6 @@ export async function createCampaign(opts: CreateCampaignOptions): Promise<Klavi
           audiences: {
             included: [{ id: opts.audienceId, type: opts.audienceType }],
           },
-          send_strategy: { method: "static" },
           "campaign-messages": {
             data: [
               {
