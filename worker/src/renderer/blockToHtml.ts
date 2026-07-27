@@ -1217,7 +1217,7 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
 </html>`;
 }
 
-export function render404(siteSettings: SiteSettings = {}, baseUrl = "https://welltold.design"): string {
+export function render404(siteSettings: SiteSettings = {}, baseUrl = "https://welltolddesign.com"): string {
   const header = renderSiteHeader(siteSettings);
   const footer = renderSiteFooter(siteSettings);
   const accent = escAttr(siteSettings.accentColor || "#04a7cd");
