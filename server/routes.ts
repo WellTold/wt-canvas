@@ -1565,26 +1565,9 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
               return { items: [] as ShopifyProductItem[] };
             });
 
-        const [shopifyResult, faqItems, ctaData] = await Promise.all([
-          shopifyFetch,
-          generateFAQ(faqSearchTerm, filteredSupportingKeywords).catch((e) => {
-            console.error(
-              "[generate-webpage-markdown] FAQ generation failed:",
-              e?.message,
-            );
-            return [];
-          }),
-          generateCTAs(faqSearchTerm, siteBaseUrl).catch((e) => {
-            console.error(
-              "[generate-webpage-markdown] CTA generation failed:",
-              e?.message,
-            );
-            return null;
-          }),
-        ]);
-        console.log(
-          `[generate-webpage-markdown] FAQ: ${faqItems.length} items, CTA: ${!!ctaData}, Products: ${shopifyResult.items.length}`,
-        );
+        // Resolve products first so FAQ answers can link back to a real product/collection
+        // page (and markdown generation gets accurate product context) instead of racing them.
+        const shopifyResult = await shopifyFetch;
 
         shopifyProducts = (shopifyResult.items as ShopifyProductItem[]).filter(
           (p) => p.imageUrl,
@@ -1618,24 +1601,48 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           }
         }
 
+        const faqProductLinks: Array<{ title: string; url: string }> = [
+          ...shopifyProducts.map((p) => ({ title: p.title, url: `${siteBaseUrl}/products/${p.handle}` })),
+          ...(catalogEntry?.collections ?? []).map((c) => ({ title: slugToLabel(c), url: `${siteBaseUrl}/collections/${c}` })),
+        ];
+
         const { generateArticleFeaturedImage } = await import("./services/imageGeneration");
 
-        // Generate markdown first so its content can be passed to the image prompt.
-        // Meta description and image are then generated in parallel — both non-fatal.
-        const markdown = await generateWebPageMarkdownContent({
-          title,
-          type,
-          primaryKeyword,
-          supportingKeywords: filteredSupportingKeywords,
-          articleAngle,
-          mood,
-          additionalInstructions,
-          keywordType,
-          format,
-          productContext,
-          siteBaseUrl,
-          brandContext,
-        });
+        // Generate markdown + FAQ + CTAs in parallel now that product context is resolved.
+        // Meta description and image are generated afterward — both non-fatal.
+        const [markdown, faqItems, ctaData] = await Promise.all([
+          generateWebPageMarkdownContent({
+            title,
+            type,
+            primaryKeyword,
+            supportingKeywords: filteredSupportingKeywords,
+            articleAngle,
+            mood,
+            additionalInstructions,
+            keywordType,
+            format,
+            productContext,
+            siteBaseUrl,
+            brandContext,
+          }),
+          generateFAQ(faqSearchTerm, filteredSupportingKeywords, faqProductLinks).catch((e) => {
+            console.error(
+              "[generate-webpage-markdown] FAQ generation failed:",
+              e?.message,
+            );
+            return [];
+          }),
+          generateCTAs(faqSearchTerm, siteBaseUrl).catch((e) => {
+            console.error(
+              "[generate-webpage-markdown] CTA generation failed:",
+              e?.message,
+            );
+            return null;
+          }),
+        ]);
+        console.log(
+          `[generate-webpage-markdown] FAQ: ${faqItems.length} items, CTA: ${!!ctaData}, Products: ${shopifyResult.items.length}`,
+        );
 
         if (!markdown) {
           console.warn(`[generate-webpage-markdown] No article body available for image generation of "${title}" — prompt will use title and keyword only.`);
@@ -4862,6 +4869,13 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         }
       }
 
+      // FAQ answers nudge back to a specific product/collection page — reuse the same
+      // resolved products (plus any catalog-matched collections/pages) as real link targets.
+      const faqProductLinks: Array<{ title: string; url: string }> = [
+        ...allProducts.map((p) => ({ title: p.title, url: `${siteBaseUrl}/products/${p.handle}` })),
+        ...(catalogEntryQC?.collections ?? []).map((c) => ({ title: slugToLabel(c), url: `${siteBaseUrl}/collections/${c}` })),
+      ];
+
       // 6. Run markdown generation + FAQ + CTAs + philosophy intro all in parallel
       const [markdown, faqItems, ctaData, philosophyIntro] = await Promise.all([
         generateWebPageMarkdownContent({
@@ -4876,7 +4890,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           siteBaseUrl,
           brandContext,
         }),
-        generateFAQ(faqSearchTerm, supportingKeywordsStr).catch((e) => {
+        generateFAQ(faqSearchTerm, supportingKeywordsStr, faqProductLinks).catch((e) => {
           console.error("[ai-quick-create] FAQ generation failed:", e?.message);
           return [];
         }),
@@ -4892,6 +4906,17 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       console.log(
         `[ai-quick-create] FAQ: ${faqItems.length} items, CTA: ${!!ctaData}, Products: ${shopifyResult.items.length}`,
       );
+
+      // 6b. Generate meta description (non-fatal — article still saves if this fails)
+      const metaDescription = await generateMetaDescription(
+        title,
+        contentType,
+        kw.keyword,
+        supportingKeywordsStr,
+      ).catch((e) => {
+        console.error("[ai-quick-create] meta description generation failed:", e?.message);
+        return null;
+      });
 
       // 7b. Build structured data (Article JSON-LD + private _wt_ render keys)
       const now = new Date().toISOString();
@@ -4955,6 +4980,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         markdownContent: withPhilosophyAfterTitle(philosophyIntro, markdown),
         structuredData:
           Object.keys(structuredData).length > 0 ? structuredData : null,
+        metaDescription,
         authorId: req.userId!,
       } as any);
 
@@ -5107,6 +5133,11 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         if (supplementary.length > 0) productContext = (productContext ? productContext + "\n" : "") + supplementary.join("\n");
       }
 
+      const faqProductLinks: Array<{ title: string; url: string }> = [
+        ...allProducts.map((p) => ({ title: p.title, url: `${siteBaseUrl}/products/${p.handle}` })),
+        ...(catalogEntry?.collections ?? []).map((c) => ({ title: slugToLabel(c), url: `${siteBaseUrl}/collections/${c}` })),
+      ];
+
       // Generate markdown + FAQ + CTAs + philosophy intro in parallel
       const [markdown, faqItems, ctaData, philosophyIntro] = await Promise.all([
         generateWebPageMarkdownContent({
@@ -5121,13 +5152,24 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           siteBaseUrl,
           brandContext,
         }),
-        generateFAQ(primaryKw, supportingKeywordsStr).catch(() => []),
+        generateFAQ(primaryKw, supportingKeywordsStr, faqProductLinks).catch(() => []),
         generateCTAs(primaryKw, siteBaseUrl).catch(() => null),
         generatePhilosophyIntro(primaryKw, title, brandContext).catch((e) => {
           console.error("[regenerate] Philosophy intro failed:", e?.message);
           return "";
         }),
       ]);
+
+      // Meta description (non-fatal — regenerate still succeeds if this fails)
+      const metaDescription = await generateMetaDescription(
+        title,
+        contentType,
+        primaryKw,
+        supportingKeywordsStr,
+      ).catch((e) => {
+        console.error("[regenerate] meta description generation failed:", e?.message);
+        return item.metaDescription ?? null;
+      });
 
       // Build structured data
       const now = new Date().toISOString();
@@ -5161,6 +5203,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         primaryKeyword: primaryKw,
         supportingKeywords: supportingKeywordsStr || null,
         structuredData: Object.keys(structuredData).length > 0 ? structuredData : null,
+        metaDescription,
       } as any);
 
       console.log(`[regenerate] Rebuilt page ${id} — "${title}" (${contentType})`);

@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { renderPageHtml, render404, renderSiteHeader, renderSiteFooter, Page, SiteSettings } from "./renderer/blockToHtml";
+import { renderPageHtml, render404, renderSiteHeader, renderSiteFooter, Page, SiteSettings, RelatedArticleItem } from "./renderer/blockToHtml";
 
 export interface Env {
   SUPABASE_URL: string;
@@ -114,11 +114,12 @@ async function handleIndex(env: Env): Promise<Response> {
   const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
   const base = env.SITE_BASE_URL;
 
+  const indexCols = "id,title,slug,meta_description,featured_image,image_url,published_at,updated_at,tags,focus_keyword,supporting_keywords";
   const [siteSettings, blogs, landings, leads] = await Promise.all([
     fetchSiteSettings(env),
-    supabase.from("blog_articles").select("id,title,slug,meta_description,featured_image,image_url,published_at,updated_at,tags").eq("status", "live").order("published_at", { ascending: false }),
-    supabase.from("landing_pages").select("id,title,slug,meta_description,featured_image,image_url,published_at,updated_at,tags").eq("status", "live").order("published_at", { ascending: false }),
-    supabase.from("lead_magnets").select("id,title,slug,meta_description,featured_image,image_url,published_at,updated_at,tags").eq("status", "live").order("published_at", { ascending: false }),
+    supabase.from("blog_articles").select(indexCols).eq("status", "live").order("published_at", { ascending: false }),
+    supabase.from("landing_pages").select(indexCols).eq("status", "live").order("published_at", { ascending: false }),
+    supabase.from("lead_magnets").select(indexCols).eq("status", "live").order("published_at", { ascending: false }),
   ]);
 
   const articles = [
@@ -146,10 +147,8 @@ function renderIndexHtml(articles: any[], base: string, siteSettings: SiteSettin
 
   const allTags: string[] = [];
   for (const a of articles) {
-    if (Array.isArray(a.tags)) {
-      for (const t of a.tags) {
-        if (t && !allTags.includes(t)) allTags.push(t);
-      }
+    for (const t of deriveDisplayTags(a)) {
+      if (t && !allTags.includes(t)) allTags.push(t);
     }
   }
   allTags.sort();
@@ -173,9 +172,9 @@ function renderIndexHtml(articles: any[], base: string, siteSettings: SiteSettin
 
   function featuredCard(a: any): string {
     const img = a.featured_image || a.image_url || "";
-    const tags = Array.isArray(a.tags) ? a.tags : [];
+    const tags = deriveDisplayTags(a);
     return `
-    <a href="${esc(base)}/a/articles/${esc(a.slug)}" class="wt-idx-featured-card" data-tags="${esc(tagsAttr(a.tags))}">
+    <a href="${esc(base)}/a/articles/${esc(a.slug)}" class="wt-idx-featured-card" data-tags="${esc(tagsAttr(tags))}">
       ${img ? `<div class="wt-idx-featured-img-wrap"><img src="${esc(img)}" alt="${esc(a.title)}" loading="lazy" /></div>` : `<div class="wt-idx-featured-img-wrap wt-idx-featured-img-placeholder"></div>`}
       <div class="wt-idx-featured-body">
         <div class="wt-idx-meta">
@@ -191,9 +190,9 @@ function renderIndexHtml(articles: any[], base: string, siteSettings: SiteSettin
 
   function listCard(a: any): string {
     const img = a.featured_image || a.image_url || "";
-    const tags = Array.isArray(a.tags) ? a.tags : [];
+    const tags = deriveDisplayTags(a);
     return `
-    <a href="${esc(base)}/a/articles/${esc(a.slug)}" class="wt-idx-list-card" data-tags="${esc(tagsAttr(a.tags))}">
+    <a href="${esc(base)}/a/articles/${esc(a.slug)}" class="wt-idx-list-card" data-tags="${esc(tagsAttr(tags))}">
       ${img ? `<div class="wt-idx-list-img"><img src="${esc(img)}" alt="${esc(a.title)}" loading="lazy" /></div>` : `<div class="wt-idx-list-img wt-idx-list-img-placeholder"></div>`}
       <div class="wt-idx-list-body">
         <div class="wt-idx-meta">
@@ -212,8 +211,19 @@ function renderIndexHtml(articles: any[], base: string, siteSettings: SiteSettin
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Articles &amp; Pages — Well Told</title>
-  <meta name="description" content="Browse all articles, guides and pages from Well Told." />
+  <title>Gift Guides &amp; Articles — Well Told Design</title>
+  <meta name="description" content="Gift guides, styling ideas, and personalization inspiration from Well Told Design — story-driven map glassware, constellation gifts, and topographic drinkware for people who care what they give." />
+  <link rel="canonical" href="${esc(base)}/a/articles" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Gift Guides &amp; Articles — Well Told Design" />
+  <meta property="og:description" content="Gift guides, styling ideas, and personalization inspiration from Well Told Design — story-driven map glassware, constellation gifts, and topographic drinkware for people who care what they give." />
+  <meta property="og:url" content="${esc(base)}/a/articles" />
+  <meta property="og:site_name" content="Well Told Design" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Gift Guides &amp; Articles — Well Told Design" />
+  <meta name="twitter:description" content="Gift guides, styling ideas, and personalization inspiration from Well Told Design — story-driven map glassware, constellation gifts, and topographic drinkware for people who care what they give." />
   <link rel="stylesheet" href="${esc(base)}/a/articles/styles/wt-pages.css" />
   <style>
     /* Index page overrides */
@@ -381,7 +391,8 @@ async function handlePage(path: string, env: Env): Promise<Response> {
   }
 
   const shopifyFetcher = createShopifyFetcher(env);
-  const html = await renderPageHtml(page, env.SITE_BASE_URL, shopifyFetcher, siteSettings);
+  const relatedArticles = await fetchRelatedArticles(supabase, page, raw, env.SITE_BASE_URL);
+  const html = await renderPageHtml(page, env.SITE_BASE_URL, shopifyFetcher, siteSettings, relatedArticles);
 
   return new Response(html, {
     status: 200,
@@ -391,6 +402,94 @@ async function handlePage(path: string, env: Env): Promise<Response> {
       "X-Robots-Tag": "index, follow",
     },
   });
+}
+
+// ── Related Articles clustering ────────────────────────────────────────────
+// No LLM calls happen at request time, so clustering is deterministic:
+// score other live content by shared recipient/occasion terms pulled from
+// focus_keyword + supporting_keywords + title, falling back to "most recent"
+// when nothing overlaps (tags are unused today — every live row has tags: []).
+
+const RELATED_RECIPIENT_TERMS = [
+  "dad", "mom", "mother", "father", "him", "her", "boyfriend", "girlfriend",
+  "husband", "wife", "men", "women", "man", "woman", "son", "daughter",
+  "grandma", "grandpa", "sister", "brother", "friend", "coworker",
+];
+const RELATED_OCCASION_TERMS = [
+  "christmas", "valentine", "valentines", "anniversary", "birthday", "holiday",
+  "mothers", "fathers", "graduation", "wedding", "housewarming",
+];
+
+function extractRelatedTerms(text: string, vocab: string[]): Set<string> {
+  const lower = (text || "").toLowerCase();
+  const found = new Set<string>();
+  for (const term of vocab) {
+    if (new RegExp(`\\b${term}\\b`, "i").test(lower)) found.add(term);
+  }
+  return found;
+}
+
+// Index page filter chips. Real `tags` win when populated; otherwise derive
+// occasion/recipient chips from focus_keyword + supporting_keywords + title
+// using the same vocabulary as related-article clustering, so the filter bar
+// (and grouping) works even though every live row today has tags: [].
+function deriveDisplayTags(a: any): string[] {
+  if (Array.isArray(a.tags) && a.tags.length > 0) return a.tags;
+  const text = `${a.focus_keyword || ""} ${a.supporting_keywords || ""} ${a.title || ""}`;
+  const occasions = extractRelatedTerms(text, RELATED_OCCASION_TERMS);
+  const recipients = extractRelatedTerms(text, RELATED_RECIPIENT_TERMS);
+  const merged = [...occasions, ...recipients];
+  return merged.map((t) => t.charAt(0).toUpperCase() + t.slice(1));
+}
+
+async function fetchRelatedArticles(
+  supabase: any,
+  page: Page,
+  currentRow: Record<string, any>,
+  base: string,
+): Promise<RelatedArticleItem[]> {
+  const cols = "slug,title,featured_image,image_url,focus_keyword,supporting_keywords,published_at";
+  const [blogs, landings, leads] = await Promise.all([
+    supabase.from("blog_articles").select(cols).eq("status", "live"),
+    supabase.from("landing_pages").select(cols).eq("status", "live"),
+    supabase.from("lead_magnets").select(cols).eq("status", "live"),
+  ]);
+
+  const candidates = [
+    ...(blogs.data || []).map((r: any) => ({ ...r, _type: "Article" })),
+    ...(landings.data || []).map((r: any) => ({ ...r, _type: "Page" })),
+    ...(leads.data || []).map((r: any) => ({ ...r, _type: "Guide" })),
+  ].filter((r: any) => r.slug !== page.slug);
+
+  if (candidates.length === 0) return [];
+
+  const currentText = `${currentRow.focus_keyword || ""} ${currentRow.supporting_keywords || ""} ${page.title || ""}`;
+  const currentRecipients = extractRelatedTerms(currentText, RELATED_RECIPIENT_TERMS);
+  const currentOccasions = extractRelatedTerms(currentText, RELATED_OCCASION_TERMS);
+
+  const scored = candidates.map((c: any) => {
+    const text = `${c.focus_keyword || ""} ${c.supporting_keywords || ""} ${c.title || ""}`;
+    const recipients = extractRelatedTerms(text, RELATED_RECIPIENT_TERMS);
+    const occasions = extractRelatedTerms(text, RELATED_OCCASION_TERMS);
+    let score = 0;
+    for (const r of recipients) if (currentRecipients.has(r)) score += 2;
+    for (const o of occasions) if (currentOccasions.has(o)) score += 1;
+    return { c, score };
+  });
+
+  scored.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    const da = a.c.published_at ? new Date(a.c.published_at).getTime() : 0;
+    const db2 = b.c.published_at ? new Date(b.c.published_at).getTime() : 0;
+    return db2 - da;
+  });
+
+  return scored.slice(0, 3).map(({ c }: any) => ({
+    title: c.title,
+    url: `${base}/a/articles/${c.slug}`,
+    image: c.featured_image || c.image_url || null,
+    contentType: c._type,
+  }));
 }
 
 async function handleSitemap(env: Env): Promise<Response> {

@@ -48,7 +48,39 @@ function cleanAIContent(content: string): string {
     console.warn(`[AI] Stripped year reference from generated title`);
     return after.trim() ? `${before} ${after.trim()}` : before;
   });
+  cleaned = stripDuplicateParagraphs(cleaned);
   return cleaned.trim();
+}
+
+// Regeneration sometimes reintroduces an earlier paragraph verbatim (e.g. the
+// same opening hook appearing again a few sections later). Drop later
+// duplicates of substantial prose paragraphs, keeping the first occurrence.
+// Headings, images, list items, and blockquotes are left untouched since
+// short/structural lines can legitimately repeat (e.g. a CTA link).
+function stripDuplicateParagraphs(content: string): string {
+  const paragraphs = content.split(/\n{2,}/);
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const para of paragraphs) {
+    const trimmed = para.trim();
+    const isProse =
+      trimmed.length > 60 &&
+      !/^#{1,6}\s/.test(trimmed) &&
+      !/^!\[/.test(trimmed) &&
+      !/^[-*]\s/.test(trimmed) &&
+      !/^\d+\.\s/.test(trimmed) &&
+      !/^>/.test(trimmed);
+    if (isProse) {
+      const signature = trimmed.toLowerCase().replace(/\s+/g, " ").slice(0, 120);
+      if (seen.has(signature)) {
+        console.warn("[AI] Dropped duplicate paragraph (regeneration artifact):", signature.slice(0, 60));
+        continue;
+      }
+      seen.add(signature);
+    }
+    result.push(para);
+  }
+  return result.join("\n\n");
 }
 
 const CONTENT_TEMPLATES = {
@@ -178,17 +210,30 @@ export interface FAQItem {
   answer: string;
 }
 
-export async function generateFAQ(primaryKeyword: string, supportingKeywords?: string): Promise<FAQItem[]> {
+export async function generateFAQ(
+  primaryKeyword: string,
+  supportingKeywords?: string,
+  productLinks?: Array<{ title: string; url: string }>,
+): Promise<FAQItem[]> {
+  const hasLinks = Boolean(productLinks && productLinks.length > 0);
+  const linkRules = hasLinks
+    ? `- Every answer must end with a natural nudge back to a specific Well Told product or collection page, written as a markdown link in the exact form [Product Name](URL) — since these Q&A pairs get cited as standalone units by search engines and AI assistants, the link needs to be inside the answer itself, not just implied
+- Only use the exact product names and URLs from this list — never invent a product name or URL:
+${productLinks!.map((p) => `  - ${p.title}: ${p.url}`).join("\n")}
+- Vary which product/collection each answer points to rather than repeating the same one every time`
+    : `- At least 2 answers should naturally mention a Well Told product type (map glassware, constellation gifts, personalized drinkware, throws, etc.)`;
+
   const systemPrompt = `You generate FAQ content for Well Told Design, a Boston-based gift brand making story-driven objects — map glassware, constellation gifts, and topographic drinkware.
 
 Rules:
 - Questions should mirror how a real person searches Google (e.g. "What is a good gift for a hiker who has everything?")
 - Answers should be 2-4 sentences, direct, and specific
-- At least 2 answers should naturally mention a Well Told product type (map glassware, constellation gifts, personalized drinkware, throws, etc.)
+${linkRules}
 - Do not be salesy — answer the question genuinely first, then mention the product as a concrete example
 - Questions should cover: what to give, how to choose, what makes a good gift, and at least one specific Well Told angle
 - Do not use exclamation points
 - Do not use: amazing, incredible, perfect, stunning, game-changer, must-have
+- Never reference a specific year (e.g. "in 2024", "this year") — the copy must read as evergreen since it may be read long after publishing
 
 Return ONLY a valid JSON array with no markdown fencing or extra text:
 [{"question": "...", "answer": "..."}, ...]`;
@@ -717,6 +762,7 @@ Use Markdown hyperlink syntax: [link text](url). Do not bold product names that 
     `[6. CONTENT RULES BLOCK]
 - Do not recommend products outside the Well Told universe (no yoga mats, candles, cable organizers, compression socks, or generic lifestyle items)
 - Do not include a year in the title or article — titles should be evergreen
+- Never repeat the same paragraph or opening sentence more than once in the article — each paragraph must be distinct. Do not restate the introduction or hook later in the piece.
 - Do not use exclamation points
 - Do not use the words: amazing, incredible, perfect, stunning, game-changer, must-have, high-quality, affordable luxury
 - Do not write bullet-point product descriptions — use prose
@@ -954,7 +1000,7 @@ export async function generateMetaDescription(
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 150,
-    system: `You are an expert SEO copywriter. Generate compelling meta descriptions that encourage clicks from search results. Keep it between 150-160 characters, include relevant keywords, make it actionable.${primaryKeyword ? ` Always include the primary keyword "${primaryKeyword}" naturally.` : ""} ${NO_EMDASH} Return only the meta description — no quotes, no explanations.`,
+    system: `You are an expert SEO copywriter. Generate compelling meta descriptions that encourage clicks from search results. Keep it between 150-160 characters, include relevant keywords, make it actionable, and end with a concrete reason to click (what the reader will get, not a generic "learn more").${primaryKeyword ? ` Always include the primary keyword "${primaryKeyword}" naturally.` : ""} ${NO_EMDASH} Return only the meta description — no quotes, no explanations.`,
     messages: [
       {
         role: "user",

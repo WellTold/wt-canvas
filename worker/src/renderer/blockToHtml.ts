@@ -43,6 +43,13 @@ export interface Page {
   structured_data_type?: string | null;
 }
 
+export interface RelatedArticleItem {
+  title: string;
+  url: string;
+  image: string | null;
+  contentType: string;
+}
+
 /** Convert a markdown string to safe HTML for in-Worker rendering.
  *  Handles all syntax produced by generateWebPageMarkdown (headings, paragraphs,
  *  lists, blockquotes, bold/italic, images, links).
@@ -179,6 +186,33 @@ function sanitizeUrl(url: string): string {
   const lower = url.trim().toLowerCase();
   if (lower.startsWith("javascript:") || lower.startsWith("vbscript:") || lower.startsWith("data:")) return "#";
   return url;
+}
+
+// ── FAQ answer markdown links ──────────────────────────────────────────────
+// FAQ answers may contain a single markdown-style link (e.g. "...shop our
+// [Map Glassware](https://.../collections/map-glassware).") nudging back to a
+// specific product or collection. Render it as a real anchor in HTML, and
+// strip it down to plain link text for JSON-LD (which should read as prose).
+
+const FAQ_LINK_RE = /\[([^\[\]]{1,120})\]\((https?:\/\/[^\s()<>"]{1,300})\)/g;
+
+function renderFaqAnswerHtml(raw: string): string {
+  let out = "";
+  let lastIndex = 0;
+  FAQ_LINK_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = FAQ_LINK_RE.exec(raw)) !== null) {
+    out += escHtml(raw.slice(lastIndex, m.index));
+    out += `<a href="${escAttr(sanitizeUrl(m[2]))}" rel="noopener">${escHtml(m[1])}</a>`;
+    lastIndex = m.index + m[0].length;
+  }
+  out += escHtml(raw.slice(lastIndex));
+  return out;
+}
+
+function faqAnswerPlainText(raw: string): string {
+  FAQ_LINK_RE.lastIndex = 0;
+  return raw.replace(FAQ_LINK_RE, (_m, label) => label);
 }
 
 // ── Recursive block traversal (supports nested structures like two_column) ───
@@ -667,7 +701,7 @@ function buildDefaultSchema(page: Page, baseUrl: string): object | null {
     "@type": type,
     headline: page.title,
     description: page.meta_description,
-    url: page.canonical_url || `${baseUrl}/pages/${page.slug}`,
+    url: page.canonical_url || `${baseUrl}/a/articles/${page.slug}`,
     datePublished: page.published_at,
     dateModified: page.updated_at,
     image: page.og_image || page.featured_image,
@@ -866,8 +900,28 @@ export function renderSiteFooter(settings: SiteSettings): string {
 </footer>`;
 }
 
-export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher: ShopifyFetcher = null, siteSettings: SiteSettings = {}): Promise<string> {
-  const canonical = page.canonical_url || `${baseUrl}/pages/${page.slug}`;
+function renderRelatedArticles(items: RelatedArticleItem[]): string {
+  if (items.length === 0) return "";
+  const cards = items.map((item) => {
+    const img = item.image
+      ? `<img src="${escAttr(item.image)}" alt="${escAttr(item.title || "")}" class="wt-related-card-img" loading="lazy" />`
+      : "";
+    return `<a href="${escAttr(item.url)}" class="wt-related-card">
+            ${img}
+            <div class="wt-related-card-body">
+              ${item.contentType ? `<p class="wt-related-card-type">${escHtml(item.contentType)}</p>` : ""}
+              <p class="wt-related-card-title">${escHtml(item.title || "")}</p>
+            </div>
+          </a>`;
+  }).join("\n");
+  return `<div class="wt-related" aria-label="Related Articles">
+        <p class="wt-related-label">Related Articles</p>
+        <div class="wt-related-cards">${cards}</div>
+      </div>`;
+}
+
+export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher: ShopifyFetcher = null, siteSettings: SiteSettings = {}, relatedArticles: RelatedArticleItem[] = []): Promise<string> {
+  const canonical = page.canonical_url || `${baseUrl}/a/articles/${page.slug}`;
   const ogTitle = page.og_title || page.title;
   const ogImage = page.og_image || page.featured_image || "";
   let rawSchema = page.structured_data || buildDefaultSchema(page, baseUrl);
@@ -903,7 +957,7 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
       "mainEntity": wtFaq.map(f => ({
         "@type": "Question",
         "name": escHtml(f.question),
-        "acceptedAnswer": { "@type": "Answer", "text": escHtml(f.answer) },
+        "acceptedAnswer": { "@type": "Answer", "text": escHtml(faqAnswerPlainText(f.answer)) },
       })),
     } : null;
 
@@ -969,7 +1023,7 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
   <h2 class="wt-accordion-title">Frequently Asked Questions</h2>
   ${wtFaq.map(f => `<details class="wt-accordion-item">
     <summary class="wt-accordion-question">${escHtml(f.question)}</summary>
-    <div class="wt-accordion-answer">${escHtml(f.answer)}</div>
+    <div class="wt-accordion-answer">${renderFaqAnswerHtml(f.answer)}</div>
   </details>`).join('\n  ')}
 </div>` : '';
 
@@ -1053,6 +1107,7 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
     ${bottomCtaHtml}
     ${productsHtml}
     ${faqHtml}
+    ${renderRelatedArticles(relatedArticles)}
   </main>
   <div class="wt-brand-context">
     <p><strong>Well Told Design</strong> is a Boston-based gift brand specialising in story-driven objects — glassware, drinkware, and textiles engraved with maps, constellations, and topographic designs. Every piece is personalised to a specific place, date, or memory.</p>
