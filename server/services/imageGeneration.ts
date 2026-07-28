@@ -71,6 +71,7 @@ export interface GenerateImageResult {
 // ---------------------------------------------------------------------------
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const MODEL = "claude-sonnet-5";
 
 async function buildImagePrompt(topic: string, keyword?: string, brandContext?: BrandContext): Promise<string> {
   const brandHint = brandContext?.voice
@@ -80,7 +81,7 @@ async function buildImagePrompt(topic: string, keyword?: string, brandContext?: 
   const keywordLine = keyword ? `\nSEO keyword: ${keyword}` : "";
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: MODEL,
     max_tokens: 150,
     system: `You write image generation prompts for FLUX/Nano Banana. Output ONLY the prompt — no explanation, no quotes, no preamble. Keep it under 120 words.
 
@@ -258,7 +259,7 @@ async function buildArticleImagePrompt(
   const truncatedContent = articleContent.slice(0, 8000);
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: MODEL,
     max_tokens: 200,
     system: `You write image generation prompts for FLUX/Nano Banana. Output ONLY the prompt — no explanation, no quotes, no preamble. Keep it under 130 words.
 

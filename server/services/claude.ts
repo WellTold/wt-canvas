@@ -5,7 +5,7 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-sonnet-5";
 const MAX_TOKENS_ARTICLE = 8192;
 const MAX_TOKENS_SHORT = 1024;
 
@@ -1255,7 +1255,7 @@ Tone: warm, direct, a little literary. Confident without being salesy. Like a wi
 Return only the paragraph text — no heading, no markdown formatting, no preamble.`;
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: MODEL,
     max_tokens: 400,
     messages: [{ role: "user", content: userPrompt }],
     system: systemPrompt,
