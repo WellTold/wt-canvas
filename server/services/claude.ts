@@ -255,7 +255,13 @@ Return ONLY a valid JSON array with no markdown fencing or extra text:
     const clean = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
     const parsed = JSON.parse(clean);
     if (Array.isArray(parsed)) {
-      console.log(`[AI] FAQ generated ${parsed.length} items for keyword: ${primaryKeyword}`);
+      if (parsed.length === 0) {
+        // Valid JSON, zero items — not an error the catch block below will ever see.
+        // Log the raw response so an empty FAQ section is debuggable instead of silent.
+        console.warn(`[AI] FAQ returned an empty array for keyword: ${primaryKeyword} — raw response:`, rawText.substring(0, 800));
+      } else {
+        console.log(`[AI] FAQ generated ${parsed.length} items for keyword: ${primaryKeyword}`);
+      }
       return parsed.slice(0, 6) as FAQItem[];
     }
     console.warn('[AI] FAQ response was not an array:', clean.substring(0, 200));
@@ -1114,9 +1120,14 @@ Return JSON in this exact shape (fill in all fields):
     });
     const raw = response.content[0].type === "text" ? response.content[0].text : "";
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
+    if (!jsonMatch) {
+      console.warn(`[AI] CTA response had no JSON object for keyword: ${primaryKeyword} — raw response:`, raw.substring(0, 500));
+      return null;
+    }
     return JSON.parse(jsonMatch[0]) as GeneratedCTAs;
-  } catch {
+  } catch (e) {
+    console.error('[AI] CTA generation/parsing failed for keyword:', primaryKeyword);
+    console.error('[AI] CTA error:', e instanceof Error ? e.message : e);
     return null;
   }
 }
