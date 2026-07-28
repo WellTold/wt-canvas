@@ -1,11 +1,13 @@
 // Auto Publisher scheduler: a daily generation run that creates N drafts spread
 // across a publish-time window, plus a periodic sweep that publishes anything
-// approved and due. Both are gated by the single `enabled` toggle in settings.
+// approved and due. The two are independently gated — generation by
+// settings.enabled ("Auto Create Articles"), publishing by settings.requireApproval
+// ("Auto Publish", inverted) and each item's own completeness-check outcome.
 import cron, { type ScheduledTask } from "node-cron";
 import { db } from "../db";
 import { autoPublishSettings, type AutoPublishSettings } from "@shared/schema";
 import { storage } from "../storage";
-import { generateAndCreateArticle, AUTO_PUBLISHER_AUTHOR_ID } from "./articleGeneration";
+import { generateAndCreateArticle, AUTO_PUBLISHER_AUTHOR_ID, NEEDS_REVIEW_TAG } from "./articleGeneration";
 import { publishContentItemFull } from "./publishArticle";
 
 export const AUTO_PUBLISH_TAG = "auto-publish";
@@ -94,7 +96,8 @@ export async function runDailyGeneration(): Promise<void> {
         scheduledPublishDate: publishTimes[i],
         logPrefix: "[auto-publisher]",
       });
-      console.log(`[auto-publisher] created draft ${i + 1}/${count}: "${result.item.title}" (id ${result.item.id}), scheduled ${publishTimes[i].toISOString()}`);
+      const reviewNote = result.completeness.passed ? "" : ` — FLAGGED FOR REVIEW: ${result.completeness.issues.join("; ")}`;
+      console.log(`[auto-publisher] created draft ${i + 1}/${count}: "${result.item.title}" (id ${result.item.id}), scheduled ${publishTimes[i].toISOString()}${reviewNote}`);
     } catch (err) {
       console.error(`[auto-publisher] failed to generate article ${i + 1}/${count}:`, (err as Error).message);
       // Keep going — one failed generation shouldn't sink the rest of the day's run.
@@ -119,7 +122,11 @@ export async function runPublishSweep(): Promise<void> {
   const due = items.filter((item) => {
     if (!item.tags?.includes(AUTO_PUBLISH_TAG)) return false;
     if (item.status === "live") return false;
-    if (settings.requireApproval && item.approvalStatus !== "approved") return false;
+    // Approval is required if the global setting requires it, OR this specific item
+    // failed its completeness check at generation time — a bad article can't skip
+    // review just because Auto Publish is on.
+    const needsApproval = settings.requireApproval || item.tags?.includes(NEEDS_REVIEW_TAG);
+    if (needsApproval && item.approvalStatus !== "approved") return false;
     if (!item.scheduledPublishDate) return false;
     return new Date(item.scheduledPublishDate).getTime() <= now;
   });

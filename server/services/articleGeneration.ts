@@ -19,8 +19,46 @@ import type { ContentItem } from "@shared/schema";
 
 export const AUTO_PUBLISHER_AUTHOR_ID = "auto-publisher";
 
+// Stamped onto an item whose generated content failed the completeness check (see
+// validateArticleCompleteness below). The Auto Publisher sweep treats this as an
+// approval requirement regardless of the global "Auto Publish" setting — a bad
+// article shouldn't be able to skip review just because the toggle is on.
+export const NEEDS_REVIEW_TAG = "needs-review";
+
 export class KeywordNotFoundError extends Error {}
 export class NoUntargetedKeywordsError extends Error {}
+
+export interface CompletenessCheckResult {
+  passed: boolean;
+  issues: string[];
+}
+
+/**
+ * Structural sanity check on generated article content — catches the failure mode
+ * where generation "succeeds" (200 OK, no thrown error) but produces something
+ * unpublishable: no title, no sections, or an empty FAQ. Not a quality judgment,
+ * just "does this look like a complete article" — cheap, deterministic checks that
+ * would have caught both of the silent-degradation bugs found in production so far.
+ */
+export function validateArticleCompleteness(markdown: string, faqCount: number): CompletenessCheckResult {
+  const issues: string[] = [];
+
+  if (!/^#\s+\S/m.test(markdown)) {
+    issues.push("missing H1 title");
+  }
+  const h2Count = (markdown.match(/^##\s+\S/gm) || []).length;
+  if (h2Count < 2) {
+    issues.push(`only ${h2Count} H2 section heading(s), expected at least 2`);
+  }
+  if (markdown.trim().length < 1500) {
+    issues.push(`markdown body is only ${markdown.trim().length} characters, expected at least 1500`);
+  }
+  if (faqCount === 0) {
+    issues.push("FAQ section is empty");
+  }
+
+  return { passed: issues.length === 0, issues };
+}
 
 export interface GenerateArticleOptions {
   keywordId?: number;
@@ -39,6 +77,7 @@ export interface GenerateArticleResult {
   contentType: string;
   cluster: string | null;
   supportingKeywordsCount: number;
+  completeness: CompletenessCheckResult;
 }
 
 type ShopifyProductItem = {
@@ -360,6 +399,21 @@ export async function generateAndCreateArticle(opts: GenerateArticleOptions): Pr
     .slice(0, 80);
   const finalSlug = await storage.generateUniqueSlug(baseSlug, contentType);
 
+  const finalMarkdown = withPhilosophyAfterTitle(philosophyIntro, markdown);
+
+  // Structural completeness check — catches "generation succeeded but produced
+  // something unpublishable" (missing title/sections/FAQ) independent of whether
+  // any individual API call actually threw. A failing item gets flagged for review
+  // regardless of the Auto Publish setting — see NEEDS_REVIEW_TAG and the sweep's
+  // gate in autoPublisher.ts.
+  const completeness = validateArticleCompleteness(finalMarkdown, faqItems.length);
+  const finalTags = [...(tags || [])];
+  if (!completeness.passed) {
+    console.warn(`${logPrefix} completeness check failed for "${title}":`, completeness.issues.join("; "));
+    finalTags.push(NEEDS_REVIEW_TAG);
+    structuredData["_wt_completeness_issues"] = completeness.issues;
+  }
+
   // FAQ lives only in _wt_faq structured data — rendered as accordion by the worker.
   // 8. Create the content item — store markdown, structured data (FAQ/products/CTAs), and keywords
   const newItem = await storage.createContentItem({
@@ -370,10 +424,10 @@ export async function generateAndCreateArticle(opts: GenerateArticleOptions): Pr
     approvalStatus: "pending",
     primaryKeyword: kw.keyword,
     supportingKeywords: supportingKeywordsStr || null,
-    markdownContent: withPhilosophyAfterTitle(philosophyIntro, markdown),
+    markdownContent: finalMarkdown,
     structuredData: Object.keys(structuredData).length > 0 ? structuredData : null,
     metaDescription,
-    tags,
+    tags: finalTags.length > 0 ? finalTags : tags,
     scheduledPublishDate,
     authorId,
   } as any);
@@ -435,5 +489,6 @@ export async function generateAndCreateArticle(opts: GenerateArticleOptions): Pr
     contentType,
     cluster: kw.cluster || null,
     supportingKeywordsCount: filteredSupportingObjects.length,
+    completeness,
   };
 }

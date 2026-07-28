@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Save, Play, Pencil, Check, Clock } from "lucide-react";
+import { Save, Play, Pencil, Check, Clock, AlertTriangle } from "lucide-react";
 
 interface AutoPublishSettingsData {
   id?: number;
@@ -55,6 +55,13 @@ interface AutoPublishItem {
   approvalStatus: string;
   scheduledPublishDate: string | null;
   publishedAt: string | null;
+  tags?: string[] | null;
+  structuredData?: { _wt_completeness_issues?: string[] } | null;
+}
+
+function completenessIssues(item: AutoPublishItem): string[] | null {
+  if (!item.tags?.includes("needs-review")) return null;
+  return item.structuredData?._wt_completeness_issues || ["failed completeness check"];
 }
 
 function formatDateTime(iso: string | null): string {
@@ -299,17 +306,28 @@ export default function AutoPublisher() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {queue.map((item) => (
+                {queue.map((item) => {
+                  const issues = completenessIssues(item);
+                  return (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.title}</TableCell>
+                    <TableCell className="font-medium">
+                      {item.title}
+                      {issues && (
+                        <p className="text-xs text-amber-700 mt-0.5 flex items-start gap-1">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                          <span>{issues.join("; ")}</span>
+                        </p>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" />
                         {formatDateTime(item.scheduledPublishDate)}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="space-x-1">
                       <Badge className={approvalColor(item.approvalStatus)}>{item.approvalStatus}</Badge>
+                      {issues && <Badge className="bg-amber-100 text-amber-800">needs review</Badge>}
                     </TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button size="sm" variant="outline" onClick={() => setLocation(`/pages/builder/${item.id}`)}>
@@ -324,7 +342,8 @@ export default function AutoPublisher() {
                       )}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
