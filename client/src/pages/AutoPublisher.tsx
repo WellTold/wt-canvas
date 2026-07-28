@@ -166,8 +166,12 @@ export default function AutoPublisher() {
         <CardContent className="space-y-5">
           <div className="flex items-center justify-between border-b pb-4">
             <div>
-              <Label htmlFor="ap-enabled" className="text-sm font-medium">Auto Publisher enabled</Label>
-              <p className="text-xs text-muted-foreground mt-0.5">Turns off both the daily generation run and the publish sweep.</p>
+              <Label htmlFor="ap-enabled" className="text-sm font-medium">Auto Create Articles</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {form.enabled
+                  ? "On: the daily run generates new draft articles automatically at the scheduled time."
+                  : "Off: no new drafts are generated. Existing drafts are unaffected."}
+              </p>
             </div>
             <Switch
               id="ap-enabled"
@@ -179,18 +183,18 @@ export default function AutoPublisher() {
 
           <div className="flex items-center justify-between border-b pb-4">
             <div>
-              <Label htmlFor="ap-require-approval" className="text-sm font-medium">Require manual review before publishing</Label>
+              <Label htmlFor="ap-auto-publish" className="text-sm font-medium">Auto Publish</Label>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {form.requireApproval
-                  ? "On: a draft waits for you to click Approve before it can go live, even past its scheduled time."
-                  : "Off: drafts publish automatically at their scheduled time — no review, no approval click. Nothing stops a bad draft from going live."}
+                  ? "Off: drafts wait in the queue for you to click Approve before they can go live, even past their scheduled time."
+                  : "On: drafts publish automatically at their scheduled time — no review, no approval click. Nothing stops a bad draft from going live."}
               </p>
             </div>
             <Switch
-              id="ap-require-approval"
+              id="ap-auto-publish"
               className={TOGGLE_COLOR_CLASSES}
-              checked={form.requireApproval}
-              onCheckedChange={(v) => setForm({ ...form, requireApproval: v })}
+              checked={!form.requireApproval}
+              onCheckedChange={(v) => setForm({ ...form, requireApproval: !v })}
             />
           </div>
 

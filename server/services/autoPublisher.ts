@@ -106,9 +106,12 @@ export async function runDailyGeneration(): Promise<void> {
 
 // ── Publish sweep ────────────────────────────────────────────────────────────
 
+// Independent of the "Auto Create Articles" toggle (settings.enabled) — the sweep's
+// only job is publishing items that are already approved and due, which can matter
+// even while generation is paused. Its own gate is settings.requireApproval
+// ("Auto Publish" in the UI — inverted: requireApproval=false means auto-publish).
 export async function runPublishSweep(): Promise<void> {
   const settings = await getOrCreateAutoPublishSettings();
-  if (!settings.enabled) return;
 
   const now = Date.now();
   const items = await storage.getContentItems(); // merges blog_articles/landing_pages/lead_magnets
@@ -150,12 +153,15 @@ function scheduleGenerationTask(settings: AutoPublishSettings) {
   }, { timezone: settings.timezone || "America/New_York" });
 }
 
-function scheduleSweepTask(settings: AutoPublishSettings) {
+// Always scheduled — independent of the "Auto Create Articles" toggle. The sweep is a
+// no-op whenever nothing is both approved and due, so running it unconditionally is safe;
+// its real gate (settings.requireApproval, "Auto Publish" in the UI) is checked per-item
+// inside runPublishSweep.
+function scheduleSweepTask() {
   if (sweepTask) {
     sweepTask.stop();
     sweepTask = null;
   }
-  if (!settings.enabled) return;
 
   sweepTask = cron.schedule(SWEEP_CRON_EXPRESSION, () => {
     runPublishSweep().catch((err) => console.error("[auto-publisher] publish sweep threw:", err));
@@ -166,13 +172,13 @@ function scheduleSweepTask(settings: AutoPublishSettings) {
 export async function initAutoPublisherCron(): Promise<void> {
   const settings = await getOrCreateAutoPublishSettings();
   scheduleGenerationTask(settings);
-  scheduleSweepTask(settings);
-  console.log(`[auto-publisher] cron initialized — enabled=${settings.enabled}, runStartTime=${settings.runStartTime}, timezone=${settings.timezone}`);
+  scheduleSweepTask();
+  console.log(`[auto-publisher] cron initialized — autoCreate=${settings.enabled}, autoPublish=${!settings.requireApproval}, runStartTime=${settings.runStartTime}, timezone=${settings.timezone}`);
 }
 
 /** Call after settings are saved so schedule changes take effect immediately. */
 export async function rescheduleAutoPublisherCron(settings: AutoPublishSettings): Promise<void> {
   scheduleGenerationTask(settings);
-  scheduleSweepTask(settings);
-  console.log(`[auto-publisher] cron rescheduled — enabled=${settings.enabled}, runStartTime=${settings.runStartTime}, timezone=${settings.timezone}`);
+  scheduleSweepTask();
+  console.log(`[auto-publisher] cron rescheduled — autoCreate=${settings.enabled}, autoPublish=${!settings.requireApproval}, runStartTime=${settings.runStartTime}, timezone=${settings.timezone}`);
 }
