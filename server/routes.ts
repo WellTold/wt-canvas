@@ -3413,6 +3413,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
     try {
       const {
         enabled,
+        requireApproval,
         articlesPerDay,
         runStartTime,
         readyByTime,
@@ -3423,6 +3424,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       const rows = await db.select().from(autoPublishSettings).limit(1);
       const updateData = {
         enabled: enabled ?? false,
+        requireApproval: requireApproval ?? true,
         articlesPerDay: articlesPerDay ?? 1,
         runStartTime: runStartTime ?? "06:00",
         readyByTime: readyByTime ?? "09:00",

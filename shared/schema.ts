@@ -348,6 +348,10 @@ export type InsertSiteSettings = typeof siteSettings.$inferInsert;
 export const autoPublishSettings = pgTable("auto_publish_settings", {
   id: serial("id").primaryKey(),
   enabled: boolean("enabled").default(false),
+  // When true (default/safe), a draft only publishes after an explicit Approve click.
+  // When false, anything the daily run creates publishes automatically once its
+  // scheduled time arrives — no human in the loop.
+  requireApproval: boolean("require_approval").default(true),
   articlesPerDay: integer("articles_per_day").default(1),
   runStartTime: text("run_start_time").default("06:00"),
   readyByTime: text("ready_by_time").default("09:00"),

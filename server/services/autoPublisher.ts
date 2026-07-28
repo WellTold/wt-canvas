@@ -117,14 +117,14 @@ export async function runPublishSweep(): Promise<void> {
   const due = items.filter((item) => {
     if (!item.tags?.includes(AUTO_PUBLISH_TAG)) return false;
     if (item.status === "live") return false;
-    if (item.approvalStatus !== "approved") return false;
+    if (settings.requireApproval && item.approvalStatus !== "approved") return false;
     if (!item.scheduledPublishDate) return false;
     return new Date(item.scheduledPublishDate).getTime() <= now;
   });
 
   if (due.length === 0) return;
 
-  console.log(`[auto-publisher] sweep found ${due.length} approved item(s) due for publish`);
+  console.log(`[auto-publisher] sweep found ${due.length} item(s) due for publish (requireApproval=${settings.requireApproval})`);
   for (const item of due) {
     try {
       await publishContentItemFull(item.id);

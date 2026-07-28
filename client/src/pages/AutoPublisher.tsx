@@ -16,6 +16,7 @@ import { Save, Play, Pencil, Check, Clock } from "lucide-react";
 interface AutoPublishSettingsData {
   id?: number;
   enabled: boolean;
+  requireApproval: boolean;
   articlesPerDay: number;
   runStartTime: string;
   readyByTime: string;
@@ -26,6 +27,7 @@ interface AutoPublishSettingsData {
 
 const DEFAULT: AutoPublishSettingsData = {
   enabled: false,
+  requireApproval: true,
   articlesPerDay: 1,
   runStartTime: "06:00",
   readyByTime: "09:00",
@@ -33,6 +35,10 @@ const DEFAULT: AutoPublishSettingsData = {
   publishWindowEnd: "17:00",
   timezone: "America/New_York",
 };
+
+// data-state comes from Radix — checked/unchecked. Green/red reads as on/off at a
+// glance far better than this app's default primary-vs-input (black-ish vs black-ish).
+const TOGGLE_COLOR_CLASSES = "data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-red-500";
 
 const TIMEZONES = [
   { value: "America/New_York", label: "Eastern (New York)" },
@@ -83,6 +89,7 @@ export default function AutoPublisher() {
     if (settings) {
       setForm({
         enabled: settings.enabled ?? false,
+        requireApproval: settings.requireApproval ?? true,
         articlesPerDay: settings.articlesPerDay ?? 1,
         runStartTime: settings.runStartTime || "06:00",
         readyByTime: settings.readyByTime || "09:00",
@@ -153,8 +160,7 @@ export default function AutoPublisher() {
           <CardTitle>Schedule</CardTitle>
           <CardDescription>
             The generation run creates drafts starting at "Run start time" and spreads their publish times evenly
-            across the publish window. Nothing goes live until you approve it — approved drafts publish
-            automatically once their scheduled time arrives.
+            across the publish window.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -165,8 +171,26 @@ export default function AutoPublisher() {
             </div>
             <Switch
               id="ap-enabled"
+              className={TOGGLE_COLOR_CLASSES}
               checked={form.enabled}
               onCheckedChange={(v) => setForm({ ...form, enabled: v })}
+            />
+          </div>
+
+          <div className="flex items-center justify-between border-b pb-4">
+            <div>
+              <Label htmlFor="ap-require-approval" className="text-sm font-medium">Require manual review before publishing</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {form.requireApproval
+                  ? "On: a draft waits for you to click Approve before it can go live, even past its scheduled time."
+                  : "Off: drafts publish automatically at their scheduled time — no review, no approval click. Nothing stops a bad draft from going live."}
+              </p>
+            </div>
+            <Switch
+              id="ap-require-approval"
+              className={TOGGLE_COLOR_CLASSES}
+              checked={form.requireApproval}
+              onCheckedChange={(v) => setForm({ ...form, requireApproval: v })}
             />
           </div>
 
