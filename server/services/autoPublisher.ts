@@ -66,13 +66,12 @@ export function computePublishTimes(
 
 // ── Daily generation run ────────────────────────────────────────────────────
 
+// Note: does NOT check settings.enabled — that gate controls whether the daily cron
+// job is scheduled at all (see scheduleGenerationTask below). This function itself
+// stays callable regardless, so "Run now" works as a manual override even while the
+// automatic schedule is off — which is the entire point of a "run once to test" button.
 export async function runDailyGeneration(): Promise<void> {
   const settings = await getOrCreateAutoPublishSettings();
-  if (!settings.enabled) {
-    console.log("[auto-publisher] generation run skipped — auto publisher is disabled");
-    return;
-  }
-
   const count = settings.articlesPerDay ?? 1;
   const dateStr = todayDateStringInTz(settings.timezone || "America/New_York");
   const publishTimes = computePublishTimes(
