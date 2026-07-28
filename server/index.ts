@@ -5,6 +5,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import compression from "compression";
 import helmet from "helmet";
+import { initAutoPublisherCron } from "./services/autoPublisher";
 
 const app = express();
 
@@ -80,4 +81,10 @@ app.use((req, res, next) => {
   // Allow up to 3 minutes for long-running AI generation requests
   server.requestTimeout = 180000;
   server.headersTimeout = 185000;
+
+  // Non-fatal: if the auto_publish_settings table hasn't been migrated yet
+  // (npm run db:push), the server should still start — just without the schedule.
+  initAutoPublisherCron().catch((err) => {
+    console.error("[auto-publisher] failed to initialize cron (has `npm run db:push` been run?):", err.message);
+  });
 })();

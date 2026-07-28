@@ -10,6 +10,7 @@ import {
   contentItems,
   blockPresets,
   siteSettings,
+  autoPublishSettings,
   integrations,
   insertIntegrationSchema,
   emailStyles,
@@ -45,6 +46,15 @@ import { markdownToHtml } from "./utils/markdown";
 import { COMPONENT_REGISTRY } from "./config/componentRegistry";
 import { db } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
+import { slugToLabel, withPhilosophyAfterTitle, filterSupportingKeywords } from "./utils/articleHelpers";
+import { generateAndCreateArticle, KeywordNotFoundError, NoUntargetedKeywordsError } from "./services/articleGeneration";
+import { publishContentItemFull } from "./services/publishArticle";
+import {
+  getOrCreateAutoPublishSettings,
+  rescheduleAutoPublisherCron,
+  runDailyGeneration,
+  AUTO_PUBLISH_TAG,
+} from "./services/autoPublisher";
 
 const supabaseClient = createClient(
   process.env.SUPABASE_URL!,
@@ -54,11 +64,6 @@ const supabaseClient = createClient(
 function isValidImageUrl(url: string | undefined | null): boolean {
   if (!url) return false;
   return url.startsWith("http://") || url.startsWith("https://");
-}
-
-/** Convert a Shopify slug (e.g. "home-town-maps-barware") to a readable label ("Home Town Maps Barware"). */
-function slugToLabel(slug: string): string {
-  return slug.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
 
 async function resolveImageSuggestions(params: {
@@ -136,21 +141,6 @@ async function resolveImageSuggestions(params: {
   // Shopify silently skipped if not configured
 
   return suggestions;
-}
-
-/**
- * Inserts a philosophy intro paragraph immediately after the first # heading
- * in the markdown body so it renders below the page title, not above it.
- */
-function withPhilosophyAfterTitle(philosophy: string | null | undefined, markdown: string): string {
-  if (!philosophy) return markdown.trimEnd();
-  const firstHeadingMatch = markdown.match(/^# .+$/m);
-  if (firstHeadingMatch && firstHeadingMatch.index !== undefined) {
-    const end = firstHeadingMatch.index + firstHeadingMatch[0].length;
-    return markdown.slice(0, end) + "\n\n" + philosophy.trim() + "\n\n" + markdown.slice(end).trimStart();
-  }
-  // No H1 heading found — put philosophy at start
-  return philosophy.trim() + "\n\n" + markdown.trimEnd();
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -2210,142 +2200,13 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
   // Supabase publishing routes
   app.post("/api/publish/supabase", requireAuth, async (req, res) => {
     try {
-      const { contentId, contentType, featuredImage: passedFeaturedImage } = req.body;
-      console.log("📤 Publishing to Supabase:", { contentId, contentType, passedFeaturedImage: passedFeaturedImage ?? "(not passed)" });
-
-      const contentItem = await storage.getContentItem(contentId);
-      if (!contentItem) {
-        return res.status(404).json({ message: "Content item not found" });
-      }
-
-      // Ensure content_markdown is present before publishing so the Cloudflare Worker
-      // can consume it. Fetch content_json directly from Supabase (bypassing the
-      // storage abstraction which returns content_markdown as a string when set).
-      const webpageTableMap: Record<string, string> = {
-        blog_article: "blog_articles",
-        landing_page: "landing_pages",
-        lead_magnet: "lead_magnets",
-        blog: "blog_articles",
-        landing: "landing_pages",
-      };
-      const publishTableName =
-        webpageTableMap[contentItem.contentType || contentItem.type];
-      if (publishTableName) {
-        // Build a sync payload: always push the latest content_markdown + structured_data
-        // from Canvas to Supabase so the Cloudflare Worker renders the most current version.
-        const syncData: Record<string, any> = {
-          updated_at: new Date().toISOString(),
-        };
-
-        if (contentItem.markdownContent) {
-          syncData.content_markdown = contentItem.markdownContent;
-        }
-        if (contentItem.structuredData) {
-          syncData.structured_data = contentItem.structuredData;
-        }
-        // Use the featuredImage passed from the editor as priority (covers the case where
-        // the user set an image but hasn't saved yet), falling back to what's in the DB.
-        const effectiveFeaturedImage = passedFeaturedImage || contentItem.featuredImage || null;
-        if (effectiveFeaturedImage) {
-          syncData.featured_image = effectiveFeaturedImage;
-        }
-        if ((contentItem as any).ogImage) {
-          syncData.og_image = (contentItem as any).ogImage;
-        }
-        if ((contentItem as any).ogTitle) {
-          syncData.og_title = (contentItem as any).ogTitle;
-        }
-        if ((contentItem as any).metaDescription) {
-          syncData.meta_description = (contentItem as any).metaDescription;
-        }
-
-        // For legacy block-only pages: auto-generate markdown if none exists anywhere
-        if (!contentItem.markdownContent) {
-          const { data: publishRow } = await supabaseClient
-            .from(publishTableName)
-            .select("content_json, content_markdown")
-            .eq("id", contentId)
-            .single();
-          if (
-            publishRow &&
-            !publishRow.content_markdown &&
-            Array.isArray(publishRow.content_json) &&
-            publishRow.content_json.length > 0
-          ) {
-            syncData.content_markdown = generateWebPageMarkdown(
-              publishRow.content_json,
-              contentItem.title,
-            );
-            console.log(
-              `✅ Auto-generated content_markdown for legacy block page ${contentId}`,
-            );
-          }
-        }
-
-        if (Object.keys(syncData).length > 1) {
-          console.log(`📦 Sync payload for ${contentId}:`, Object.keys(syncData), "featured_image:", syncData.featured_image ?? "(not set)");
-          await supabaseClient
-            .from(publishTableName)
-            .update(syncData)
-            .eq("id", contentId);
-          console.log(
-            `✅ Synced content to Supabase for ${contentId} before publish`,
-          );
-        }
-      }
-
-      const result = await supabaseLegacyPublisher.publish(contentItem);
-
-      // Purge Cloudflare edge cache so the updated HTML (with hero image, SEO fields, etc.)
-      // is served immediately rather than stale cached content
-      if (contentItem.slug && process.env.CF_ZONE_ID && process.env.CF_API_TOKEN) {
-        const baseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
-        const purgeUrls = [
-          `${baseUrl}/a/articles/${contentItem.slug}`,
-          `${baseUrl}/articles/${contentItem.slug}`,
-          `${baseUrl}/a/pages/${contentItem.slug}`,
-          `${baseUrl}/pages/${contentItem.slug}`,
-        ];
-        console.log(`Purging CF cache after publish: ${purgeUrls.join(", ")}`);
-        try {
-          const cfRes = await fetch(
-            `https://api.cloudflare.com/client/v4/zones/${process.env.CF_ZONE_ID}/purge_cache`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${process.env.CF_API_TOKEN}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ files: purgeUrls }),
-            },
-          );
-          if (cfRes.ok) {
-            console.log(`✅ CF cache purged after publish: ${purgeUrls.join(", ")}`);
-          } else {
-            const errText = await cfRes.text();
-            console.warn(`⚠️ CF cache purge failed (${cfRes.status}): ${errText}`);
-          }
-        } catch (purgeErr) {
-          console.warn("⚠️ CF cache purge error (non-fatal):", purgeErr);
-        }
-      }
-
-      // Publish lifecycle: auto-flip all linked keyword statuses to published
-      try {
-        const linkedKws = await storage.getKeywordsByContentItemId(
-          String(contentItem.id),
-        );
-        for (const kw of linkedKws) {
-          if (kw.status !== "published") {
-            await storage.updateKeyword(kw.id, { status: "published" });
-          }
-        }
-      } catch {
-        // Non-fatal — don't fail the publish if keyword sync fails
-      }
-
+      const { contentId, featuredImage: passedFeaturedImage } = req.body;
+      const result = await publishContentItemFull(contentId, passedFeaturedImage);
       res.json(result);
     } catch (error) {
+      if ((error as Error).message === "Content item not found") {
+        return res.status(404).json({ message: "Content item not found" });
+      }
       console.error("Supabase publish error:", error);
       res.status(500).json({
         message: "Failed to publish to Supabase: " + (error as Error).message,
@@ -3536,6 +3397,129 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
     }
   });
 
+  // ── Auto Publisher ────────────────────────────────────────────────────────────
+  app.get("/api/auto-publish-settings", requireAuth, async (_req, res) => {
+    try {
+      const settings = await getOrCreateAutoPublishSettings();
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({
+        message: "Failed to fetch auto-publish settings: " + (error as Error).message,
+      });
+    }
+  });
+
+  app.put("/api/auto-publish-settings", requireAuth, async (req, res) => {
+    try {
+      const {
+        enabled,
+        articlesPerDay,
+        runStartTime,
+        readyByTime,
+        publishWindowStart,
+        publishWindowEnd,
+        timezone,
+      } = req.body;
+      const rows = await db.select().from(autoPublishSettings).limit(1);
+      const updateData = {
+        enabled: enabled ?? false,
+        articlesPerDay: articlesPerDay ?? 1,
+        runStartTime: runStartTime ?? "06:00",
+        readyByTime: readyByTime ?? "09:00",
+        publishWindowStart: publishWindowStart ?? "09:00",
+        publishWindowEnd: publishWindowEnd ?? "17:00",
+        timezone: timezone ?? "America/New_York",
+        updatedAt: new Date(),
+      };
+      let row;
+      if (rows.length === 0) {
+        [row] = await db.insert(autoPublishSettings).values(updateData).returning();
+      } else {
+        [row] = await db
+          .update(autoPublishSettings)
+          .set(updateData)
+          .where(eq(autoPublishSettings.id, rows[0].id))
+          .returning();
+      }
+      await rescheduleAutoPublisherCron(row);
+      res.json(row);
+    } catch (error) {
+      res.status(500).json({
+        message: "Failed to update auto-publish settings: " + (error as Error).message,
+      });
+    }
+  });
+
+  // Manually kick off a generation run right now (in addition to the daily schedule).
+  // Fire-and-forget: generation can take several minutes for multiple articles, well
+  // past a reasonable request timeout, so the client polls the queue endpoint instead.
+  app.post("/api/auto-publish/run-now", requireAuth, async (_req, res) => {
+    res.json({ started: true });
+    runDailyGeneration().catch((err) => console.error("[auto-publisher] manual run-now failed:", err));
+  });
+
+  // Items the auto-publisher created that haven't gone live yet (scheduled or overdue).
+  app.get("/api/auto-publish/queue", requireAuth, async (_req, res) => {
+    try {
+      const items = await storage.getContentItems();
+      const queue = items
+        .filter((item) => item.tags?.includes(AUTO_PUBLISH_TAG) && item.status !== "live")
+        .sort((a, b) => {
+          const da = a.scheduledPublishDate ? new Date(a.scheduledPublishDate).getTime() : 0;
+          const db2 = b.scheduledPublishDate ? new Date(b.scheduledPublishDate).getTime() : 0;
+          return da - db2;
+        });
+      res.json(queue);
+    } catch (error) {
+      res.status(500).json({
+        message: "Failed to fetch auto-publish queue: " + (error as Error).message,
+      });
+    }
+  });
+
+  // Everything the auto-publisher has ever touched that's no longer in the queue
+  // (published, or scheduled and still awaiting approval past its slot).
+  app.get("/api/auto-publish/history", requireAuth, async (_req, res) => {
+    try {
+      const items = await storage.getContentItems();
+      const history = items
+        .filter((item) => item.tags?.includes(AUTO_PUBLISH_TAG) && item.status === "live")
+        .sort((a, b) => {
+          const da = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+          const db2 = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+          return db2 - da;
+        });
+      res.json(history);
+    } catch (error) {
+      res.status(500).json({
+        message: "Failed to fetch auto-publish history: " + (error as Error).message,
+      });
+    }
+  });
+
+  // Approve a queued draft. If its scheduled time has already passed, publish it
+  // immediately instead of waiting for the next 5-minute sweep.
+  app.post("/api/auto-publish/:id/approve", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const item = await storage.getContentItem(id as any);
+      if (!item) return res.status(404).json({ message: "Content item not found" });
+
+      const updated = await storage.updateContentItem(id as any, { approvalStatus: "approved" });
+
+      const due = updated.scheduledPublishDate && new Date(updated.scheduledPublishDate).getTime() <= Date.now();
+      if (due) {
+        const result = await publishContentItemFull(id);
+        return res.json({ ...updated, publishResult: result });
+      }
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({
+        message: "Failed to approve item: " + (error as Error).message,
+      });
+    }
+  });
+
   // ── Email Styles CRUD ────────────────────────────────────────────────────────
   app.get("/api/email-styles", requireAuth, async (_req, res) => {
     try {
@@ -4121,52 +4105,6 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
   }
   const batchJobs = new Map<string, BatchJob>();
 
-  // Rank a list of supporting keywords by word-overlap similarity to a primary keyword,
-  // then return the top N (default 8, hard cap 10). This prevents dumping an entire
-  // cluster into a single AI prompt while still picking the most relevant terms.
-  function filterSupportingKeywords(
-    primaryKeyword: string,
-    candidates: string[],
-    take = 8,
-    cap = 10,
-  ): string[] {
-    const limit = Math.min(take, cap);
-
-    // Build primary word set — also include 4-char+ stems so "hiking" matches "hike"
-    const primaryTokens = primaryKeyword.toLowerCase().split(/\W+/).filter(Boolean);
-    const primaryWords = new Set(primaryTokens);
-    const primaryStems = new Set(primaryTokens.filter(w => w.length >= 4).map(w => w.slice(0, 4)));
-
-    const scored = candidates.map((kw) => {
-      const kwWords = kw.toLowerCase().split(/\W+/).filter(Boolean);
-      // Signal 1: exact word overlap with primary
-      const exactOverlap = kwWords.filter(w => primaryWords.has(w)).length;
-      // Signal 2: stem overlap (partial match) — half-weight
-      const stemOverlap = kwWords.filter(w => w.length >= 4 && primaryStems.has(w.slice(0, 4)) && !primaryWords.has(w)).length;
-      const score = exactOverlap + stemOverlap * 0.5;
-      return { kw, score };
-    });
-
-    // Sort by score descending, break ties by shorter keyword (more focused)
-    scored.sort((a, b) => b.score - a.score || a.kw.length - b.kw.length);
-
-    // Deduplicate near-identical phrases: skip a candidate if it shares 80%+ of its
-    // words with an already-selected keyword (prevents packing the list with variants)
-    const selected: string[] = [];
-    for (const { kw } of scored) {
-      if (selected.length >= limit) break;
-      const kwWords = new Set(kw.toLowerCase().split(/\W+/).filter(Boolean));
-      const isDuplicate = selected.some(s => {
-        const sWords = s.toLowerCase().split(/\W+/).filter(Boolean);
-        const shared = sWords.filter(w => kwWords.has(w)).length;
-        return shared / Math.max(sWords.length, kwWords.size) >= 0.8;
-      });
-      if (!isDuplicate) selected.push(kw);
-    }
-
-    return selected;
-  }
-
   // Build cluster-scoped internal links: published pages in the same keyword cluster.
   // For each linked keyword, we look up the slug from Supabase (UUID IDs) so the AI gets
   // a proper /pages/{slug} URL rather than a raw content ID.
@@ -4646,404 +4584,27 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
   app.post("/api/pages/ai-quick-create", requireAuth, async (req, res) => {
     try {
       const { keywordId: inputKeywordId, topic: inputTopic } = req.body;
-
-      // 1. Resolve keyword — three paths: specific keyword, topic seed, or AI auto-pick
-      let kw: { id?: number; keyword: string; cluster?: string | null; contentTypeTarget?: string | null; articleAngle?: string | null; type?: string | null; priority?: string | null; volume?: number | null };
-      let clusterSupportingKeywords: any[] = [];
-
-      if (inputKeywordId) {
-        // Keyword-first: user picked a specific keyword from the library
-        const found = await storage.getKeyword(Number(inputKeywordId));
-        if (!found) {
-          return res.status(404).json({ message: "Keyword not found." });
-        }
-        kw = found;
-        const allUntargeted = await storage.getKeywords({ status: "untargeted" });
-        clusterSupportingKeywords = kw.cluster
-          ? allUntargeted.filter((k) => k.cluster === kw.cluster && k.id !== kw.id && k.priority === "supporting")
-          : [];
-      } else if (inputTopic) {
-        // Topic-first: use AI to match the topic against the keyword library.
-        // If a match is found, use that keyword (+ its cluster siblings) so the
-        // page gets properly linked and the AI gets real SEO keyword context.
-        // Falls back to using the topic string directly only if no match found.
-        const allKwsForTopic = await storage.getKeywords({});
-        const untargetedForTopic = allKwsForTopic.filter((k) => k.status === "untargeted");
-        let topicMatched = false;
-
-        if (untargetedForTopic.length > 0) {
-          const { primaryKeyword: matchedPrimary, supportingKeywords: matchedSupporting } =
-            await selectKeywordsForTopic(inputTopic, untargetedForTopic.map((k) => k.keyword)).catch(() => ({
-              primaryKeyword: null,
-              supportingKeywords: [],
-            }));
-
-          if (matchedPrimary) {
-            const primaryKwObj = untargetedForTopic.find(
-              (k) => k.keyword.toLowerCase() === matchedPrimary.toLowerCase(),
-            );
-            if (primaryKwObj) {
-              kw = primaryKwObj;
-              topicMatched = true;
-              // Use AI-selected supporting keywords, then fall back to cluster siblings
-              if (matchedSupporting.length > 0) {
-                clusterSupportingKeywords = untargetedForTopic.filter(
-                  (k) =>
-                    matchedSupporting.some((s) => k.keyword.toLowerCase() === s.toLowerCase()) &&
-                    k.id !== primaryKwObj.id,
-                );
-              } else if (primaryKwObj.cluster) {
-                clusterSupportingKeywords = untargetedForTopic.filter(
-                  (k) =>
-                    k.cluster === primaryKwObj.cluster &&
-                    k.id !== primaryKwObj.id &&
-                    k.priority === "supporting",
-                );
-              }
-              console.log(
-                `[ai-quick-create] topic "${inputTopic}" → matched keyword "${kw.keyword}" with ${clusterSupportingKeywords.length} supporting`,
-              );
-            }
-          }
-        }
-
-        if (!topicMatched) {
-          // No library keyword matched — generate new keywords and add them to the library
-          // so this topic gets tracked and the article gets real SEO keyword context.
-          console.log(`[ai-quick-create] topic "${inputTopic}" → no keyword match, generating new keywords`);
-          try {
-            const generated = await generateKeywordsForTopic(inputTopic);
-            console.log(
-              `[ai-quick-create] generated keywords: primary="${generated.primaryKeyword}", cluster="${generated.clusterName}", supporting=${JSON.stringify(generated.supportingKeywords)}`,
-            );
-
-            const kwInserts = [
-              {
-                keyword: generated.primaryKeyword,
-                type: "primary" as const,
-                priority: "primary" as const,
-                cluster: generated.clusterName,
-                contentTypeTarget: "blog_article",
-                status: "untargeted" as const,
-              },
-              ...generated.supportingKeywords.map((s) => ({
-                keyword: s,
-                type: "secondary" as const,
-                priority: "supporting" as const,
-                cluster: generated.clusterName,
-                contentTypeTarget: "blog_article",
-                status: "untargeted" as const,
-              })),
-            ];
-
-            const saved = await storage.createKeywordsBulk(kwInserts);
-            const savedPrimary = saved.find((k) => k.priority === "primary") ?? saved[0];
-            const savedSupporting = saved.filter((k) => k.id !== savedPrimary.id);
-
-            kw = savedPrimary;
-            clusterSupportingKeywords = savedSupporting;
-          } catch (genErr) {
-            console.warn(`[ai-quick-create] keyword generation failed, falling back to topic seed:`, (genErr as Error)?.message);
-            kw = { keyword: inputTopic, cluster: null, contentTypeTarget: "blog_article", articleAngle: null, type: null };
-            clusterSupportingKeywords = [];
-          }
-        }
-      } else {
-        // AI Pick: auto-select the best untargeted keyword
-        const untargeted = await storage.getKeywords({ status: "untargeted" });
-        if (untargeted.length === 0) {
-          return res.status(404).json({
-            message: "No untargeted keywords found in your library. Add some keywords first.",
-          });
-        }
-        const primaryCandidates = untargeted.filter((k) => k.priority === "primary");
-        const pool = primaryCandidates.length > 0 ? primaryCandidates : untargeted;
-        const sorted = [...pool].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0));
-        kw = sorted[0];
-        clusterSupportingKeywords = kw.cluster
-          ? untargeted.filter((k) => k.cluster === kw.cluster && k.id !== kw.id && k.priority === "supporting")
-          : [];
-      }
-
-      // 2. Filter supporting keywords to the most semantically relevant (hard cap: 10)
-      const filteredSupporting =
-        clusterSupportingKeywords.length > 0
-          ? filterSupportingKeywords(
-              kw.keyword,
-              clusterSupportingKeywords.map((k) => k.keyword),
-              8,
-              10,
-            )
-          : [];
-      const supportingKeywordsStr =
-        filteredSupporting.length > 0 ? filteredSupporting.join(", ") : undefined;
-      console.log(
-        `[ai-quick-create] cluster "${kw.cluster}" has ${clusterSupportingKeywords.length} supporting keywords → filtered to ${filteredSupporting.length}: ${filteredSupporting.join(", ")}`,
-      );
-
-      // 3. Determine content type
-      const contentType = kw.contentTypeTarget || "blog_article";
-
-      // 4. Determine the article title.
-      // When the user typed a topic/title (topic mode), honour it exactly —
-      // never discard or regenerate the user's own wording.
-      // When triggered from the keyword library or AI-pick, generate a title
-      // from the keyword as before.
-      let title: string;
-      if (inputTopic) {
-        // Use the user's input directly as the article title
-        title = inputTopic;
-      } else {
-        try {
-          title = await generateTitle(kw.keyword, contentType, kw.keyword);
-        } catch {
-          title = `${kw.keyword.charAt(0).toUpperCase() + kw.keyword.slice(1)}: A Complete Guide`;
-        }
-      }
-
-      // 5. Load brand context + Shopify products in parallel (both needed before markdown)
-      const siteBaseUrl =
-        process.env.SITE_BASE_URL || "https://welltolddesign.com";
-      type ShopifyProductItem = {
-        title: string;
-        handle: string;
-        price: string;
-        imageUrl: string | null;
-      };
-      const faqSearchTerm = kw.keyword || title;
-
-      // Check product catalog first — curated handles take priority over keyword search
-      const catalogEntryQC = matchProductCatalog(title, kw.keyword);
-      const shopifyFetchQC = catalogEntryQC
-        ? fetchProductsByHandles(catalogEntryQC.handles).then(items => ({ items })).catch(() => ({ items: [] as ShopifyProductItem[] }))
-        : fetchProductList(8, faqSearchTerm).catch((e) => {
-            console.error("[ai-quick-create] Shopify fetch failed:", e?.message);
-            return { items: [] as ShopifyProductItem[] };
-          });
-
-      const [brandContextRaw, shopifyResult] = await Promise.all([
-        storage.getBrandContext().catch(() => null),
-        shopifyFetchQC,
-      ]);
-
-      const brandContext = brandContextRaw
-        ? {
-            voice_document: brandContextRaw.voiceDocument || undefined,
-            always_rules: brandContextRaw.alwaysRules || undefined,
-            avoid_rules: brandContextRaw.avoidRules || undefined,
-            words_we_use: brandContextRaw.wordsWeUse || undefined,
-            words_we_avoid: brandContextRaw.wordsWeAvoid || undefined,
-          }
-        : undefined;
-
-      const shopifyProducts = (
-        shopifyResult.items as ShopifyProductItem[]
-      ).filter((p) => p.imageUrl);
-      const allProducts =
-        shopifyProducts.length > 0
-          ? shopifyProducts
-          : (shopifyResult.items as ShopifyProductItem[]);
-      let productContext: string | undefined =
-        allProducts.length > 0
-          ? allProducts
-              .map((p) => {
-                const productUrl = `${siteBaseUrl}/products/${p.handle}`;
-                const imageLine = p.imageUrl ? ` — image: ${p.imageUrl}` : "";
-                const variantTitles = (p.variants ?? []).map((v: any) => v.title).filter((t: string) => t && t !== "Default Title");
-                const variantLine = variantTitles.length > 0 ? ` (available in: ${variantTitles.join(", ")})` : "";
-                return `- [${p.title}](${productUrl})${variantLine}${imageLine}`;
-              })
-              .join("\n")
-          : undefined;
-      // Append catalog-matched collections and pages as supplementary links
-      if (catalogEntryQC) {
-        const supplementary: string[] = [];
-        (catalogEntryQC.collections ?? []).forEach(c =>
-          supplementary.push(`- [${slugToLabel(c)}](${siteBaseUrl}/collections/${c})`)
-        );
-        (catalogEntryQC.pages ?? []).forEach(p =>
-          supplementary.push(`- [${slugToLabel(p)}](${siteBaseUrl}/pages/${p})`)
-        );
-        if (supplementary.length > 0) {
-          productContext = (productContext ? productContext + "\n" : "") + supplementary.join("\n");
-        }
-      }
-
-      // FAQ answers nudge back to a specific product/collection page — reuse the same
-      // resolved products (plus any catalog-matched collections/pages) as real link targets.
-      const faqProductLinks: Array<{ title: string; url: string }> = [
-        ...allProducts.map((p) => ({ title: p.title, url: `${siteBaseUrl}/products/${p.handle}` })),
-        ...(catalogEntryQC?.collections ?? []).map((c) => ({ title: slugToLabel(c), url: `${siteBaseUrl}/collections/${c}` })),
-      ];
-
-      // 6. Run markdown generation + FAQ + CTAs + philosophy intro all in parallel
-      const [markdown, faqItems, ctaData, philosophyIntro] = await Promise.all([
-        generateWebPageMarkdownContent({
-          title,
-          type: contentType,
-          primaryKeyword: kw.keyword,
-          supportingKeywords: supportingKeywordsStr,
-          articleAngle: kw.articleAngle || undefined,
-          keywordType: kw.type || undefined,
-          mood: "conversational",
-          productContext,
-          siteBaseUrl,
-          brandContext,
-        }),
-        generateFAQ(faqSearchTerm, supportingKeywordsStr, faqProductLinks).catch((e) => {
-          console.error("[ai-quick-create] FAQ generation failed:", e?.message);
-          return [];
-        }),
-        generateCTAs(faqSearchTerm, siteBaseUrl).catch((e) => {
-          console.error("[ai-quick-create] CTA generation failed:", e?.message);
-          return null;
-        }),
-        generatePhilosophyIntro(kw.keyword, title, brandContext).catch((e) => {
-          console.error("[ai-quick-create] Philosophy intro failed:", e?.message);
-          return "";
-        }),
-      ]);
-      console.log(
-        `[ai-quick-create] FAQ: ${faqItems.length} items, CTA: ${!!ctaData}, Products: ${shopifyResult.items.length}`,
-      );
-
-      // 6b. Generate meta description (non-fatal — article still saves if this fails)
-      const metaDescription = await generateMetaDescription(
-        title,
-        contentType,
-        kw.keyword,
-        supportingKeywordsStr,
-      ).catch((e) => {
-        console.error("[ai-quick-create] meta description generation failed:", e?.message);
-        return null;
-      });
-
-      // 7b. Build structured data (Article JSON-LD + private _wt_ render keys)
-      const now = new Date().toISOString();
-      const structuredData: Record<string, any> = {
-        "@context": "https://schema.org",
-        "@type": "Article",
-        headline: title,
-        datePublished: now,
-        dateModified: now,
-        publisher: {
-          "@type": "Organization",
-          name: "Well Told Design",
-          url: siteBaseUrl,
-        },
-        ...(kw.keyword
-          ? {
-              keywords:
-                kw.keyword +
-                (supportingKeywordsStr ? ", " + supportingKeywordsStr : ""),
-            }
-          : {}),
-      };
-
-      if (faqItems.length > 0) {
-        structuredData["_wt_faq"] = faqItems;
-      }
-      if (shopifyProducts.length > 0) {
-        structuredData["_wt_products"] = shopifyProducts
-          .slice(0, 4)
-          .map((p) => ({
-            title: p.title,
-            handle: p.handle,
-            imageUrl: p.imageUrl,
-            price: p.price,
-            url: `${siteBaseUrl}/products/${p.handle}`,
-          }));
-      }
-      if (ctaData) {
-        structuredData["_wt_cta"] = ctaData;
-      }
-
-      // 7c. Build slug from title
-      const baseSlug = title
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, "")
-        .trim()
-        .replace(/\s+/g, "-")
-        .slice(0, 80);
-      const finalSlug = await storage.generateUniqueSlug(baseSlug, contentType);
-
-      // FAQ lives only in _wt_faq structured data — rendered as accordion by the worker.
-      // 8. Create the content item — store markdown, structured data (FAQ/products/CTAs), and keywords
-      const newItem = await storage.createContentItem({
-        title,
-        slug: finalSlug,
-        type: contentType,
-        status: "draft",
-        approvalStatus: "pending",
-        primaryKeyword: kw.keyword,
-        supportingKeywords: supportingKeywordsStr || null,
-        markdownContent: withPhilosophyAfterTitle(philosophyIntro, markdown),
-        structuredData:
-          Object.keys(structuredData).length > 0 ? structuredData : null,
-        metaDescription,
+      const result = await generateAndCreateArticle({
+        keywordId: inputKeywordId,
+        topic: inputTopic,
         authorId: req.userId!,
-      } as any);
-
-      const contentItemId = String(newItem.id);
-
-      // 9. Link keyword statuses only when a real keyword was used (not topic-only)
-      const filteredSupportingObjects = clusterSupportingKeywords.filter((sk) =>
-        filteredSupporting.includes(sk.keyword),
-      );
-      if (kw.id) {
-        await storage.updateKeyword(kw.id, {
-          status: "in_progress",
-          contentItemId,
-        });
-        if (filteredSupportingObjects.length > 0) {
-          await Promise.all(
-            filteredSupportingObjects.map((sk) =>
-              storage.updateKeyword(sk.id, {
-                status: "in_progress",
-                contentItemId,
-              }),
-            ),
-          );
-        }
-        console.log(
-          `[ai-quick-create] linked ${filteredSupportingObjects.length} supporting keywords (of ${clusterSupportingKeywords.length} in cluster) to article ${contentItemId}`,
-        );
-      }
-
-      res.json({
-        id: newItem.id,
-        title,
-        keyword: kw.keyword,
-        type: contentType,
-        cluster: kw.cluster || null,
-        supportingKeywordsCount: filteredSupportingObjects.length,
+        logPrefix: "[ai-quick-create]",
       });
-
-      // Fire-and-forget: generate hero image in background after responding
-      if (!newItem.featuredImage) {
-        (async () => {
-          try {
-            const { generateImage } = await import("./services/imageGeneration");
-            const topic = newItem.primaryKeyword || title;
-            const result = await generateImage({
-              mode: "ai-prompt",
-              topic,
-              keyword: newItem.primaryKeyword ?? undefined,
-              brandContext: {
-                voice: "Well Told Design — a gift brand specialising in story-driven objects: map glassware, constellation gifts, topographic drinkware, and throws. Warm photography, real places, physical objects with meaning.",
-              },
-            });
-            await storage.updateContentItem(newItem.id, {
-              featuredImage: result.cloudinaryUrl,
-              ...(!newItem.ogImage ? { ogImage: result.cloudinaryUrl } : {}),
-            });
-            console.log(`[ai-quick-create] background hero image generated for ${newItem.id}: ${result.cloudinaryUrl}`);
-          } catch (err) {
-            console.error(`[ai-quick-create] background hero image failed for ${newItem.id}:`, err);
-          }
-        })();
-      }
+      res.json({
+        id: result.item.id,
+        title: result.item.title,
+        keyword: result.keyword,
+        type: result.contentType,
+        cluster: result.cluster,
+        supportingKeywordsCount: result.supportingKeywordsCount,
+      });
     } catch (error) {
+      if (error instanceof KeywordNotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+      if (error instanceof NoUntargetedKeywordsError) {
+        return res.status(404).json({ message: error.message });
+      }
       console.error("AI quick-create error:", error);
       res.status(500).json({
         message: "Failed to create page: " + (error as Error).message,

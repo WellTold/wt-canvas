@@ -21,6 +21,7 @@ import {
   Palette,
   Cloud,
   Code2,
+  CalendarClock,
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -51,6 +52,7 @@ const navigationItems: NavSection[] = [
       { name: "Templates",       href: "/templates",           icon: Layout },
       { name: "Blank Builder",   href: "/pages/builder",       icon: Hammer },
       { name: "Deployment",      href: "/pages/deployment",    icon: Rocket },
+      { name: "Auto Publisher",  href: "/pages/auto-publisher", icon: CalendarClock },
       { name: "Keywords",        href: "/keywords",             icon: KeyRound },
     ],
   },

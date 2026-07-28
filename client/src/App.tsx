@@ -24,6 +24,7 @@ import TemplateDetail from "@/pages/TemplateDetail";
 import ContentView from "@/components/content/ContentView";
 import { ContentEditor } from "@/components/content/ContentEditor";
 import Publisher from "@/pages/Publisher";
+import AutoPublisher from "@/pages/AutoPublisher";
 import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
 import BrandContext from "@/pages/BrandContext";
@@ -76,6 +77,7 @@ function Router() {
           <Route path="/pages/builder" component={() => <ContentEditor />} />
           <Route path="/pages/builder/:id">{(params) => <ContentEditor contentItemId={params.id} />}</Route>
           <Route path="/pages/deployment" component={Publisher} />
+          <Route path="/pages/auto-publisher" component={AutoPublisher} />
           {/* Legacy content routes — redirect to /pages */}
           <Route path="/blog-articles"><Redirect to="/pages" /></Route>
           <Route path="/lead-magnets"><Redirect to="/pages" /></Route>

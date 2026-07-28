@@ -341,6 +341,25 @@ export const siteSettings = pgTable("site_settings", {
 export type SiteSettings = typeof siteSettings.$inferSelect;
 export type InsertSiteSettings = typeof siteSettings.$inferInsert;
 
+// ─── Auto Publisher Settings ────────────────────────────────────────────────
+// Singleton row (same pattern as siteSettings) driving the daily auto-generation
+// + scheduled-publish sweep. Times are stored as "HH:MM" 24h strings, interpreted
+// in `timezone` (IANA name) each day the scheduler runs.
+export const autoPublishSettings = pgTable("auto_publish_settings", {
+  id: serial("id").primaryKey(),
+  enabled: boolean("enabled").default(false),
+  articlesPerDay: integer("articles_per_day").default(1),
+  runStartTime: text("run_start_time").default("06:00"),
+  readyByTime: text("ready_by_time").default("09:00"),
+  publishWindowStart: text("publish_window_start").default("09:00"),
+  publishWindowEnd: text("publish_window_end").default("17:00"),
+  timezone: text("timezone").default("America/New_York"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type AutoPublishSettings = typeof autoPublishSettings.$inferSelect;
+export type InsertAutoPublishSettings = typeof autoPublishSettings.$inferInsert;
+
 // ─── Email Styles ────────────────────────────────────────────────────────────
 export const emailStyles = pgTable("email_styles", {
   id: serial("id").primaryKey(),
