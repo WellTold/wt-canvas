@@ -83,6 +83,7 @@ async function buildImagePrompt(topic: string, keyword?: string, brandContext?: 
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 150,
+    thinking: { type: "disabled" },
     system: `You write image generation prompts for FLUX/Nano Banana. Output ONLY the prompt — no explanation, no quotes, no preamble. Keep it under 120 words.
 
 Style: photojournalistic editorial photography. Shallow depth of field. Available light — whatever naturally exists in the scene. No specified lighting direction, no studio setups.
@@ -261,6 +262,7 @@ async function buildArticleImagePrompt(
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 200,
+    thinking: { type: "disabled" },
     system: `You write image generation prompts for FLUX/Nano Banana. Output ONLY the prompt — no explanation, no quotes, no preamble. Keep it under 130 words.
 
 Style: photojournalistic editorial photography. Shallow depth of field. Available light only — whatever naturally exists in the scene. No specified lighting direction, no studio setups.

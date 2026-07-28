@@ -247,6 +247,7 @@ Return ONLY a valid JSON array with no markdown fencing or extra text:
     const response = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 1500,
+      thinking: { type: "disabled" },
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     });
@@ -432,6 +433,7 @@ Respond with only a valid JSON object using block IDs as keys.`;
     const response = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 4096,
+      thinking: { type: "disabled" },
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
     });
@@ -582,6 +584,7 @@ REQUIREMENTS:
     const response = await anthropic.messages.create({
       model: MODEL,
       max_tokens: MAX_TOKENS_ARTICLE,
+      thinking: { type: "disabled" },
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
     });
@@ -814,6 +817,7 @@ Write the full document now, starting with the H1 title:`;
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS_ARTICLE,
+    thinking: { type: "disabled" },
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }],
   });
@@ -910,6 +914,7 @@ export async function improveContent(content: string, instructions?: string, typ
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS_SHORT,
+    thinking: { type: "disabled" },
     system: `You are an expert content editor. Improve the provided ${context}content by making it more engaging, clear, and effective.${instructionText} ${NO_EMDASH} Return only the improved content — no prefixes, labels, or explanations.`,
     messages: [{ role: "user", content: `Improve the following content:\n\n${content}` }],
   });
@@ -922,6 +927,7 @@ export async function refineContent(content: string, feedback: string, type?: st
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS_SHORT,
+    thinking: { type: "disabled" },
     system: `You are an expert content editor. Refine the provided${context} content based on specific feedback. Apply the feedback thoughtfully while maintaining the core message. ${NO_EMDASH} Return only the refined content — no prefixes, labels, or explanations.`,
     messages: [
       {
@@ -953,6 +959,7 @@ export async function generateTitle(
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 120,
+    thinking: { type: "disabled" },
     system: `You write article titles for Well Told Design — a New England gift brand. Voice: warm, specific, editorial.
 
 THE KEYWORD IS A SEARCH QUERY — not a phrase to copy verbatim. It tells you what topic people are searching for. Your job is to write a natural, human title about that topic. You do not need to use the exact keyword words in the exact keyword order. Identify the underlying topic and write about it naturally.
@@ -1006,6 +1013,7 @@ export async function generateMetaDescription(
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 150,
+    thinking: { type: "disabled" },
     system: `You are an expert SEO copywriter. Generate compelling meta descriptions that encourage clicks from search results. Keep it between 150-160 characters, include relevant keywords, make it actionable, and end with a concrete reason to click (what the reader will get, not a generic "learn more").${primaryKeyword ? ` Always include the primary keyword "${primaryKeyword}" naturally.` : ""} ${NO_EMDASH} Return only the meta description — no quotes, no explanations.`,
     messages: [
       {
@@ -1050,6 +1058,7 @@ export async function suggestKeywords(
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 2048,
+    thinking: { type: "disabled" },
     system: `You are an expert SEO strategist specialising in long-tail keyword research. 
 Given an existing keyword library, suggest 10-20 new long-tail keyword ideas that would complement and extend the library.
 Respond with ONLY a valid JSON array — no preamble, no code fences. Each element must have:
@@ -1089,6 +1098,7 @@ export async function generateCTAs(primaryKeyword: string, siteBaseUrl: string):
     const response = await anthropic.messages.create({
       model: MODEL,
       max_tokens: MAX_TOKENS_SHORT,
+      thinking: { type: "disabled" },
       system: `You are a copywriter for Well Told Design — a Boston-based gift brand known for story-driven objects: glassware, drinkware, and textiles engraved with maps, constellations, and topographic designs. Write in the Well Told brand voice: warm, specific, story-driven — never salesy. Lead with a specific image or place, not a product feature. Never use "shop now", "click here", "amazing", "perfect", exclamation points, or urgency language. ${NO_EMDASH} Respond ONLY with valid JSON — no preamble, no code fences.`,
       messages: [{
         role: "user",
@@ -1149,6 +1159,7 @@ export async function selectKeywordsForTopic(
     const response = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 256,
+      thinking: { type: "disabled" },
       system: `You are an SEO strategist. Given a content topic and a list of available target keywords, select the single best primary keyword and up to 5 supporting keywords.
 
 CRITICAL RULES — read these carefully before selecting:
@@ -1189,6 +1200,7 @@ export async function generateKeywordsForTopic(topic: string): Promise<{
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 400,
+    thinking: { type: "disabled" },
     system: `You are an SEO strategist for Well Told Design, a New England gift brand selling map glassware, constellation gifts, topographic drinkware, and story-driven keepsakes. You specialise in gift-focused, occasion-based, and recipient-based keyword research.
 
 Given a content topic or article title, return the most appropriate SEO keywords and a cluster name. Respond with JSON only — no preamble, no explanation:
@@ -1268,6 +1280,7 @@ Return only the paragraph text — no heading, no markdown formatting, no preamb
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 400,
+    thinking: { type: "disabled" },
     messages: [{ role: "user", content: userPrompt }],
     system: systemPrompt,
   });
@@ -1286,6 +1299,7 @@ export async function generateSection(topic: string, sectionType: string, contex
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 500,
+    thinking: { type: "disabled" },
     system: `You are an expert content writer. Generate high-quality ${sectionType} content about the given topic. Make it engaging, informative, and well-structured.${contextText} ${NO_EMDASH} Return only the content — no prefixes, labels, or explanations.`,
     messages: [{ role: "user", content: `Write a ${sectionType} section about: ${topic}` }],
   });
