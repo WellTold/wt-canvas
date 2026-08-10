@@ -429,12 +429,21 @@ function extractRelatedTerms(text: string, vocab: string[]): Set<string> {
   return found;
 }
 
+// These are internal workflow markers the auto-publisher writes into the same
+// `tags` column for its own admin-side filtering (AUTO_PUBLISH_TAG / NEEDS_REVIEW_TAG
+// in server/services/articleGeneration.ts) — never customer-facing content tags.
+// Keep this list in sync with that file if new internal tags are added there.
+const INTERNAL_WORKFLOW_TAGS = new Set(["auto-publish", "needs-review"]);
+
 // Index page filter chips. Real `tags` win when populated; otherwise derive
 // occasion/recipient chips from focus_keyword + supporting_keywords + title
 // using the same vocabulary as related-article clustering, so the filter bar
-// (and grouping) works even though every live row today has tags: [].
+// (and grouping) works even when a row has no real content tags.
 function deriveDisplayTags(a: any): string[] {
-  if (Array.isArray(a.tags) && a.tags.length > 0) return a.tags;
+  const realTags = Array.isArray(a.tags)
+    ? a.tags.filter((t: string) => !INTERNAL_WORKFLOW_TAGS.has(String(t).toLowerCase()))
+    : [];
+  if (realTags.length > 0) return realTags;
   const text = `${a.focus_keyword || ""} ${a.supporting_keywords || ""} ${a.title || ""}`;
   const occasions = extractRelatedTerms(text, RELATED_OCCASION_TERMS);
   const recipients = extractRelatedTerms(text, RELATED_RECIPIENT_TERMS);
