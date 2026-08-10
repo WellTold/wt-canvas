@@ -685,6 +685,18 @@ export async function generateWebPageMarkdownContent(params: GenerateWebPageMark
 
   // [1] Brand voice — prefer stored voice doc, fall back to hardcoded constant
   const brandVoice = brandContext?.voice_document || WELL_TOLD_BRAND_VOICE_FALLBACK;
+  const brandAlwaysRules = brandContext?.always_rules?.length
+    ? brandContext.always_rules.map((r, i) => `${i + 1}. ${r}`).join("\n")
+    : "No specific rules set.";
+  const brandAvoidRules = brandContext?.avoid_rules?.length
+    ? brandContext.avoid_rules.map((r, i) => `${i + 1}. ${r}`).join("\n")
+    : "No specific rules set.";
+  const brandWordsWeUse = brandContext?.words_we_use?.length
+    ? brandContext.words_we_use.join(", ")
+    : "Not specified.";
+  const brandWordsWeAvoid = brandContext?.words_we_avoid?.length
+    ? brandContext.words_we_avoid.join(", ")
+    : "Not specified.";
 
   // [2] Auto-detect format (A/B/C) unless overridden
   const format = formatOverride || detectFormat(type, articleAngle, keywordType);
@@ -708,7 +720,18 @@ export async function generateWebPageMarkdownContent(params: GenerateWebPageMark
   // Assemble 8-block system prompt
   const blocks: string[] = [
     // Block 1: Brand Voice
-    `[1. BRAND VOICE BLOCK]\n${brandVoice}`,
+    `[1. BRAND VOICE BLOCK]
+${brandVoice}
+
+Always follow these brand-specific rules without exception:
+${brandAlwaysRules}
+
+Never do any of the following:
+${brandAvoidRules}
+
+Use words that feel like Well Told: ${brandWordsWeUse}
+
+Avoid words that feel generic, hollow, or off-brand: ${brandWordsWeAvoid}`,
 
     // Block 2: Keyword Context
     [
@@ -1247,21 +1270,29 @@ export async function generatePhilosophyIntro(
   title: string,
   brandContext?: {
     voice_document?: string;
-    always_rules?: string;
-    avoid_rules?: string;
+    always_rules?: string[];
+    avoid_rules?: string[];
+    words_we_use?: string[];
+    words_we_avoid?: string[];
   },
 ): Promise<string> {
   const voiceGuidance = brandContext?.voice_document
     ? `\n\nBrand voice guidance:\n${brandContext.voice_document}`
     : "";
-  const alwaysRules = brandContext?.always_rules
-    ? `\n\nAlways: ${brandContext.always_rules}`
+  const alwaysRules = brandContext?.always_rules?.length
+    ? `\n\nAlways:\n${brandContext.always_rules.map((r, i) => `${i + 1}. ${r}`).join("\n")}`
     : "";
-  const avoidRules = brandContext?.avoid_rules
-    ? `\n\nAvoid: ${brandContext.avoid_rules}`
+  const avoidRules = brandContext?.avoid_rules?.length
+    ? `\n\nAvoid:\n${brandContext.avoid_rules.map((r, i) => `${i + 1}. ${r}`).join("\n")}`
+    : "";
+  const wordsWeUse = brandContext?.words_we_use?.length
+    ? `\n\nWords that feel like Well Told: ${brandContext.words_we_use.join(", ")}`
+    : "";
+  const wordsWeAvoid = brandContext?.words_we_avoid?.length
+    ? `\n\nWords to avoid — generic, hollow, or off-brand: ${brandContext.words_we_avoid.join(", ")}`
     : "";
 
-  const systemPrompt = `You write the opening philosophy section for Well Told gift guide pages. Well Told makes personalized gifts built around places, moments, and memories — custom hometown map glassware, topographic designs, night sky pieces, and other story-driven keepsakes. Every piece is made to order and tied to something specific: a city, a trail, a date, a constellation.${voiceGuidance}${alwaysRules}${avoidRules}\n\n${NO_EMDASH}`;
+  const systemPrompt = `You write the opening philosophy section for Well Told gift guide pages. Well Told makes personalized gifts built around places, moments, and memories — custom hometown map glassware, topographic designs, night sky pieces, and other story-driven keepsakes. Every piece is made to order and tied to something specific: a city, a trail, a date, a constellation.${voiceGuidance}${alwaysRules}${avoidRules}${wordsWeUse}${wordsWeAvoid}\n\n${NO_EMDASH}`;
 
   const userPrompt = `Write a 2–3 paragraph opening section (150–200 words) for a Well Told gift guide page titled: "${title}"
 Primary keyword/topic: ${keyword}
