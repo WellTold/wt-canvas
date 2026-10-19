@@ -6,3 +6,5 @@ vite.config.ts.*
 *.tar.gz
 .env.local
 .env.*.local
+# local SEO audit data dump (server/scripts/export-seo-audit.ts)
+seo-audit-export.json
