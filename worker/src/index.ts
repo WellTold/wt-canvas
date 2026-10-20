@@ -754,6 +754,15 @@ a { color: inherit; }
 /* Responsive images inside article content */
 .wt-content img { max-width: 100%; width: 100%; height: auto; display: block; margin: 2rem auto; }
 
+/* Markdown lists and comparison tables in article content */
+.wt-content ul, .wt-content ol { margin: 0 0 1.5rem; padding-left: 1.75rem; }
+.wt-content li { margin-bottom: 0.5rem; }
+.wt-table-wrap { overflow-x: auto; margin: 0 0 2rem; }
+.wt-content table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.wt-content th, .wt-content td { border: 1px solid #1a1a1a; padding: 0.6rem 0.75rem; text-align: left; vertical-align: top; }
+.wt-content th { font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; font-size: 0.8rem; }
+.wt-content td img { margin: 0; }
+
 /* Paragraph */
 .wt-paragraph { margin: 0 0 1.5rem; }
 

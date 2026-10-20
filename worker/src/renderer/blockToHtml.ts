@@ -51,65 +51,114 @@ export interface RelatedArticleItem {
 }
 
 /** Convert a markdown string to safe HTML for in-Worker rendering.
- *  Handles all syntax produced by generateWebPageMarkdown (headings, paragraphs,
- *  lists, blockquotes, bold/italic, images, links).
- *  All text content and URL attributes are escaped — no stored-XSS path. */
-function markdownToHtmlSafe(md: string): string {
+ *  Handles headings (h1-h3), paragraphs, bullet and numbered lists, blockquotes,
+ *  pipe tables, bold/italic, images and links.
+ *  Parsed line by line so a malformed link can never run past the end of its line
+ *  and swallow the markup that follows it. All text and URLs are escaped. */
+export function markdownToHtmlSafe(md: string): string {
   if (!md) return "";
 
   function esc(s: string): string {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
   function safeHref(url: string): string {
-    // Only https?:// URLs reach here (filtered by regex); encode quote chars only
-    return url.replace(/"/g, "%22").replace(/'/g, "%27");
+    return url.replace(/"/g, "%22").replace(/'/g, "%27").replace(/</g, "%3C").replace(/>/g, "%3E");
+  }
+  function emphasis(s: string): string {
+    return s
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, "$1<em>$2</em>");
   }
 
-  // 1. Strip any raw HTML tags first (XSS guard — catches any that might slip in)
-  let s = md.replace(/<[^>]*>/g, "");
+  // Inline renderer for one line of text. Images and links are swapped for
+  // placeholders before escaping, so their HTML can't be re-escaped or mangled.
+  // URLs must be whitespace-free; a missing closing paren still renders as a link.
+  function inline(text: string): string {
+    const tokens: string[] = [];
+    const ph = (html: string) => `\u0000${tokens.push(html) - 1}\u0000`;
+    let t = text
+      .replace(/!\[([^\]\n]*)\]\((https?:\/\/[^\s)]+)\)?/g, (_m, alt, url) =>
+        ph(`<img src="${safeHref(url)}" alt="${esc(alt)}" loading="lazy" style="max-width:100%;width:100%;height:auto;display:block;margin:2rem auto;border:1px solid #1a1a1a;" />`))
+      .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)?/g, (_m, label, url) =>
+        ph(`<a href="${safeHref(url)}" rel="noopener">${emphasis(esc(label))}</a>`));
+    t = emphasis(esc(t));
+    return t.replace(/\u0000(\d+)\u0000/g, (_m, i) => tokens[Number(i)]);
+  }
 
-  // 2. Apply block-level patterns line by line (preserve ordering)
-  s = s
-    .replace(/^### (.*)$/gm, (_m, t) => `<h3>${esc(t)}</h3>`)
-    .replace(/^## (.*)$/gm, (_m, t) => `<h2>${esc(t)}</h2>`)
-    .replace(/^# (.*)$/gm, (_m, t) => `<h1>${esc(t)}</h1>`)
-    .replace(/^> — (.+)$/gm, (_m, t) => `<cite>— ${esc(t)}</cite>`)
-    .replace(/^> (.*)$/gm, (_m, t) => `<blockquote>${esc(t)}</blockquote>`)
-    .replace(/^\- (.+)$/gm, (_m, t) => `<li>${esc(t)}</li>`)
-    .replace(/^\d+\. (.+)$/gm, (_m, t) => `<li>${esc(t)}</li>`);
+  function tableCells(row: string): string[] {
+    return row.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+  }
+  const TABLE_SEPARATOR = /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?$/;
 
-  // 3. Inline patterns (images before links so ![...](...) is matched first)
-  s = s
-    .replace(/!\[([^\]]*)\]\((https?:\/\/[^\)]+)\)/g, (_m, alt, url) =>
-      `<img src="${safeHref(url)}" alt="${esc(alt)}" loading="lazy" style="max-width:100%;width:100%;height:auto;display:block;margin:2rem auto;border:1px solid #1a1a1a;" />`)
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, (_m, text, url) =>
-      `<a href="${safeHref(url)}" rel="noopener">${esc(text)}</a>`)
-    .replace(/\*\*(.+?)\*\*/g, (_m, t) => `<strong>${esc(t)}</strong>`)
-    .replace(/\*(.+?)\*/g, (_m, t) => `<em>${esc(t)}</em>`);
-
-  // 4. Wrap consecutive <li> lines in <ul>
-  s = s.replace(/((?:<li>(?:.|\n)*?<\/li>\n?)+)/g, "<ul>$1</ul>");
-
-  // 5. Merge adjacent blockquotes (quote continuation)
-  s = s.replace(/<\/blockquote>\n<blockquote>/g, "<br>");
-
-  // 6. Collect remaining lines into <p> paragraphs (blank-line separated)
-  const BLOCK_START = /^<(h[1-6]|ul|blockquote|cite|img)/;
-  const lines = s.split("\n");
+  // Raw HTML is never trusted from markdown (stored-XSS guard).
+  const lines = md.replace(/<[^>]*>/g, "").split("\n");
   const out: string[] = [];
-  let buf: string[] = [];
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed === "") {
-      if (buf.length) { out.push(`<p>${buf.join(" ")}</p>`); buf = []; }
-    } else if (BLOCK_START.test(trimmed)) {
-      if (buf.length) { out.push(`<p>${buf.join(" ")}</p>`); buf = []; }
-      out.push(line);
-    } else {
-      buf.push(line);
+  let para: string[] = [];
+  let list: { tag: "ul" | "ol"; items: string[] } | null = null;
+  let quote: string[] = [];
+
+  const flushPara = () => { if (para.length) { out.push(`<p>${para.map(inline).join(" ")}</p>`); para = []; } };
+  const flushList = () => { if (list) { out.push(`<${list.tag}>${list.items.map((i) => `<li>${inline(i)}</li>`).join("")}</${list.tag}>`); list = null; } };
+  const flushQuote = () => { if (quote.length) { out.push(`<blockquote>${quote.map(inline).join("<br>")}</blockquote>`); quote = []; } };
+  const flushAll = () => { flushPara(); flushList(); flushQuote(); };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line === "") { flushAll(); continue; }
+
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      flushAll();
+      const level = heading[1].length;
+      out.push(`<h${level}>${inline(heading[2].replace(/\s+#+$/, ""))}</h${level}>`);
+      continue;
     }
+
+    // Pipe table: header row, separator row, then body rows
+    if (line.startsWith("|") && i + 1 < lines.length && TABLE_SEPARATOR.test(lines[i + 1].trim())) {
+      flushAll();
+      const head = tableCells(line);
+      const rows: string[][] = [];
+      i += 2;
+      while (i < lines.length && lines[i].trim().startsWith("|")) {
+        rows.push(tableCells(lines[i]));
+        i++;
+      }
+      i--;
+      out.push(
+        `<div class="wt-table-wrap"><table><thead><tr>${head.map((c) => `<th>${inline(c)}</th>`).join("")}</tr></thead>` +
+          `<tbody>${rows.map((r) => `<tr>${head.map((_h, ci) => `<td>${inline(r[ci] ?? "")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`,
+      );
+      continue;
+    }
+
+    const cite = line.match(/^>\s*—\s*(.+)$/);
+    if (cite) { flushPara(); flushList(); flushQuote(); out.push(`<cite>— ${inline(cite[1])}</cite>`); continue; }
+    const bq = line.match(/^>\s?(.*)$/);
+    if (bq) { flushPara(); flushList(); quote.push(bq[1]); continue; }
+
+    const ul = line.match(/^[-*]\s+(.+)$/);
+    const ol = line.match(/^\d+[.)]\s+(.+)$/);
+    if (ul || ol) {
+      flushPara(); flushQuote();
+      const tag = ul ? "ul" : "ol";
+      if (list && list.tag !== tag) flushList();
+      if (!list) list = { tag, items: [] };
+      list.items.push((ul || ol)![1]);
+      continue;
+    }
+
+    // A line that is nothing but an image renders as a block, not inside a <p>
+    if (/^!\[[^\]\n]*\]\(https?:\/\/[^\s)]+\)?$/.test(line)) {
+      flushAll();
+      out.push(inline(line));
+      continue;
+    }
+
+    flushList(); flushQuote();
+    para.push(line);
   }
-  if (buf.length) out.push(`<p>${buf.join(" ")}</p>`);
+  flushAll();
   return out.join("\n");
 }
 
@@ -956,8 +1005,9 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
       "@type": "FAQPage",
       "mainEntity": wtFaq.map(f => ({
         "@type": "Question",
-        "name": escHtml(f.question),
-        "acceptedAnswer": { "@type": "Answer", "text": escHtml(faqAnswerPlainText(f.answer)) },
+        // Plain text: JSON-LD isn't HTML, and safeJsonLd already neutralizes </script>.
+        "name": f.question,
+        "acceptedAnswer": { "@type": "Answer", "text": faqAnswerPlainText(f.answer) },
       })),
     } : null;
 
@@ -1110,7 +1160,7 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
     ${renderRelatedArticles(relatedArticles)}
   </main>
   <div class="wt-brand-context">
-    <p><strong>Well Told Design</strong> is a Boston-based gift brand specialising in story-driven objects — glassware, drinkware, and textiles engraved with maps, constellations, and topographic designs. Every piece is personalised to a specific place, date, or memory.</p>
+    <p><strong>Well Told Design</strong> makes story-driven objects — glassware, drinkware, and textiles engraved with maps, constellations, and topographic designs. Every piece is personalized to a specific place, date, or memory.</p>
   </div>
   ${renderSiteFooter(siteSettings)}
 </body>
@@ -1210,7 +1260,7 @@ export async function renderPageHtml(page: Page, baseUrl: string, shopifyFetcher
     ${body}
   </main>
   <div class="wt-brand-context">
-    <p><strong>Well Told Design</strong> is a Boston-based gift brand specialising in story-driven objects — glassware, drinkware, and textiles engraved with maps, constellations, and topographic designs. Every piece is personalised to a specific place, date, or memory.</p>
+    <p><strong>Well Told Design</strong> makes story-driven objects — glassware, drinkware, and textiles engraved with maps, constellations, and topographic designs. Every piece is personalized to a specific place, date, or memory.</p>
   </div>
   ${renderSiteFooter(siteSettings)}
 </body>
