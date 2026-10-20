@@ -16,6 +16,7 @@ import {
   Globe2,
   Plug,
   KeyRound,
+  MapPin,
   Wand2,
   PlusSquare,
   Palette,
@@ -54,6 +55,7 @@ const navigationItems: NavSection[] = [
       { name: "Deployment",      href: "/pages/deployment",    icon: Rocket },
       { name: "Auto Publisher",  href: "/pages/auto-publisher", icon: CalendarClock },
       { name: "Keywords",        href: "/keywords",             icon: KeyRound },
+      { name: "Location Targets", href: "/location-targets",    icon: MapPin },
     ],
   },
   {

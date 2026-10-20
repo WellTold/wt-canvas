@@ -10,12 +10,12 @@ import {
   generateCTAs,
   selectKeywordsForTopic,
   generateKeywordsForTopic,
-  generatePhilosophyIntro,
 } from "./claude";
 import { fetchProductList, fetchProductsByHandles } from "./shopify";
-import { matchProductCatalog } from "../config/productCatalog";
-import { slugToLabel, withPhilosophyAfterTitle, filterSupportingKeywords } from "../utils/articleHelpers";
-import type { ContentItem } from "@shared/schema";
+import { matchProductCatalog, DEFAULT_CATALOG_ENTRY } from "../config/productCatalog";
+import { slugToLabel, filterSupportingKeywords } from "../utils/articleHelpers";
+import { findCoveringArticle, type CoverageCandidate } from "../utils/keywordCoverage";
+import type { ContentItem, Keyword, LocationTarget } from "@shared/schema";
 
 export const AUTO_PUBLISHER_AUTHOR_ID = "auto-publisher";
 
@@ -85,8 +85,45 @@ type ShopifyProductItem = {
   handle: string;
   price: string;
   imageUrl: string | null;
+  description?: string;
   variants?: any[];
 };
+
+/** First real paragraph of an article body (skipping the H1, images and headings). */
+function openingParagraph(markdown: string): string {
+  const paragraphs = (markdown || "").split(/\n{2,}/).map((p) => p.trim());
+  return (
+    paragraphs.find((p) => p.length > 80 && !/^(#|!\[|\||[-*] |\d+\. |>)/.test(p))?.replace(/\s+/g, " ") ?? ""
+  );
+}
+
+/** Deterministic per-keyword shuffle so the default bestsellers don't always lead with the same glass. */
+function rotateForKeyword<T>(items: T[], keyword: string): T[] {
+  if (items.length < 2) return items;
+  let h = 0;
+  for (let i = 0; i < keyword.length; i++) h = (h * 31 + keyword.charCodeAt(i)) >>> 0;
+  const start = h % items.length;
+  return [...items.slice(start), ...items.slice(0, start)];
+}
+
+/** Existing articles of every status, used for the duplicate-keyword guard and for originality context. */
+async function loadExistingArticles(): Promise<ContentItem[]> {
+  try {
+    return await storage.getContentItems("blog_article");
+  } catch (e) {
+    console.warn("[generate-article] could not load existing articles for coverage check:", (e as Error)?.message);
+    return [];
+  }
+}
+
+function toCoverageCandidates(items: ContentItem[]): CoverageCandidate[] {
+  return items.map((i) => ({
+    id: String(i.id),
+    title: i.title,
+    focusKeyword: i.primaryKeyword ?? null,
+    status: i.status,
+  }));
+}
 
 export async function generateAndCreateArticle(opts: GenerateArticleOptions): Promise<GenerateArticleResult> {
   const {
@@ -98,8 +135,22 @@ export async function generateAndCreateArticle(opts: GenerateArticleOptions): Pr
     logPrefix = "[generate-article]",
   } = opts;
 
+  const existingArticles = await loadExistingArticles();
+  const coverageCandidates = toCoverageCandidates(existingArticles);
+
   // 1. Resolve keyword — three paths: specific keyword, topic seed, or AI auto-pick
-  let kw: { id?: number; keyword: string; cluster?: string | null; contentTypeTarget?: string | null; articleAngle?: string | null; type?: string | null; priority?: string | null; volume?: number | null };
+  let kw!: {
+    id?: number;
+    keyword: string;
+    cluster?: string | null;
+    contentTypeTarget?: string | null;
+    articleAngle?: string | null;
+    type?: string | null;
+    priority?: string | null;
+    volume?: number | null;
+    intent?: string | null;
+    locationTargetId?: number | null;
+  };
   let clusterSupportingKeywords: any[] = [];
 
   if (inputKeywordId) {
@@ -109,6 +160,11 @@ export async function generateAndCreateArticle(opts: GenerateArticleOptions): Pr
       throw new KeywordNotFoundError("Keyword not found.");
     }
     kw = found;
+    const covering = findCoveringArticle(found.keyword, coverageCandidates);
+    if (covering) {
+      // Explicit pick from the library: honour it, but make the overlap visible in the logs.
+      console.warn(`${logPrefix} keyword "${found.keyword}" overlaps existing article "${covering.title}" (${covering.id}) — generating anyway because it was picked explicitly`);
+    }
     const allUntargeted = await storage.getKeywords({ status: "untargeted" });
     clusterSupportingKeywords = kw.cluster
       ? allUntargeted.filter((k) => k.cluster === kw.cluster && k.id !== kw.id && k.priority === "supporting")
@@ -207,8 +263,33 @@ export async function generateAndCreateArticle(opts: GenerateArticleOptions): Pr
     }
     const primaryCandidates = untargeted.filter((k) => k.priority === "primary");
     const pool = primaryCandidates.length > 0 ? primaryCandidates : untargeted;
-    const sorted = [...pool].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0));
-    kw = sorted[0];
+    // Opportunity = volume discounted by difficulty, so an easy 300/mo keyword can beat a
+    // 2,000/mo one nobody can rank for. Unknown KD is treated as middling (50).
+    const opportunity = (k: Keyword) => (k.volume ?? 0) / (1 + (k.kd ?? 50) / 25);
+    const sorted = [...pool].sort((a, b) => opportunity(b) - opportunity(a));
+
+    // Skip keywords an existing article already serves (cannibalization guard), and
+    // record the link so they aren't offered again.
+    let picked: Keyword | undefined;
+    for (const candidate of sorted) {
+      const covering = findCoveringArticle(candidate.keyword, coverageCandidates);
+      if (!covering) {
+        picked = candidate;
+        break;
+      }
+      console.log(`${logPrefix} skipping "${candidate.keyword}" — already covered by "${covering.title}" (${covering.id})`);
+      await storage.updateKeyword(candidate.id, {
+        status: covering.status === "live" ? "published" : "in_progress",
+        contentItemId: covering.id,
+        contentItemTitle: covering.title,
+      });
+    }
+    if (!picked) {
+      throw new NoUntargetedKeywordsError(
+        "Every untargeted keyword is already covered by an existing article. Add new keywords or location targets.",
+      );
+    }
+    kw = picked;
     clusterSupportingKeywords = kw.cluster
       ? untargeted.filter((k) => k.cluster === kw.cluster && k.id !== kw.id && k.priority === "supporting")
       : [];
@@ -230,8 +311,22 @@ export async function generateAndCreateArticle(opts: GenerateArticleOptions): Pr
     `${logPrefix} cluster "${kw.cluster}" has ${clusterSupportingKeywords.length} supporting keywords → filtered to ${filteredSupporting.length}: ${filteredSupporting.join(", ")}`,
   );
 
-  // 3. Determine content type
+  // 3. Determine content type, and the place this article is about (location targets)
   const contentType = kw.contentTypeTarget || "blog_article";
+  let place: LocationTarget | null = null;
+  if (kw.locationTargetId) {
+    place = await storage.getLocationTarget(kw.locationTargetId).catch(() => null);
+  }
+
+  // Newest first: what the model should deliberately differ from.
+  const recentArticles = [...existingArticles]
+    .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+    .slice(0, 12)
+    .map((a) => ({
+      title: a.title,
+      opening: openingParagraph(typeof a.content === "string" ? a.content : a.markdownContent || ""),
+    }))
+    .filter((a) => a.opening);
 
   // 4. Determine the article title.
   // When the caller supplied a topic/title (topic mode), honour it exactly —
@@ -243,7 +338,15 @@ export async function generateAndCreateArticle(opts: GenerateArticleOptions): Pr
     title = inputTopic;
   } else {
     try {
-      title = await generateTitle(kw.keyword, contentType, kw.keyword);
+      title = await generateTitle(
+        kw.keyword,
+        contentType,
+        kw.keyword,
+        undefined,
+        undefined,
+        undefined,
+        existingArticles.map((a) => a.title),
+      );
     } catch {
       title = `${kw.keyword.charAt(0).toUpperCase() + kw.keyword.slice(1)}: A Complete Guide`;
     }
@@ -253,10 +356,15 @@ export async function generateAndCreateArticle(opts: GenerateArticleOptions): Pr
   const siteBaseUrl = process.env.SITE_BASE_URL || "https://welltolddesign.com";
   const faqSearchTerm = kw.keyword || title;
 
-  // Check product catalog first — curated handles take priority over keyword search
-  const catalogEntryQC = matchProductCatalog(title, kw.keyword);
+  // Check product catalog first — curated handles take priority over keyword search.
+  // Places match the catalog on the place name too (parks, races, campuses map to products).
+  const catalogEntryQC = matchProductCatalog(place ? `${title} ${place.name}` : title, kw.keyword);
+  // The default bestsellers list is the same for every unmatched article; rotate it per
+  // keyword so the library doesn't lead with the same glass every time.
+  const catalogHandles =
+    catalogEntryQC === DEFAULT_CATALOG_ENTRY ? rotateForKeyword(catalogEntryQC.handles, kw.keyword) : catalogEntryQC.handles;
   const shopifyFetchQC = catalogEntryQC
-    ? fetchProductsByHandles(catalogEntryQC.handles).then(items => ({ items })).catch(() => ({ items: [] as ShopifyProductItem[] }))
+    ? fetchProductsByHandles(catalogHandles).then(items => ({ items })).catch(() => ({ items: [] as ShopifyProductItem[] }))
     : fetchProductList(8, faqSearchTerm).catch((e) => {
         console.error(`${logPrefix} Shopify fetch failed:`, e?.message);
         return { items: [] as ShopifyProductItem[] };
@@ -286,8 +394,12 @@ export async function generateAndCreateArticle(opts: GenerateArticleOptions): Pr
             const productUrl = `${siteBaseUrl}/products/${p.handle}`;
             const imageLine = p.imageUrl ? ` — image: ${p.imageUrl}` : "";
             const variantTitles = (p.variants ?? []).map((v: any) => v.title).filter((t: string) => t && t !== "Default Title");
-            const variantLine = variantTitles.length > 0 ? ` (available in: ${variantTitles.join(", ")})` : "";
-            return `- [${p.title}](${productUrl})${variantLine}${imageLine}`;
+            const variantLine = variantTitles.length > 0 ? ` (available in: ${variantTitles.slice(0, 8).join(", ")})` : "";
+            const price = Number(p.price);
+            const priceLine = price > 0 ? ` — price: from $${price.toFixed(0)}` : "";
+            const description = (p.description || "").replace(/\s+/g, " ").trim().slice(0, 240);
+            const descriptionLine = description ? ` — about: ${description}` : "";
+            return `- [${p.title}](${productUrl})${priceLine}${variantLine}${descriptionLine}${imageLine}`;
           })
           .join("\n")
       : undefined;
@@ -312,19 +424,23 @@ export async function generateAndCreateArticle(opts: GenerateArticleOptions): Pr
     ...(catalogEntryQC?.collections ?? []).map((c) => ({ title: slugToLabel(c), url: `${siteBaseUrl}/collections/${c}` })),
   ];
 
-  // 6. Run markdown generation + FAQ + CTAs + philosophy intro all in parallel
-  const [markdown, faqItems, ctaData, philosophyIntro] = await Promise.all([
+  // 6. Run markdown generation + FAQ + CTAs in parallel.
+  // (The separate "philosophy intro" is no longer prepended: it gave every article the
+  // same opening and pushed the part that answers the search below ~350 words.)
+  const [markdown, faqItems, ctaData] = await Promise.all([
     generateWebPageMarkdownContent({
       title,
       type: contentType,
       primaryKeyword: kw.keyword,
       supportingKeywords: supportingKeywordsStr,
       articleAngle: kw.articleAngle || undefined,
-      keywordType: kw.type || undefined,
+      intent: kw.intent ?? undefined,
       mood: "conversational",
       productContext,
       siteBaseUrl,
       brandContext,
+      place: place ? { name: place.name, kind: place.kind, region: place.region, notes: place.notes } : undefined,
+      recentArticles,
     }),
     generateFAQ(faqSearchTerm, supportingKeywordsStr, faqProductLinks).catch((e) => {
       console.error(`${logPrefix} FAQ generation failed:`, e?.message);
@@ -333,10 +449,6 @@ export async function generateAndCreateArticle(opts: GenerateArticleOptions): Pr
     generateCTAs(faqSearchTerm, siteBaseUrl).catch((e) => {
       console.error(`${logPrefix} CTA generation failed:`, e?.message);
       return null;
-    }),
-    generatePhilosophyIntro(kw.keyword, title, brandContext).catch((e) => {
-      console.error(`${logPrefix} Philosophy intro failed:`, e?.message);
-      return "";
     }),
   ]);
   console.log(
@@ -354,14 +466,13 @@ export async function generateAndCreateArticle(opts: GenerateArticleOptions): Pr
     return null;
   });
 
-  // 7b. Build structured data (Article JSON-LD + private _wt_ render keys)
-  const now = new Date().toISOString();
+  // 7b. Build structured data (Article JSON-LD + private _wt_ render keys).
+  // datePublished/dateModified are deliberately omitted: the worker fills them from the
+  // row's real published_at/updated_at, instead of freezing the draft-creation time.
   const structuredData: Record<string, any> = {
     "@context": "https://schema.org",
     "@type": "Article",
     headline: title,
-    datePublished: now,
-    dateModified: now,
     publisher: {
       "@type": "Organization",
       name: "Well Told Design",
@@ -369,7 +480,8 @@ export async function generateAndCreateArticle(opts: GenerateArticleOptions): Pr
     },
     ...(kw.keyword
       ? {
-          keywords: kw.keyword + (supportingKeywordsStr ? ", " + supportingKeywordsStr : ""),
+          // Primary keyword only: supporting lists from the library leaked junk phrases into page source.
+          keywords: kw.keyword,
         }
       : {}),
   };
@@ -399,7 +511,7 @@ export async function generateAndCreateArticle(opts: GenerateArticleOptions): Pr
     .slice(0, 80);
   const finalSlug = await storage.generateUniqueSlug(baseSlug, contentType);
 
-  const finalMarkdown = withPhilosophyAfterTitle(philosophyIntro, markdown);
+  const finalMarkdown = markdown;
 
   // Structural completeness check — catches "generation succeeded but produced
   // something unpublishable" (missing title/sections/FAQ) independent of whether
@@ -455,6 +567,12 @@ export async function generateAndCreateArticle(opts: GenerateArticleOptions): Pr
     }
     console.log(
       `${logPrefix} linked ${filteredSupportingObjects.length} supporting keywords (of ${clusterSupportingKeywords.length} in cluster) to article ${contentItemId}`,
+    );
+  }
+
+  if (place) {
+    await storage.updateLocationTarget(place.id, { status: "in_progress", contentItemId }).catch((e) =>
+      console.warn(`${logPrefix} could not link location target ${place!.id}:`, (e as Error)?.message),
     );
   }
 

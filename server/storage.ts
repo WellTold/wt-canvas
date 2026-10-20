@@ -2,8 +2,10 @@ import {
   type User, type InsertUser, type ContentItem, type InsertContentItem,
   type ContentBlock, type InsertContentBlock, type BrandContext,
   type Keyword, type InsertKeyword,
+  type LocationTarget, type InsertLocationTarget,
   contentItems as localContentItemsTable,
   keywords as keywordsTable,
+  locationTargets as locationTargetsTable,
 } from "@shared/schema";
 import { createClient } from '@supabase/supabase-js';
 import { db } from "./db";
@@ -289,6 +291,11 @@ export interface IStorage {
   createKeywordsBulk(keywords: InsertKeyword[]): Promise<Keyword[]>;
   updateKeyword(id: number, keyword: Partial<InsertKeyword>): Promise<Keyword>;
   deleteKeyword(id: number): Promise<void>;
+  getLocationTargets(): Promise<LocationTarget[]>;
+  getLocationTarget(id: number): Promise<LocationTarget | null>;
+  createLocationTargetsBulk(targets: InsertLocationTarget[]): Promise<LocationTarget[]>;
+  updateLocationTarget(id: number, target: Partial<InsertLocationTarget>): Promise<LocationTarget>;
+  deleteLocationTarget(id: number): Promise<void>;
 }
 
 import { MemoryStorage } from "./memory-storage";
@@ -1055,19 +1062,24 @@ export class DatabaseStorage implements IStorage {
     const rows = await db
       .insert(keywordsTable)
       .values(kws)
+      // Re-importing a keyword must never undo work: blank incoming fields keep the
+      // stored value, and status only moves forward from "untargeted" — otherwise a
+      // CSV re-import or accepted AI suggestion would requeue already-written keywords
+      // and the auto-publisher would write a second article on the same search.
       .onConflictDoUpdate({
         target: keywordsTable.keyword,
         set: {
           type: sql`excluded.type`,
-          volume: sql`excluded.volume`,
-          kd: sql`excluded.kd`,
-          articleAngle: sql`excluded.article_angle`,
+          volume: sql`coalesce(excluded.volume, ${keywordsTable.volume})`,
+          kd: sql`coalesce(excluded.kd, ${keywordsTable.kd})`,
+          intent: sql`coalesce(excluded.intent, ${keywordsTable.intent})`,
+          articleAngle: sql`coalesce(excluded.article_angle, ${keywordsTable.articleAngle})`,
           priority: sql`excluded.priority`,
-          cluster: sql`excluded.cluster`,
-          subcluster: sql`excluded.subcluster`,
-          contentTypeTarget: sql`excluded.content_type_target`,
-          status: sql`excluded.status`,
-          campaign: sql`excluded.campaign`,
+          cluster: sql`coalesce(excluded.cluster, ${keywordsTable.cluster})`,
+          subcluster: sql`coalesce(excluded.subcluster, ${keywordsTable.subcluster})`,
+          contentTypeTarget: sql`coalesce(excluded.content_type_target, ${keywordsTable.contentTypeTarget})`,
+          status: sql`case when ${keywordsTable.status} = 'untargeted' then excluded.status else ${keywordsTable.status} end`,
+          campaign: sql`coalesce(excluded.campaign, ${keywordsTable.campaign})`,
         },
       })
       .returning();
@@ -1100,6 +1112,29 @@ export class DatabaseStorage implements IStorage {
 
   async deleteKeyword(id: number): Promise<void> {
     await db.delete(keywordsTable).where(eq(keywordsTable.id, id));
+  }
+
+  async getLocationTargets(): Promise<LocationTarget[]> {
+    return db.select().from(locationTargetsTable).orderBy(desc(locationTargetsTable.createdAt));
+  }
+
+  async getLocationTarget(id: number): Promise<LocationTarget | null> {
+    const [row] = await db.select().from(locationTargetsTable).where(eq(locationTargetsTable.id, id)).limit(1);
+    return row ?? null;
+  }
+
+  async createLocationTargetsBulk(targets: InsertLocationTarget[]): Promise<LocationTarget[]> {
+    if (targets.length === 0) return [];
+    return db.insert(locationTargetsTable).values(targets).returning();
+  }
+
+  async updateLocationTarget(id: number, target: Partial<InsertLocationTarget>): Promise<LocationTarget> {
+    const [row] = await db.update(locationTargetsTable).set(target).where(eq(locationTargetsTable.id, id)).returning();
+    return row;
+  }
+
+  async deleteLocationTarget(id: number): Promise<void> {
+    await db.delete(locationTargetsTable).where(eq(locationTargetsTable.id, id));
   }
 }
 

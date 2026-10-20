@@ -88,6 +88,7 @@ interface RowState {
   cluster: string;
   subcluster: string;
   articleAngle: string;
+  intent: string;
   priority: string;
   contentTypeTarget: string;
   status: string;
@@ -102,6 +103,7 @@ const BLANK_ROW: RowState = {
   cluster: "",
   subcluster: "",
   articleAngle: "none",
+  intent: "auto",
   priority: "supporting",
   contentTypeTarget: "none",
   status: "untargeted",
@@ -119,6 +121,7 @@ function rowStateToPayload(r: RowState) {
     cluster: r.cluster.trim() || null,
     subcluster: r.subcluster.trim() || null,
     articleAngle: r.articleAngle === "none" ? null : r.articleAngle,
+    intent: r.intent === "auto" ? null : r.intent,
     priority: r.priority,
     contentTypeTarget: r.contentTypeTarget === "none" ? null : r.contentTypeTarget,
     status: r.status,
@@ -135,6 +138,7 @@ function keywordToRowState(kw: Keyword): RowState {
     cluster: kw.cluster ?? "",
     subcluster: kw.subcluster ?? "",
     articleAngle: kw.articleAngle ?? "none",
+    intent: kw.intent ?? "auto",
     priority: kw.priority ?? "supporting",
     contentTypeTarget: kw.contentTypeTarget ?? "none",
     status: kw.status,
@@ -166,6 +170,15 @@ function InlineRowFields({
           <SelectContent>
             <SelectItem value="primary">Primary</SelectItem>
             <SelectItem value="secondary">Secondary</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={row.intent} onValueChange={(v) => onChange({ ...row, intent: v })}>
+          <SelectTrigger className="h-7 text-xs mt-1" title="Search intent — decides the article structure"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="auto">Intent: auto</SelectItem>
+            <SelectItem value="commercial">Commercial</SelectItem>
+            <SelectItem value="informational">Informational</SelectItem>
+            <SelectItem value="transactional">Transactional</SelectItem>
           </SelectContent>
         </Select>
       </TableCell>
@@ -558,7 +571,7 @@ export default function Keywords() {
   const handleExportCsv = () => {
     const headers = [
       "keyword", "type", "priority", "status", "volume", "kd",
-      "cluster", "subcluster", "article_angle", "content_type_target",
+      "cluster", "subcluster", "article_angle", "intent", "content_type_target",
       "campaign", "linked_article_id", "linked_article_title",
     ];
 
@@ -579,6 +592,7 @@ export default function Keywords() {
       escape(kw.cluster),
       escape(kw.subcluster),
       escape(kw.articleAngle),
+      escape(kw.intent),
       escape(kw.contentTypeTarget),
       escape(kw.campaign),
       escape(kw.contentItemId),
@@ -656,20 +670,25 @@ export default function Keywords() {
     const normalize = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
     const header = allRows[0].map(normalize);
 
-    const col = (name: string) => {
-      const idx = header.indexOf(normalize(name));
-      return idx === -1 ? null : idx;
+    // Accepts several header spellings so Semrush/Ahrefs exports import without renaming.
+    const col = (...names: string[]) => {
+      for (const name of names) {
+        const idx = header.indexOf(normalize(name));
+        if (idx !== -1) return idx;
+      }
+      return null;
     };
 
-    const kwIdx = col("keyword");
+    const kwIdx = col("keyword", "keywords", "query");
     if (kwIdx === null) {
       toast({ title: "CSV must have a 'keyword' column", variant: "destructive" });
       return;
     }
 
     const typeIdx = col("type");
-    const volumeIdx = col("volume");
-    const kdIdx = col("kd");
+    const volumeIdx = col("volume", "search volume", "avg monthly searches", "global volume");
+    const kdIdx = col("kd", "keyword difficulty", "difficulty", "kd %");
+    const intentIdx = col("intent", "intents", "search intent");
     const clusterIdx = col("cluster");
     const subclusterIdx = col("subcluster");
     const angleIdx = col("articleAngle") ?? col("article_angle") ?? col("articleangle");
@@ -703,6 +722,15 @@ export default function Keywords() {
       return validStatuses.has(s) ? s : "untargeted";
     };
 
+    // Semrush/Ahrefs list intents like "Commercial, Transactional" — keep the first one we use.
+    const parseIntent = (v: string): string | null => {
+      const lower = v.toLowerCase();
+      for (const intent of ["informational", "commercial", "transactional", "navigational"]) {
+        if (lower.includes(intent)) return intent === "navigational" ? "transactional" : intent;
+      }
+      return null;
+    };
+
     const items = allRows
       .slice(1)
       .map((cols) => {
@@ -717,6 +745,7 @@ export default function Keywords() {
           type: validTypes.has(rawType) ? rawType : "primary",
           volume: volumeIdx !== null ? parseMaybeInt(cols[volumeIdx] ?? "") : null,
           kd: kdIdx !== null ? parseMaybePositiveInt(cols[kdIdx] ?? "") : null,
+          intent: intentIdx !== null ? parseIntent(cols[intentIdx] ?? "") : null,
           cluster: clusterIdx !== null ? cols[clusterIdx] || null : null,
           subcluster: subclusterIdx !== null ? cols[subclusterIdx] || null : null,
           articleAngle: rawAngle && validAngles.has(rawAngle) ? rawAngle : null,
@@ -1516,6 +1545,11 @@ export default function Keywords() {
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_COLORS[kw.type] ?? ""}`}>
                         {kw.type}
                       </span>
+                      {kw.intent && (
+                        <span className="block text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mt-1" title="Search intent">
+                          {kw.intent}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-right text-gray-700 dark:text-gray-300 tabular-nums">
                       {kw.volume != null ? kw.volume.toLocaleString() : "—"}

@@ -36,17 +36,16 @@ import {
   generateCTAs,
   selectKeywordsForTopic,
   generateKeywordsForTopic,
-  generatePhilosophyIntro,
 } from "./services/claude";
 import { marked } from "marked";
 import { fetchProductList, fetchProductsByHandles, fetchProductAllImages, isShopifyConfigured } from "./services/shopify";
-import { matchProductCatalog } from "./config/productCatalog";
+import { matchProductCatalog, PRODUCT_CATALOG } from "./config/productCatalog";
 import { supabaseLegacyPublisher } from "./services/supabase-legacy";
 import { markdownToHtml } from "./utils/markdown";
 import { COMPONENT_REGISTRY } from "./config/componentRegistry";
 import { db } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
-import { slugToLabel, withPhilosophyAfterTitle, filterSupportingKeywords } from "./utils/articleHelpers";
+import { slugToLabel, filterSupportingKeywords } from "./utils/articleHelpers";
 import { generateAndCreateArticle, KeywordNotFoundError, NoUntargetedKeywordsError } from "./services/articleGeneration";
 import { publishContentItemFull } from "./services/publishArticle";
 import {
@@ -3907,12 +3906,15 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
     "Informational — Build Authority",
   ] as const;
 
+  const KEYWORD_INTENTS = ["informational", "commercial", "transactional"] as const;
+
   const strictKeywordSchema = insertKeywordSchema.extend({
     keyword: z.string().trim().min(1, "Keyword must not be blank"),
     type: z.enum(["primary", "secondary"]).default("primary"),
     volume: z.number().int().nonnegative().nullish(),
     kd: z.number().int().min(0).nullish(),
     articleAngle: z.enum(ARTICLE_ANGLES).nullish(),
+    intent: z.enum(KEYWORD_INTENTS).nullish(),
     priority: z.enum(["primary", "supporting"]).default("supporting"),
     status: z
       .enum(["untargeted", "in_progress", "published"])
@@ -3947,6 +3949,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
             volume: z.number().int().nonnegative().nullish(),
             kd: z.number().int().min(0).nullish(),
             articleAngle: z.enum(ARTICLE_ANGLES).nullish(),
+            intent: z.enum(KEYWORD_INTENTS).nullish(),
             priority: z.enum(["primary", "supporting"]).optional(),
             cluster: z.string().nullish(),
             subcluster: z.string().nullish(),
@@ -3995,6 +3998,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           volume: k.volume ?? null,
           kd: k.kd ?? null,
           articleAngle: k.articleAngle ?? null,
+          intent: k.intent ?? null,
           priority: k.priority ?? parsed.priority ?? "supporting",
           cluster: k.cluster ?? parsed.cluster ?? null,
           subcluster: k.subcluster ?? null,
@@ -4055,6 +4059,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         kd: z.number().int().min(0).max(100).nullish(),
         cluster: z.string().nullish(),
         articleAngle: z.string().nullish(),
+        intent: z.enum(KEYWORD_INTENTS).nullish(),
         priority: z.string().optional(),
         contentTypeTarget: z.string().nullish(),
         status: z.enum(["untargeted", "in_progress", "published"]).optional(),
@@ -4087,6 +4092,129 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       res.json({ message: "Keyword deleted" });
     } catch (err) {
       res.status(500).json({ message: (err as Error).message });
+    }
+  });
+
+  // ── Location Targets ─────────────────────────────────────────────────────────
+  // Places Well Told can personalize for. Generating from one creates (or reuses) a
+  // linked keyword in the "places" cluster and runs the normal article pipeline,
+  // which switches to the place-guide structure when it sees the location link.
+  const LOCATION_KINDS = ["city", "state", "neighborhood", "national_park", "trail", "race", "college", "lake", "region", "other"] as const;
+  const locationTargetInputSchema = z.object({
+    name: z.string().trim().min(1, "Name must not be blank"),
+    kind: z.enum(LOCATION_KINDS).default("city"),
+    region: z.string().trim().nullish(),
+    keyword: z.string().trim().nullish(),
+    volume: z.number().int().nonnegative().nullish(),
+    kd: z.number().int().min(0).max(100).nullish(),
+    priority: z.enum(["high", "normal", "low"]).default("normal"),
+    notes: z.string().nullish(),
+  });
+
+  app.get("/api/location-targets", requireAuth, async (_req, res) => {
+    try {
+      res.json(await storage.getLocationTargets());
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch location targets: " + (err as Error).message });
+    }
+  });
+
+  app.post("/api/location-targets/bulk", requireAuth, async (req, res) => {
+    try {
+      const { targets } = z.object({ targets: z.array(locationTargetInputSchema).min(1) }).parse(req.body);
+      const created = await storage.createLocationTargetsBulk(
+        targets.map((t) => ({ ...t, region: t.region || null, keyword: t.keyword || null, notes: t.notes || null })),
+      );
+      res.status(201).json(created);
+    } catch (err) {
+      res.status(400).json({ message: (err as Error).message });
+    }
+  });
+
+  // Seed targets from the product catalog's place entries (parks, wine regions,
+  // marathons) — places Well Told already has dedicated products for. Skips names
+  // that already exist, so it's safe to run more than once.
+  app.post("/api/location-targets/seed-from-catalog", requireAuth, async (_req, res) => {
+    try {
+      const KIND_BY_PREFIX: Array<[string, (typeof LOCATION_KINDS)[number], (name: string) => string]> = [
+        ["National Park - ", "national_park", (n) => `${n} national park gifts`],
+        ["Wine Region - ", "region", (n) => `${n} gifts`],
+        ["Marathon - ", "race", (n) => `${n} marathon gifts`],
+      ];
+      const existing = new Set((await storage.getLocationTargets()).map((t) => t.name.toLowerCase()));
+      const toCreate = PRODUCT_CATALOG.flatMap((entry) => {
+        const rule = KIND_BY_PREFIX.find(([prefix]) => entry.label.startsWith(prefix));
+        if (!rule) return [];
+        const name = entry.label.slice(rule[0].length).trim();
+        if (existing.has(name.toLowerCase())) return [];
+        return [{ name, kind: rule[1], keyword: rule[2](name).toLowerCase(), priority: "normal" as const }];
+      });
+      const created = await storage.createLocationTargetsBulk(toCreate);
+      res.status(201).json({ created: created.length, targets: created });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to seed location targets: " + (err as Error).message });
+    }
+  });
+
+  app.patch("/api/location-targets/:id", requireAuth, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid location target id" });
+    try {
+      const partial = locationTargetInputSchema
+        .partial()
+        .extend({ status: z.enum(["untargeted", "in_progress", "published"]).optional() })
+        .parse(req.body);
+      res.json(await storage.updateLocationTarget(id, partial));
+    } catch (err) {
+      res.status(400).json({ message: (err as Error).message });
+    }
+  });
+
+  app.delete("/api/location-targets/:id", requireAuth, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid location target id" });
+    try {
+      await storage.deleteLocationTarget(id);
+      res.status(204).end();
+    } catch (err) {
+      res.status(500).json({ message: (err as Error).message });
+    }
+  });
+
+  app.post("/api/location-targets/:id/generate", requireAuth, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid location target id" });
+    try {
+      const target = await storage.getLocationTarget(id);
+      if (!target) return res.status(404).json({ message: "Location target not found" });
+      const phrase = (target.keyword || `${target.name} gifts`).trim().toLowerCase();
+      const [kw] = await storage.createKeywordsBulk([
+        {
+          keyword: phrase,
+          type: "primary",
+          priority: "primary",
+          cluster: "places",
+          subcluster: target.kind,
+          intent: "commercial",
+          contentTypeTarget: "blog_article",
+          status: "untargeted",
+          volume: target.volume ?? null,
+          kd: target.kd ?? null,
+          locationTargetId: target.id,
+        },
+      ]);
+      if (kw.locationTargetId !== target.id) {
+        await storage.updateKeyword(kw.id, { locationTargetId: target.id });
+      }
+      const result = await generateAndCreateArticle({
+        keywordId: kw.id,
+        authorId: req.userId!,
+        logPrefix: "[location-target]",
+      });
+      res.json({ id: result.item.id, title: result.item.title, keyword: result.keyword });
+    } catch (err) {
+      console.error("Location target generation error:", err);
+      res.status(500).json({ message: "Failed to generate article: " + (err as Error).message });
     }
   });
 
@@ -4309,7 +4437,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
           primaryKeyword: kw.keyword,
           supportingKeywords: batchSupportingStr,
           articleAngle: kw.articleAngle ?? undefined,
-          keywordType: kw.type || undefined,
+          intent: kw.intent ?? undefined,
           mood: "conversational",
           productContext,
           siteBaseUrl,
@@ -4701,15 +4829,15 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         ...(catalogEntry?.collections ?? []).map((c) => ({ title: slugToLabel(c), url: `${siteBaseUrl}/collections/${c}` })),
       ];
 
-      // Generate markdown + FAQ + CTAs + philosophy intro in parallel
-      const [markdown, faqItems, ctaData, philosophyIntro] = await Promise.all([
+      // Generate markdown + FAQ + CTAs in parallel
+      const [markdown, faqItems, ctaData] = await Promise.all([
         generateWebPageMarkdownContent({
           title,
           type: contentType,
           primaryKeyword: primaryKw,
           supportingKeywords: supportingKeywordsStr,
           articleAngle: linkedKw?.articleAngle || undefined,
-          keywordType: linkedKw?.type || undefined,
+          intent: linkedKw?.intent ?? undefined,
           mood: "conversational",
           productContext,
           siteBaseUrl,
@@ -4717,10 +4845,6 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
         }),
         generateFAQ(primaryKw, supportingKeywordsStr, faqProductLinks).catch(() => []),
         generateCTAs(primaryKw, siteBaseUrl).catch(() => null),
-        generatePhilosophyIntro(primaryKw, title, brandContext).catch((e) => {
-          console.error("[regenerate] Philosophy intro failed:", e?.message);
-          return "";
-        }),
       ]);
 
       // Meta description (non-fatal — regenerate still succeeds if this fails)
@@ -4762,7 +4886,7 @@ Sale copy: Honest about the offer, brief about the urgency, still on-brand in vo
       await storage.updateContentItem(id as any, {
         title,
         slug: newSlug,
-        markdownContent: withPhilosophyAfterTitle(philosophyIntro, markdown),
+        markdownContent: markdown,
         primaryKeyword: primaryKw,
         supportingKeywords: supportingKeywordsStr || null,
         structuredData: Object.keys(structuredData).length > 0 ? structuredData : null,

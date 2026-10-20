@@ -44,9 +44,9 @@ function cleanAIContent(content: string): string {
   // Replace any em-dashes that slipped through — universal house rule
   cleaned = cleaned.replace(/—/g, "-");
   // Strip year from H1 title line — titles should be evergreen
-  cleaned = cleaned.replace(/^(#\s+[^\n]*?)\s*\b20\d{2}\b\s*([^\n]*)/m, (_, before, after) => {
+  cleaned = cleaned.replace(/^#\s+([^\n]*\b20\d{2}\b[^\n]*)$/m, (_m, heading) => {
     console.warn(`[AI] Stripped year reference from generated title`);
-    return after.trim() ? `${before} ${after.trim()}` : before;
+    return `# ${stripYearReferences(heading)}`;
   });
   cleaned = stripDuplicateParagraphs(cleaned);
   return cleaned.trim();
@@ -167,42 +167,113 @@ Well Told products fall into these categories:
 
 When writing gift guides, draw recommendations from this universe. Do not recommend products outside this world unless explicitly writing a broad editorial guide.`;
 
-const FORMAT_A_INSTRUCTIONS = `FORMAT: Well Told Gift Guide
-Write a focused gift guide of 5-7 items maximum. Every recommendation must come from the Well Told product universe defined above. Give each item 2-4 sentences of story context — why this specific object works for this specific person or moment. Do not use bullet points for product descriptions; write in prose. Aim for 700-950 words total including intro and CTA paragraph. End with a single CTA paragraph linking to the collection. Do not pad with generic lifestyle products outside Well Told's world.`;
+// ─── Article structures ──────────────────────────────────────────────────────
+// Every article used to get one fixed format, which is the main reason the library
+// reads alike. Structures now follow search intent, and commercial gift-guide
+// keywords rotate between three shapes (weighted toward the scannable list Google
+// tends to rank for gift queries). See selectArticleStructure below.
+const COMPARISON_TABLE_RULE = `Include one compact comparison table in Markdown pipe-table syntax with the columns: Gift | Best for | Price | Personalize with. Use only prices given in the product context; where none is given, write "See options".`;
 
-const FORMAT_B_INSTRUCTIONS = `FORMAT: Brand Editorial Guide
-Write this as an opinionated essay, not a product list. The goal is to help the reader think differently about gifting in this context. Reference Well Told products 2-3 times as concrete examples, but do not make this a roundup. Write 600-900 words. End with a single understated CTA paragraph.`;
+export const ARTICLE_STRUCTURES = {
+  curated_list: `FORMAT: Curated gift list
+Recommend 6-10 specific gifts. Give each pick its own ### H3 heading with the product name, then 2-4 sentences: who it suits, why it works for this person, and exactly what to personalize (which place, date, coordinates or text). Mention the price when the product context lists one. Group the picks under 2-4 ## H2 sections that reflect real buying decisions (by what they love, by budget, by how they'll use it) rather than generic headings. ${COMPARISON_TABLE_RULE} Aim for 1,100-1,600 words.`,
+  decision_guide: `FORMAT: How-to-choose guide
+Answer the reader's question directly in the first 2-3 sentences. Then use 3-5 ## H2 sections that walk through how to choose well (what to personalize, which place or date to pick, which piece fits how they live, lead time), each grounded in concrete examples. Recommend 4-6 specific products along the way, with a ### H3 heading wherever a product is the focus. ${COMPARISON_TABLE_RULE} End with a short checklist as a Markdown bullet list. Aim for 1,000-1,400 words.`,
+  story_led: `FORMAT: Story-led guide
+Open with one concrete, specific scene that fits this exact search, not a general observation about gifting being hard. Then recommend 5-7 products, each under its own ### H3 heading, inside 2-3 ## H2 sections that each tie to a distinct kind of memory or place. ${COMPARISON_TABLE_RULE} Aim for 900-1,300 words.`,
+  place_guide: `FORMAT: Place guide
+Write for someone looking for a gift connected to one specific place. Show real knowledge of it: neighborhoods, landmarks, trails, traditions, details people who love it would recognize. Never generic filler that could apply to any town. Organize with ## H2 sections by kind of connection (grew up there, went to school there, ran it, got married there, moved away from it). Recommend 5-8 products with ### H3 headings and say exactly what to engrave on each (which part of the map, which coordinates, which date). ${COMPARISON_TABLE_RULE} Aim for 1,000-1,500 words.`,
+  corporate_guide: `FORMAT: Corporate and client gifting guide
+Write for a business buyer: an office manager, HR lead, founder, realtor or advisor buying for clients, employees or a team. Lead with their real constraints (budget per head, volume, lead time, making it feel personal instead of branded swag, shipping to many addresses). Use ## H2 sections for the main gifting situations (client thank-yous, employee milestones, closing gifts, events) and ### H3 headings for specific product recommendations. Explain how pieces can carry a company logo, a meaningful place (the office, the client's new home, the deal city) or a date. ${COMPARISON_TABLE_RULE} End with a short paragraph on ordering in volume. Aim for 1,000-1,400 words.`,
+  editorial: `FORMAT: Brand editorial guide
+Write this as an opinionated, genuinely useful essay that answers the question fully - not a product list. Help the reader think differently about this topic. Reference Well Told products 2-3 times as concrete examples. Use ## H2 sections a skimmer can follow. Aim for 800-1,200 words.`,
+  professional_landing: `FORMAT: Professional landing page
+Write for a professional buyer (realtor, HR director, financial advisor, etc.) who needs a gift that reflects well on them. Lead with their challenge, not our products. Speak peer-to-peer. Include practical context about how Well Told products can be personalized for this professional context. End with both a shop CTA and a volume inquiry CTA.`,
+} as const;
 
-const FORMAT_C_INSTRUCTIONS = `FORMAT: Professional Landing Page
-Write for a professional buyer (realtor, HR director, financial advisor, etc.) who needs a gift that reflects well on them. Lead with their challenge, not our products. Speak peer-to-peer. Include practical context about how Well Told products can be personalized for this professional context. End with both a shop CTA and a volume inquiry CTA.`;
+export type ArticleStructure = keyof typeof ARTICLE_STRUCTURES;
 
 const PERSONA_DEFINITIONS: Record<string, string> = {
-  "Personal Gifter": "Individual buying for someone they love. They want emotional permission and confidence they've found the right thing.",
+  "Personal Gifter": "Individual buying for someone they love. They want confidence they've found the right thing, and the details to order it correctly.",
   "Professional Gifter": "Service professional (realtor, advisor, planner) buying for a client. They need the gift to reflect well on them.",
-  "Institutional Buyer": "HR director, hospital, school buying in volume. They need process clarity, reliability, and scale confidence.",
+  "Institutional Buyer": "HR lead, office manager, school or company buying in volume. They need process clarity, reliability, budget fit and scale confidence.",
   "Brand / Editorial": "Discovery-phase reader. Not yet buying. Give generously — earn trust, not just a click.",
 };
 
-function detectFormat(type: string, articleAngle?: string | null, keywordType?: string): 'A' | 'B' | 'C' {
-  if (articleAngle) {
-    const angle = articleAngle.toLowerCase();
-    if (angle.includes('contrarian') || angle.includes('reframe')) return 'A';
-  }
-  if (type === 'landing_page' || type === 'landing') return 'C';
-  if (keywordType === 'informational') return 'B';
-  return 'A';
+const CORPORATE_TERMS = /\b(corporate|client|clients|employee|employees|staff|team|coworker|coworkers|company|business|bulk|volume|logo|branded|closing gift|realtor|onboarding)\b/i;
+
+function stableHash(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
 }
 
-function detectPersona(type: string, keywordType?: string, primaryKeyword?: string): string {
+/** Infer search intent when a keyword has none stored. */
+export function inferIntent(keyword: string): "informational" | "commercial" | "transactional" {
+  const k = keyword.toLowerCase();
+  if (/^(how|why|what is|what are|when|should|is it|can you)\b/.test(k) || /\b(meaning|history|etiquette|tradition|explained)\b/.test(k)) return "informational";
+  if (/\b(buy|order|custom|personalized|engraved|shop|near me|price)\b/.test(k) && !/\b(gift|gifts|ideas)\b/.test(k)) return "transactional";
+  return "commercial";
+}
+
+export function selectArticleStructure(opts: {
+  type: string;
+  keyword: string;
+  intent?: string | null;
+  isPlace?: boolean;
+  articleAngle?: string | null;
+}): ArticleStructure {
+  const { type, keyword, intent, isPlace, articleAngle } = opts;
+  if (type === 'landing_page' || type === 'landing') return 'professional_landing';
+  if (isPlace) return 'place_guide';
+  if (CORPORATE_TERMS.test(keyword)) return 'corporate_guide';
+  const angle = (articleAngle || '').toLowerCase();
+  if (angle.includes('story-led')) return 'story_led';
+  if (angle.includes('informational')) return 'editorial';
+  const resolvedIntent = intent || inferIntent(keyword);
+  if (resolvedIntent === 'informational') return stableHash(keyword) % 2 === 0 ? 'decision_guide' : 'editorial';
+  // Commercial/transactional gift searches: mostly the scannable list Google ranks,
+  // with some variety so the library doesn't read as one template.
+  const slot = stableHash(keyword) % 5;
+  return slot <= 2 ? 'curated_list' : slot === 3 ? 'decision_guide' : 'story_led';
+}
+
+function detectPersona(type: string, structure: ArticleStructure, primaryKeyword?: string): string {
   const kw = (primaryKeyword || '').toLowerCase();
-  if (type === 'landing_page' || type === 'landing') {
-    if (kw.includes('corporate') || kw.includes('hospital') || kw.includes('employee') || kw.includes('school') || kw.includes('company') || kw.includes('volume') || kw.includes('bulk')) {
-      return 'Institutional Buyer';
-    }
-    return 'Professional Gifter';
+  if (structure === 'corporate_guide' || structure === 'professional_landing') {
+    return /\b(employee|employees|staff|team|company|corporate|bulk|volume|hospital|school|onboarding)\b/.test(kw)
+      ? 'Institutional Buyer'
+      : 'Professional Gifter';
   }
-  if (keywordType === 'informational') return 'Brand / Editorial';
+  if (structure === 'editorial') return 'Brand / Editorial';
   return 'Personal Gifter';
+}
+
+// Phrases that turned up across dozens of published articles. The model is told to
+// avoid them so new articles stop echoing the same lines.
+const OVERUSED_PHRASES = [
+  "where he grew up", "where she grew up", "doesn't need anything", "says he wants nothing",
+  "says she wants nothing", "has everything", "particular kind of", "evidence that",
+  "Here's what we believe", "That's the whole idea behind what we make", "it's a quiet way of saying",
+  "designed to mark a specific", "rather than serve as a generic keepsake", "the exact arrangement of stars",
+  "candles", "gadgets", "another gift card", "hard to shop for", "pressure", "puzzle",
+];
+
+/**
+ * Remove a 4-digit year (and the "for/in/of" in front of it) from a title or H1,
+ * then tidy the punctuation it leaves behind. Titles should be evergreen; the old
+ * version left holes like "Best Christmas Gifts for : Top Picks".
+ */
+export function stripYearReferences(text: string): string {
+  return text
+    .replace(/\b20\d{2}['’]s\s+/g, "")
+    .replace(/\s*\b(?:for|in|of)\s+20\d{2}\b/gi, "")
+    .replace(/\s*\(?\b20\d{2}\b\)?/g, "")
+    .replace(/\s+([:,.!?])/g, "$1")
+    .replace(/:\s*:/g, ":")
+    .replace(/\s{2,}/g, " ")
+    .replace(/[\s:,\-]+$/, "")
+    .trim();
 }
 
 export interface FAQItem {
@@ -230,7 +301,8 @@ Rules:
 - Answers should be 2-4 sentences, direct, and specific
 ${linkRules}
 - Do not be salesy — answer the question genuinely first, then mention the product as a concrete example
-- Questions should cover: what to give, how to choose, what makes a good gift, and at least one specific Well Told angle
+- Questions should cover what a real searcher still wants to know after reading: how to choose, what to personalize, lead time and timing, budget, and at least one specific Well Told angle
+- Every question must stay on this exact topic: the same recipient and occasion as the keyword. Never ask about other occasions or holidays, other retailers or stores, or product categories Well Told doesn't make
 - Do not use exclamation points
 - Do not use: amazing, incredible, perfect, stunning, game-changer, must-have
 - Never reference a specific year (e.g. "in 2024", "this year") — the copy must read as evergreen since it may be read long after publishing
@@ -655,10 +727,20 @@ export interface GenerateWebPageMarkdownParams {
   articleAngle?: string | null;
   mood?: string;
   additionalInstructions?: string;
+  /** Legacy alias for intent; "primary"/"secondary" values are ignored. */
   keywordType?: string;
+  /** Search intent: informational | commercial | transactional. Inferred from the keyword when absent. */
+  intent?: string | null;
+  /** Force a structure instead of selecting one from intent/keyword. */
+  structure?: ArticleStructure;
+  /** Legacy editor format picker (A = list, B = editorial, C = professional); mapped to a structure. */
   format?: 'A' | 'B' | 'C';
   productContext?: string;
   siteBaseUrl?: string;
+  /** Set when the article targets a specific place (location target). */
+  place?: { name: string; kind: string; region?: string | null; notes?: string | null };
+  /** Recently generated articles, so the model can deliberately differ from them. */
+  recentArticles?: Array<{ title: string; opening: string }>;
   brandContext?: {
     voice_document?: string;
     always_rules?: string[];
@@ -678,9 +760,13 @@ export async function generateWebPageMarkdownContent(params: GenerateWebPageMark
     additionalInstructions,
     brandContext,
     keywordType,
-    format: formatOverride,
+    intent: intentParam,
+    structure: structureParam,
+    format: legacyFormat,
     productContext,
     siteBaseUrl = "https://welltolddesign.com",
+    place,
+    recentArticles = [],
   } = params;
 
   // [1] Brand voice — prefer stored voice doc, fall back to hardcoded constant
@@ -698,16 +784,24 @@ export async function generateWebPageMarkdownContent(params: GenerateWebPageMark
     ? brandContext.words_we_avoid.join(", ")
     : "Not specified.";
 
-  // [2] Auto-detect format (A/B/C) unless overridden
-  const format = formatOverride || detectFormat(type, articleAngle, keywordType);
-  const formatInstruction =
-    format === 'C' ? FORMAT_C_INSTRUCTIONS :
-    format === 'B' ? FORMAT_B_INSTRUCTIONS :
-    FORMAT_A_INSTRUCTIONS;
+  // [2] Pick the article structure from intent (stored, legacy keywordType, or inferred)
+  const legacyIntent = keywordType && !['primary', 'secondary'].includes(keywordType) ? keywordType : null;
+  const intent = intentParam || legacyIntent || inferIntent(primaryKeyword || title);
+  const LEGACY_FORMATS: Record<string, ArticleStructure> = { A: 'curated_list', B: 'editorial', C: 'professional_landing' };
+  const structureOverride = structureParam || (legacyFormat ? LEGACY_FORMATS[legacyFormat] : undefined);
+  const structure: ArticleStructure = structureOverride || selectArticleStructure({
+    type,
+    keyword: primaryKeyword || title,
+    intent,
+    isPlace: !!place,
+    articleAngle,
+  });
+  const formatInstruction = ARTICLE_STRUCTURES[structure];
 
-  // [3] Auto-detect persona
-  const persona = detectPersona(type, keywordType, primaryKeyword);
+  // [3] Persona follows the structure
+  const persona = detectPersona(type, structure, primaryKeyword);
   const personaDescription = PERSONA_DEFINITIONS[persona] || PERSONA_DEFINITIONS['Personal Gifter'];
+  console.log(`[AI] article structure=${structure} intent=${intent} persona=${persona} for "${primaryKeyword || title}"`);
 
   // [4] Resolve article angle definition
   const angleKey = articleAngle
@@ -740,47 +834,53 @@ Avoid words that feel generic, hollow, or off-brand: ${brandWordsWeAvoid}`,
         ? `Primary keyword (optimize H1, meta title, meta description, and opening paragraph for this exact term): ${primaryKeyword}`
         : '',
       supportingKeywords
-        ? `Supporting keywords (weave naturally throughout body — do not force, do not repeat more than twice each):\n${supportingKeywords}`
+        ? `Supporting keywords (use only the ones that fit naturally - skip any that would need a forced sentence or heading; never more than twice each):\n${supportingKeywords}`
         : '',
-      keywordType ? `Keyword intent: ${keywordType}` : '',
+      `Search intent: ${intent}`,
+      'Scope: this article serves ONE search. Stay on its recipient and occasion. Do not add sections for other occasions or other recipients (for example, no Christmas or Valentine\'s section in a birthday article) unless the primary keyword itself names them.',
       articleAngle
         ? `Article angle / tone direction: ${articleAngle}${angleDefinition ? `\n  → ${angleDefinition}` : ''}`
         : '',
-      '',
-      'Angle definitions for reference:',
-      Object.entries(ARTICLE_ANGLE_DEFINITIONS).map(([k, v]) => `- ${k}: ${v}`).join('\n'),
     ].filter(Boolean).join('\n'),
 
     // Block 3: Format
     `[3. FORMAT BLOCK]\n${formatInstruction}`,
 
     // Block 4: Persona
-    [
-      '[4. PERSONA BLOCK]',
-      `Target reader persona: ${persona}`,
-      personaDescription,
-      '',
-      'Persona reference:',
-      Object.entries(PERSONA_DEFINITIONS).map(([k, v]) => `- ${k}: ${v}`).join('\n'),
-    ].join('\n'),
+    ['[4. PERSONA BLOCK]', `Target reader: ${persona}`, personaDescription].join('\n'),
+
+    // Block 4b: Place (location-targeted articles only)
+    place
+      ? `[4b. PLACE BLOCK]
+This article is about: ${place.name}${place.region ? ` (${place.region})` : ''} - ${place.kind.replace(/_/g, ' ')}.
+${place.notes ? `Local detail to draw on: ${place.notes}\n` : ''}Use specific, accurate local detail. If you are not confident a detail is true, leave it out rather than guess.`
+      : '',
+
+    // Block 4c: Be different from what's already published
+    `[4c. ORIGINALITY BLOCK]
+This article joins a library of existing Well Told articles and must not read like them.
+- Do not use these stock phrases from earlier articles unless one is part of the primary keyword itself: ${OVERUSED_PHRASES.map((p) => `"${p}"`).join(', ')}.
+- Do not open by saying the recipient is hard to shop for, already has everything, or doesn't want anything, and do not open by dismissing candles, gadgets, gift cards or other generic gifts. Open with the most useful or specific thing for this exact search.
+- Vary which product you lead with; do not default to the same glass every time.${
+      recentArticles.length > 0
+        ? `\n- Recently published articles open like this. Your opening must differ in angle, scene and wording:\n${recentArticles
+            .map((a) => `  * "${a.title}": ${a.opening.slice(0, 220)}`)
+            .join('\n')}`
+        : ''
+    }`,
 
     // Block 5: Product Context
     productContext
       ? `[5. PRODUCT CONTEXT BLOCK]
-Relevant Well Told products for this article. Each line shows the product link and, where available, a product image URL.
+Relevant Well Told products for this article. Each line shows the product link and, where available, its price, a short description and a product image URL. Use the description and price to say something concrete about each pick; never invent prices, sizes or personalization options that aren't listed.
 
-LINKING: When you reference a product inline, use Markdown hyperlink syntax: [Product Name](url). Do not bold the product name.
+LINKING: When you reference a product inline, use Markdown hyperlink syntax: [Product Name](url). Do not bold the product name. Every link must be written in full, opening and closing parentheses on the same line.
 
-IMAGES: Where a product line includes "— image: <url>", embed the image once in the article at a natural point near where you first mention that product, using this syntax:
+IMAGES: Where a product line includes "— image: <url>", embed the image once in the article at a natural point near where you first mention that product, on its own line, using this syntax:
 ![Product Name](image-url)
-Place the image directly after the paragraph that mentions the product. Do not embed the same image twice. Only use image URLs explicitly listed below — do not invent or guess image URLs.
+Never put an image inside a link or a sentence. Do not embed the same image twice. Only use image URLs explicitly listed below — do not invent or guess image URLs.
 
-${productContext}
-
-Standard Well Told collection links you may also use where natural:
-- [Map Glassware](${siteBaseUrl}/collections/map-glasses)
-- [Constellation Glassware](${siteBaseUrl}/collections/constellation-glasses)
-- [Topographic Drinkware](${siteBaseUrl}/collections/topographic-drinkware)`
+${productContext}`
       : `[5. PRODUCT CONTEXT BLOCK]
 No specific product data available. Draw all product references from the Well Told product universe described in Block 1. Do not invent product names or URLs. Where you would link to a product, link to a relevant collection instead using these standard URLs:
 - [Map Glassware](${siteBaseUrl}/collections/map-glasses)
@@ -793,20 +893,19 @@ Use Markdown hyperlink syntax: [link text](url). Do not bold product names that 
     // Block 6: Content Rules
     `[6. CONTENT RULES BLOCK]
 - Do not recommend products outside the Well Told universe (no yoga mats, candles, cable organizers, compression socks, or generic lifestyle items)
-- Do not include a year in the title or article — titles should be evergreen
+- Do not include a year anywhere in the title or article — the copy must stay evergreen
 - Never repeat the same paragraph or opening sentence more than once in the article — each paragraph must be distinct. Do not restate the introduction or hook later in the piece.
 - Do not use exclamation points
 - Do not use the words: amazing, incredible, perfect, stunning, game-changer, must-have, high-quality, affordable luxury
-- Do not write bullet-point product descriptions — use prose
-- Do end with exactly one CTA — not multiple competing calls to action
+- Describe each product in prose sentences; bullet lists are for checklists and quick comparisons, not product write-ups
+- End with one short closing paragraph containing at most one link (the page adds its own call-to-action buttons)
 - Do write in second person ("you", "your") for gift guides
 - HYPERLINKS: When referencing any Well Told product or collection, always use Markdown link syntax [text](url). Never bold a product name that should be a link. Every product mention should be a clickable hyperlink.
 - AMERICAN ENGLISH ONLY: Use American spellings throughout — "specializing" not "specialising", "personalized" not "personalised", "recognizing" not "recognising", etc. The audience is US-based.
 
 ARTICLE STRUCTURE — CRITICAL:
-- NEVER open with a brand description or company bio paragraph. Do NOT write "Well Told Design is a [city]-based brand..." or any sentence that introduces the company at the top. This interrupts reader momentum and hurts SEO by placing off-topic content before the article body.
-- The article must open immediately with story, hook, or content that serves the reader's search intent. The person landing from search is in discovery or buying mode — earn their attention before mentioning the brand.
-- If brand context belongs anywhere, place a brief 2-sentence brand note AFTER the final CTA at the very end of the article, as a closing trust signal. Keep it factual and American English. Omit city/location references (do not say "Boston-based" or name a specific city).`,
+- NEVER write a brand description or company bio paragraph anywhere in the article (no "Well Told Design makes...", "Here's what we believe", or "That's the whole idea behind what we make"). The page already adds a brand note automatically.
+- The article must open immediately with content that serves the reader's search intent. The person landing from search is in discovery or buying mode — earn their attention before mentioning the brand.`,
 
     // Block 7: SEO Rules
     `[7. SEO RULES BLOCK]
@@ -817,10 +916,10 @@ These articles are written for SEO. Follow SEO best practices for search-intent-
 - NEVER write supporting keywords as a series or list in the same sentence or paragraph (e.g., do NOT write "whether you're looking for X, Y, or Z" or "gifts for mom for Christmas, Mother's Day, birthdays..."). Each keyword belongs in its own sentence, in a different section
 - Do not stuff keywords — if it doesn't read naturally, cut it
 - H1 should match or closely paraphrase the article title
-- Use ## for H2 section headers — each should naturally include a supporting keyword where possible
+- Use ## for H2 sections and ### for H3 sub-sections. Headings must read naturally and be useful to someone skimming; never bend a heading to fit a keyword (bad: "A Christmas Gift Idea for Christmas That Starts With a Place")
 - Keep the opening paragraph tightly relevant to the search query — Google uses it to confirm topical match
 - Return a single complete Markdown document starting with the # H1 title
-- Use standard Markdown: **bold**, *italic*, [hyperlinks](url), bullet lists, numbered lists, blockquotes (>)
+- Use standard Markdown: **bold**, *italic*, [hyperlinks](url), bullet lists, numbered lists, blockquotes (>), and pipe tables
 - Do NOT include JSON, code fences, or any non-Markdown formatting
 - Do NOT add subscription CTAs, follow-our-blog links, or placeholder links`,
 
@@ -969,7 +1068,9 @@ export async function generateTitle(
   primaryKeyword?: string,
   supportingKeywords?: string,
   metaDescription?: string,
-  templateContext?: string
+  templateContext?: string,
+  /** Existing article titles — the new title must not echo their patterns. */
+  avoidTitles?: string[]
 ): Promise<string> {
   let userPrompt = `Generate an SEO-optimized title for this ${type} content: ${content}`;
   if (templateContext) userPrompt += `\n\nTemplate: ${templateContext}`;
@@ -978,6 +1079,8 @@ export async function generateTitle(
     userPrompt += `\n\nIMPORTANT: Include the primary keyword "${primaryKeyword}" naturally in the title.`;
   if (supportingKeywords)
     userPrompt += `\n\nConsider these supporting keywords for context: ${supportingKeywords}`;
+  if (avoidTitles && avoidTitles.length > 0)
+    userPrompt += `\n\nThese titles already exist on the site. Yours must use a different structure and wording, not the same template with new words:\n${avoidTitles.slice(0, 40).map((t) => `- ${t}`).join("\n")}`;
 
   const response = await anthropic.messages.create({
     model: MODEL,
@@ -997,27 +1100,40 @@ GOALS:
 1. SEO: capture the search intent of the keyword topic
 2. GEO: specific, human titles get cited by AI search engines; generic ones do not
 
+LEAD WITH THE SEARCH TERM: put the core of the keyword near the start of the title so it isn't cut off in search results, then add one specific hook.
+
 VARY the structure:
-- "Gifts for the Dad Who Loves Stargazing" (recipient-led)
-- "What to Give Someone Who Has Everything" (occasion-led)
-- "Night Sky Gifts Worth Remembering" (topic-led)
-- "What Do You Get Someone Who Loves the Stars?" (question — great for GEO)
-- "Five Gifts for the Person Who Says They Don't Want Anything" (purposeful number)
+- "Gifts for Hikers: 8 Trail Maps Worth Engraving" (topic + specific hook)
+- "Night Sky Gifts for an Anniversary, From $40" (topic + price anchor)
+- "How to Pick a Hometown Map Gift Someone Will Use" (how-to)
+- "What Do You Get Someone Who Loves the Stars?" (question — good for AI answers)
+- "Boston Gifts That Locals Would Actually Keep" (place-led)
 
 BANNED:
 - "[Keyword]: A Complete Guide" / "The Ultimate Guide to [Keyword]"
-- Lazy list titles: "10 Best [Keyword] Ideas for [Year]"
+- Any year
+- Lazy list titles: "10 Best [Keyword] Ideas"
 - Vague superlatives with nothing specific: "Amazing", "Perfect", "Incredible"
+- Overused patterns from this site: "That Feel X, Not Y", "Who Says He/She Doesn't Need Anything", "Who Has Everything" (unless it is the keyword), "He'll/She'll Actually Love", "Thoughtful", "From Someone Who Gets It"
 
 ${primaryKeyword ? `Keyword topic: "${primaryKeyword}"` : ""}
 
-50–70 characters. ${NO_EMDASH} Return only the title — no quotes, no explanation.`,
+Under 60 characters so it isn't truncated in Google. ${NO_EMDASH} Return only the title — no quotes, no explanation.`,
     messages: [{ role: "user", content: userPrompt }],
   });
 
   let title = response.content[0].type === "text" ? response.content[0].text.trim() : `${type} Title`;
-  title = title.replace(/^["'`]+|["'`]+$/g, "").trim();
-  return title;
+  title = title.replace(/^["'`]+|["'`]+$/g, "").replace(/—/g, "-").trim();
+  return stripYearReferences(title);
+}
+
+/** Trim to a word boundary so search results don't cut a description mid-word. */
+function clampMetaDescription(text: string, max = 160): string {
+  const clean = text.replace(/^["'`]+|["'`]+$/g, "").replace(/—/g, "-").replace(/\s+/g, " ").trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max - 1);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${(lastSpace > 100 ? cut.slice(0, lastSpace) : cut).replace(/[\s,;:\-]+$/, "")}.`;
 }
 
 export async function generateMetaDescription(
@@ -1047,7 +1163,7 @@ export async function generateMetaDescription(
   });
 
   const text = response.content[0].type === "text" ? response.content[0].text.trim() : `Learn more about ${title}`;
-  return text;
+  return clampMetaDescription(text);
 }
 
 export interface KeywordSuggestion {
@@ -1133,20 +1249,22 @@ CTA 1 (inline, mid-article): One sentence (max 20 words, lead with a specific im
 
 CTA 2 (bottom section): One headline (max 8 words) + one supporting sentence (max 25 words) + one primary button label (max 6 words) + one secondary link label (max 6 words). Pick specific, relevant collection URLs — never use /collections/all.
 
-Return JSON in this exact shape (fill in all fields):
+Choose the URLs that best fit this topic - do not default to the same collections for every article. Do not open the inline sentence with "Think of" or "Picture", and do not reuse "the city where you had your first date" or "the trail he still talks about".
+
+Return JSON in this exact shape (fill in every field; each url is ${siteBaseUrl} followed by one of the collection paths above):
 {
   "inline": {
     "body": "...",
     "buttonText": "...",
-    "url": "${siteBaseUrl}/collections/anniversary-gifts"
+    "url": "..."
   },
   "bottom": {
     "headline": "...",
     "body": "...",
     "primaryButtonText": "...",
-    "primaryUrl": "${siteBaseUrl}/collections/map-glasses",
-    "secondaryText": "Explore More Gifts",
-    "secondaryUrl": "${siteBaseUrl}/collections/constellation-glasses"
+    "primaryUrl": "...",
+    "secondaryText": "...",
+    "secondaryUrl": "..."
   }
 }`,
       }],

@@ -396,12 +396,39 @@ export const keywords = pgTable("keywords", {
   contentItemId: text("content_item_id"), // linked content item (local int id or Supabase UUID)
   contentItemTitle: text("content_item_title"), // cached title of the linked article
   campaign: text("campaign"), // optional campaign / sprint grouping
+  // Search intent drives the article structure: informational | commercial | transactional.
+  // (Distinct from `type`, which is only primary vs supporting.) Null = infer from the keyword.
+  intent: text("intent"),
+  locationTargetId: integer("location_target_id"), // set when this keyword was created from a location target
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertKeywordSchema = createInsertSchema(keywords).omit({ id: true, createdAt: true });
 export type Keyword = typeof keywords.$inferSelect;
 export type InsertKeyword = z.infer<typeof insertKeywordSchema>;
+
+// ─── Location Targets ────────────────────────────────────────────────────────
+// Places Well Told can make a product for (hometowns, parks, races, campuses...).
+// Place-based searches are where the map/star/topo products are the actual answer,
+// so these get their own planning list; generating from one creates a linked keyword.
+export const locationTargets = pgTable("location_targets", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(), // "Acadia National Park", "Boston", "Boston Marathon"
+  kind: text("kind").notNull().default("city"), // city | state | neighborhood | national_park | trail | race | college | lake | region | other
+  region: text("region"), // state/country context, e.g. "Maine"
+  keyword: text("keyword"), // search phrase to target, e.g. "acadia national park gifts"
+  volume: bigint("volume", { mode: "number" }),
+  kd: integer("kd"),
+  priority: text("priority").notNull().default("normal"), // high | normal | low
+  status: text("status").notNull().default("untargeted"), // untargeted | in_progress | published
+  contentItemId: text("content_item_id"),
+  notes: text("notes"), // local detail worth using: landmarks, rivalries, the race date, campus traditions
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertLocationTargetSchema = createInsertSchema(locationTargets).omit({ id: true, createdAt: true });
+export type LocationTarget = typeof locationTargets.$inferSelect;
+export type InsertLocationTarget = z.infer<typeof insertLocationTargetSchema>;
 
 // ─── Integrations ────────────────────────────────────────────────────────────
 export const integrations = pgTable("integrations", {

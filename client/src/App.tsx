@@ -32,6 +32,7 @@ import Integrations from "@/pages/Integrations";
 import SupabaseTest from "@/pages/SupabaseTest";
 import SiteSettings from "@/pages/SiteSettings";
 import Keywords from "@/pages/Keywords";
+import LocationTargets from "@/pages/LocationTargets";
 import ImageStudio from "@/pages/ImageStudio";
 import ImageTemplates from "@/pages/ImageTemplates";
 import WorkerDeployment from "@/pages/WorkerDeployment";
@@ -114,6 +115,7 @@ function Router() {
           <Route path="/settings/brand-context" component={BrandContext} />
           <Route path="/integrations" component={Integrations} />
           <Route path="/keywords" component={Keywords} />
+          <Route path="/location-targets" component={LocationTargets} />
           <Route path="/content/create" component={ImageStudio} />
           <Route path="/content/image-templates" component={ImageTemplates} />
           <Route path="/supabase-test" component={SupabaseTest} />
