@@ -32,7 +32,9 @@ export default {
       // instant meta refresh (Google treats it as a permanent redirect) + canonical.
       // Only looked up on a miss, so normal page views pay no extra queries.
       const proxyRedirect = await checkRedirects(path, env);
-      return proxyRedirect ? renderRedirectPage(proxyRedirect) : page;
+      if (proxyRedirect) return renderRedirectPage(proxyRedirect);
+      page.headers.set("X-WT-Redirect-Check", "v2"); // lets us confirm from outside which build is live
+      return page;
     }
 
     // ── Direct worker access (workers.dev or legacy welltold.design) ──────────
@@ -664,18 +666,45 @@ function renderRedirectPage(target: string): Response {
   });
 }
 
+// Matches in code rather than with a Postgres array filter: `.contains()` only works
+// when redirect_from is a text[] column and fails silently when it's jsonb, and a
+// slug listed on two rows made maybeSingle() error. Only runs on a page miss, and
+// only reads rows that actually have redirects, so the cost is small.
+function normalizeSlug(s: unknown): string {
+  return String(s ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\/[^/]+/, "")
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/^a\/articles\//, "");
+}
+
 async function checkRedirects(path: string, env: Env): Promise<string | null> {
+  const slug = normalizeSlug(path);
+  if (!slug) return null;
   const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
-  const slug = path.replace(/^\//, "");
 
-  const [blog, landing, lead] = await Promise.all([
-    supabase.from("blog_articles").select("slug").contains("redirect_from", [slug]).maybeSingle(),
-    supabase.from("landing_pages").select("slug").contains("redirect_from", [slug]).maybeSingle(),
-    supabase.from("lead_magnets").select("slug").contains("redirect_from", [slug]).maybeSingle(),
-  ]);
-  const data = blog.data ?? landing.data ?? lead.data ?? null;
-  if (data) return `${env.SITE_BASE_URL}/a/articles/${data.slug}`;
-
+  const results = await Promise.all(
+    ["blog_articles", "landing_pages", "lead_magnets"].map((table) =>
+      supabase.from(table).select("slug, status, redirect_from").not("redirect_from", "is", null),
+    ),
+  );
+  for (const { data, error } of results) {
+    if (error) {
+      console.error("[redirects] lookup failed:", error.message);
+      continue;
+    }
+    for (const row of (data ?? []) as Array<{ slug: string; status: string | null; redirect_from: unknown }>) {
+      if (row.status && row.status !== "live") continue; // never forward to a draft
+      let list: unknown = row.redirect_from;
+      if (typeof list === "string") {
+        try { list = JSON.parse(list); } catch { list = list.replace(/^\{|\}$/g, "").split(","); }
+      }
+      if (Array.isArray(list) && list.some((entry) => normalizeSlug(entry) === slug)) {
+        return `${env.SITE_BASE_URL}/a/articles/${row.slug}`;
+      }
+    }
+  }
   return null;
 }
 
