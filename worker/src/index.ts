@@ -697,8 +697,9 @@ async function checkRedirects(path: string, env: Env): Promise<string | null> {
     for (const row of (data ?? []) as Array<{ slug: string; status: string | null; redirect_from: unknown }>) {
       if (row.status && row.status !== "live") continue; // never forward to a draft
       let list: unknown = row.redirect_from;
-      if (typeof list === "string") {
-        try { list = JSON.parse(list); } catch { list = list.replace(/^\{|\}$/g, "").split(","); }
+      if (typeof row.redirect_from === "string") {
+        const raw = row.redirect_from;
+        try { list = JSON.parse(raw); } catch { list = raw.replace(/^\{|\}$/g, "").split(","); }
       }
       if (Array.isArray(list) && list.some((entry) => normalizeSlug(entry) === slug)) {
         return `${env.SITE_BASE_URL}/a/articles/${row.slug}`;
