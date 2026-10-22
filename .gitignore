@@ -8,3 +8,5 @@ vite.config.ts.*
 .env.*.local
 # local SEO audit data dump (server/scripts/export-seo-audit.ts)
 seo-audit-export.json
+# full backups written by server/scripts/purge-old-drafts.ts before deleting
+drafts-backup-*.json
