@@ -26,7 +26,13 @@ export default {
       if (path === "/robots.txt") return handleRobots(env);
       if (path === "/styles/wt-pages.css") return handleCss();
       if (path === "/components/loader.js") return handleComponentLoader();
-      return handlePage(path, env); // path is already /slug
+      const page = await handlePage(path, env); // path is already /slug
+      if (page.status !== 404) return page;
+      // Retired/merged slugs: can't send a 3xx through the proxy, so forward with an
+      // instant meta refresh (Google treats it as a permanent redirect) + canonical.
+      // Only looked up on a miss, so normal page views pay no extra queries.
+      const proxyRedirect = await checkRedirects(path, env);
+      return proxyRedirect ? renderRedirectPage(proxyRedirect) : page;
     }
 
     // ── Direct worker access (workers.dev or legacy welltold.design) ──────────
@@ -629,6 +635,33 @@ function createShopifyFetcher(env: Env) {
       };
     },
   };
+}
+
+// Redirect page for requests arriving through the Shopify app proxy, where a real
+// 3xx can't be used. Instant meta refresh is treated by Google as a permanent
+// redirect; the canonical and the visible link cover crawlers and no-JS clients.
+function renderRedirectPage(target: string): Response {
+  const t = target.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="refresh" content="0; url=${t}" />
+  <link rel="canonical" href="${t}" />
+  <title>This page has moved</title>
+  <script>location.replace(${JSON.stringify(target).replace(/</g, "\\u003C")});</script>
+</head>
+<body>
+  <p>This article has moved. <a href="${t}">Continue to the new page</a>.</p>
+</body>
+</html>`;
+  return new Response(html, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "public, max-age=3600",
+    },
+  });
 }
 
 async function checkRedirects(path: string, env: Env): Promise<string | null> {
