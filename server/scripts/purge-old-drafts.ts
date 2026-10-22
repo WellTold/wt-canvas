@@ -25,10 +25,9 @@
 
 import { writeFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { db } from "../db";
-import { locationTargets } from "@shared/schema";
-import { storage } from "../storage";
+import { keywords, locationTargets } from "@shared/schema";
 
 // When the reworked generator went live in production (the 2026-10-22 republish).
 const CUTOFF = new Date(process.argv.find((a) => a.startsWith("--before="))?.slice(9) || "2026-10-22T09:33:46Z");
@@ -132,8 +131,25 @@ async function main() {
   writeFileSync(backupFile, JSON.stringify(fullRows, null, 2));
   console.log(`\nBacked up ${fullRows?.length ?? 0} row(s) to ${backupFile}`);
 
+  // Plain UPDATEs only: on this database a SELECT that matches no rows comes back
+  // without column info and crashes the Neon HTTP driver, while UPDATEs are fine.
+  async function releaseLinks(contentItemId: string) {
+    await db
+      .update(keywords)
+      .set({ status: "untargeted", contentItemId: null, contentItemTitle: null })
+      .where(and(eq(keywords.contentItemId, contentItemId), eq(keywords.status, "in_progress")));
+    await db
+      .update(keywords)
+      .set({ contentItemId: null, contentItemTitle: null })
+      .where(and(eq(keywords.contentItemId, contentItemId), ne(keywords.status, "in_progress")));
+    await db
+      .update(locationTargets)
+      .set({ status: "untargeted", contentItemId: null })
+      .where(eq(locationTargets.contentItemId, contentItemId));
+  }
+
   let deleted = 0;
-  let releasedKeywords = 0;
+  let linkFailures = 0;
   for (const r of toDelete) {
     const { error } = await supabase.from("blog_articles").delete().eq("id", r.id).neq("status", "live");
     if (error) {
@@ -141,13 +157,17 @@ async function main() {
       continue;
     }
     deleted++;
-    releasedKeywords += await storage.releaseKeywordsByContentItemId(String(r.id));
-    await db
-      .update(locationTargets)
-      .set({ status: "untargeted", contentItemId: null })
-      .where(eq(locationTargets.contentItemId, String(r.id)));
+    try {
+      await releaseLinks(String(r.id));
+    } catch (e) {
+      linkFailures++;
+      console.log(`  ! deleted "${r.title}" but couldn't free its keyword: ${(e as Error).message}`);
+    }
   }
-  console.log(`Deleted ${deleted} draft(s); released ${releasedKeywords} keyword link(s) back to the library.`);
+  console.log(
+    `Deleted ${deleted} draft(s) and returned their keywords to the library` +
+      (linkFailures ? ` (${linkFailures} keyword link(s) couldn't be freed — see warnings above).` : "."),
+  );
 }
 
 main()
